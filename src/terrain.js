@@ -10,20 +10,26 @@ const materials=[
 export function terrainGroup(world) {
  const batches=[[],[],[],[]],root=new THREE.Group();
  const quad=(points,mat)=>{const p=batches[mat];for(const i of [0,1,2,0,2,3])p.push(...points[i]);};
+ // Four neighboring height samples produce one shared vertex height. Adjacent
+ // tiles therefore connect as slopes instead of making one tall column each.
+ const vertexHeight=(x,z)=>{
+  let sum=0;
+  for(const dx of [-1,0])for(const dz of [-1,0]){
+   const c=cell(world,x+dx,z+dz);
+   if(c.ground!==ID.ocean && c.ground!==ID.river && c.ground!==ID.lake)sum+=c.height;
+  }
+  return sum/4;
+ };
  const water=new Set([ID.ocean,ID.river,ID.lake]);
  for(let z=0;z<world.height;z++)for(let x=0;x<world.width;x++){
   const c=cell(world,x,z);if(water.has(c.ground))continue;
-  const y=c.height,material=c.ground===ID.sand?2:c.ground===ID.dirt?1:0;
-  quad([[x,y,z],[x,y,z+1],[x+1,y,z+1],[x+1,y,z]],material);
-  for(const [dx,dz,edge] of [
-    [1,0,[[x+1,z+1],[x+1,z]]],[-1,0,[[x,z],[x,z+1]]],
-    [0,1,[[x,z+1],[x+1,z+1]]],[0,-1,[[x+1,z],[x,z]]]
-  ]){
-   const neighbor=cell(world,x+dx,z+dz),nh=water.has(neighbor.ground)?0:neighbor.height;
-   if(y<=nh)continue;
-   quad([[edge[0][0],y,edge[0][1]],[edge[1][0],y,edge[1][1]],
-    [edge[1][0],nh,edge[1][1]],[edge[0][0],nh,edge[0][1]]],3);
-  }
+  const material=c.ground===ID.sand?2:c.ground===ID.dirt?1:0;
+  const h00=vertexHeight(x,z), h01=vertexHeight(x,z+1);
+  const h11=vertexHeight(x+1,z+1), h10=vertexHeight(x+1,z);
+  quad([[x,h00,z],[x,h01,z+1],[x+1,h11,z+1],[x+1,h10,z]],material);
+  // Deliberate cliffs/overhangs will be authored as explicit structure types.
+  // The default ground surface connects continuously and meets the ocean.
+
  }
  batches.forEach((data,i)=>{
   if(!data.length)return;
@@ -45,7 +51,9 @@ export function terrainGroup(world) {
  return root;
 }
 export function oceanPlane(){
- const ocean=new THREE.Mesh(new THREE.CircleGeometry(620,96),new THREE.MeshBasicMaterial({color:"#19598d",side:THREE.DoubleSide}));
+ // A camera-centered ocean plane extends beyond the camera far clip. A small
+ // circular disk exposes a curved edge, which looked like floating islands.
+ const ocean=new THREE.Mesh(new THREE.PlaneGeometry(1800,1800),new THREE.MeshBasicMaterial({color:"#19598d",side:THREE.DoubleSide,depthWrite:true,fog:false}));
  ocean.rotation.x=-Math.PI/2;ocean.position.y=-.35;return ocean;
 }
 export function clouds(scene){
