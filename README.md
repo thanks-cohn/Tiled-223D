@@ -24,6 +24,8 @@ Edit **`src/worlds/floating-islands.json`** to change an island's `at: [x,y,z]` 
 
 If a world is already running, stop its server (Ctrl+C), download the updated ZIP, then run `start-world.bat` from the new extracted folder. Existing local source files do not update automatically from GitHub.
 
+**Design proposal:** [Surface docking, local RPG worlds, and optional cinematics](docs/PROPOSAL_DOCKING_AND_CINEMATICS.md). This describes future features; the present browser demo does not yet implement docking or the RPG transition.
+
 ## Editing semantic tiles in Tiled
 
 ## What is here
