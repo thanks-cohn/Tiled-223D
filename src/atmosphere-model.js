@@ -50,5 +50,5 @@ export function apparentCloudMotion(layerId,altitude,shipSpeed){
 }
 export const CLOUD_RENDER_BUDGET=Object.freeze({
  sprites:CLOUD_LAYERS.reduce((sum,layer)=>sum+layer.count,0),
- sharedTextures:1,volumetricPasses:0
+ sharedTextures:4,volumetricPasses:0
 });
