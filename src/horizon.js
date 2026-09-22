@@ -4,6 +4,13 @@ import * as THREE from "three";
 // ocean AND terrain use the SAME vertex deformation to avoid hovering shores.
 export const HORIZON_RADIUS=475;
 export const HORIZON_FLAT_RADIUS=105;
+export const GLOBE_RADIUS=235;
+// Visual-only globe projection: same mapping for coastline and ocean.
+export function globeSurface(distance,radius=GLOBE_RADIUS){
+ if(!Number.isFinite(distance)||distance<0||!Number.isFinite(radius)||radius<=0)throw Error("Invalid globe dimensions");
+ const arc=Math.min(distance/radius,Math.PI);
+ return {horizontal:radius*Math.sin(arc),drop:radius*(1-Math.cos(arc))};
+}
 export function curvatureDrop(distance,strength=1,radius=HORIZON_RADIUS,flat=HORIZON_FLAT_RADIUS){
  if(![distance,strength,radius,flat].every(Number.isFinite)||
   distance<0||strength<0||strength>1||radius<=0||flat<0)throw Error("Invalid horizon settings");
@@ -15,12 +22,15 @@ export function makeHorizonState(){
   center:{value:new THREE.Vector2()},
   strength:{value:0},
   radius:{value:HORIZON_RADIUS},
-  flat:{value:HORIZON_FLAT_RADIUS}
+  flat:{value:HORIZON_FLAT_RADIUS},
+  globe:{value:0},
+  globeRadius:{value:GLOBE_RADIUS}
  };
 }
-export function setHorizonPosition(state,ship,curvature){
+export function setHorizonPosition(state,ship,curvature,globeReveal=0){
  state.center.value.set(ship.x,ship.z);
  state.strength.value=THREE.MathUtils.clamp(curvature,0,1);
+ state.globe.value=THREE.MathUtils.clamp(globeReveal,0,1);
 }
 // Called once at material construction. The shared uniforms change each frame,
 // but mesh geometry, materials and textures are NEVER re-created per frame.
@@ -32,12 +42,16 @@ export function curveMaterial(material,state){
   shader.uniforms.uHorizonStrength=state.strength;
   shader.uniforms.uHorizonRadius=state.radius;
   shader.uniforms.uHorizonFlat=state.flat;
+  shader.uniforms.uGlobeReveal=state.globe;
+  shader.uniforms.uGlobeRadius=state.globeRadius;
   shader.vertexShader=shader.vertexShader
    .replace("#include <common>",`#include <common>
 uniform vec2 uHorizonCenter;
 uniform float uHorizonStrength;
 uniform float uHorizonRadius;
-uniform float uHorizonFlat;`)
+uniform float uHorizonFlat;
+uniform float uGlobeReveal;
+uniform float uGlobeRadius;`)
    .replace("#include <begin_vertex>",`#include <begin_vertex>
 // World-space displacement keeps the shoreline tied to the same curved sea.
 // Instancing is handled for the trees without moving authoritative world data.
@@ -48,17 +62,27 @@ vec4 horizonWorldVertex = vec4(position, 1.0);
 horizonWorldVertex = modelMatrix * horizonWorldVertex;
 float horizonDistance = length(horizonWorldVertex.xz-uHorizonCenter);
 float horizonBeyond = max(0.0,horizonDistance-uHorizonFlat);
-transformed.y -= uHorizonStrength*horizonBeyond*horizonBeyond/(2.0*uHorizonRadius);`);
+float lowHorizonDrop = uHorizonStrength*horizonBeyond*horizonBeyond/(2.0*uHorizonRadius);
+float globeArc = min(horizonDistance/uGlobeRadius,3.141592653589793);
+float sphereHorizontal = uGlobeRadius*sin(globeArc);
+float globeDrop = uGlobeRadius*(1.0-cos(globeArc));
+vec2 globeOffset = (horizonWorldVertex.xz-uHorizonCenter)
+  * (sphereHorizontal/max(horizonDistance,0.001));
+vec2 projectedXZ = uHorizonCenter + globeOffset;
+// Ocean and real land use the identical mapping, so no independent blue
+// globe overlays structures and no separate land proxy hovers above the sea.
+transformed.xz += uGlobeReveal*(projectedXZ-horizonWorldVertex.xz);
+transformed.y -= mix(lowHorizonDrop,globeDrop,uGlobeReveal);`);
  };
- material.customProgramCacheKey=()=> "shared-horizon-v2";
+ material.customProgramCacheKey=()=> "shared-horizon-globe-v3";
  material.needsUpdate=true;
  return material;
 }
 export function horizonOcean(state){
- // A compact radial disc has a true curved edge as altitude rises.
- // Unlike a second transparent globe, this is the ONLY sea mesh and it
+ // One opaque radial sea becomes an actual spherical shell as altitude rises.
+ // Unlike a second transparent globe, this is still the ONLY sea mesh and it
  // never paints a blue layer over islands or doubles full-screen overdraw.
- const sectors=144,rings=28,extent=925;
+ const sectors=120,rings=54,extent=925;
  const verts=[0,0,0],index=[];
  for(let ring=1;ring<=rings;ring++){
   const radius=extent*Math.pow(ring/rings,1.15);
