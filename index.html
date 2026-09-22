@@ -5,7 +5,7 @@
 *{box-sizing:border-box}body{margin:0;background:#0c1726;color:#f0f5fa;font:14px system-ui,sans-serif;overflow:hidden}
 #view{position:fixed;inset:0}canvas{display:block}#hud{position:fixed;left:14px;top:12px;max-width:min(510px,calc(100vw - 28px));padding:12px 14px;background:#0b2334ca;border:1px solid #ffffff39;border-radius:12px;line-height:1.6}
 h1{font-size:17px;margin:0 0 4px}button,label.file{display:inline-block;color:#f5fbff;border:1px solid #cce8ff65;background:#1c516e;border-radius:7px;padding:6px 9px;margin:3px 4px 2px 0;cursor:pointer;font:inherit}
-button:hover,label.file:hover{background:#2b6585}input[type=file]{display:none}
+button:hover,label.file:hover{background:#2b6585}#worldScale{color:#f5fbff;background:#1c516e;border:1px solid #cce8ff65;border-radius:7px;padding:6px;font:inherit;max-width:220px}#hud label[for=worldScale]{font-size:12px;color:#cae3ef}input[type=file]{display:none}
 #notice{position:fixed;left:50%;top:18%;transform:translateX(-50%);font-weight:700;font-size:19px;text-align:center;color:#fff7c7;text-shadow:0 2px 10px #122536}
 #exit{position:fixed;inset:0;background:#09101c;opacity:0;visibility:hidden;transition:opacity 1.15s;display:grid;place-content:center;text-align:center;z-index:5}
 #exit.show{visibility:visible;opacity:1}#exit h2{font-size:clamp(28px,7vw,58px);font-weight:400;letter-spacing:.04em;margin:0 0 14px}#exit p{font-size:16px;color:#b3cad8}
@@ -27,7 +27,7 @@ button:hover,label.file:hover{background:#2b6585}input[type=file]{display:none}
 <div id="help">W/S: fly forward/back · A/D: steer · ↑/↓: climb/descend · Shift: boost · R: take off. Click the flight view before using keys.</div>
 <label class="file">Import Tiled JSON <input id="mapFile" type="file" accept=".json,application/json"/></label>
 <label class="file">Optional elevation JSON <input id="heightFile" type="file" accept=".json,application/json"/></label>
-<button id="import">Load map</button><button id="mapButton" aria-haspopup="dialog" aria-controls="mapPanel">Map (M)</button><button id="cruise">Fly forward: Off</button><button id="quality">Quality: Low</button><button id="wake">Return to SUBSTRATE</button>
+<button id="import">Load map</button><label for="worldScale">World size:</label><select id="worldScale" aria-label="World scale"><option value="current">Current · 500 × 500</option><option value="bigger">Bigger · 2,500 × 2,500</option><option value="massive">Massive · 16,000 × 16,000</option></select><button id="mapButton" aria-haspopup="dialog" aria-controls="mapPanel">Map (M)</button><button id="cruise">Fly forward: Off</button><button id="quality">Quality: Low</button><button id="wake">Return to SUBSTRATE</button>
 </section><div id="notice" role="status" aria-live="polite"></div>
 <section id="mapPanel" role="dialog" aria-modal="true" aria-label="Overworld map" hidden><div id="mapCard"><div id="mapTop"><h2>Overworld map</h2><button id="closeMap" aria-label="Close map">Back to flight ×</button></div><div id="mapLabel">Loading map…</div><canvas id="mapCanvas" aria-label="Top-down map of current world with ship marker"></canvas><div id="mapLegend">Yellow arrow: ship · Pale rings: floating islands · Dark green: trees · M or Esc: close</div></div></section>
 <section id="exit" aria-live="polite"><div><h2>You're awake.</h2><p>SUBSTRATE canvas · standalone placeholder</p>
