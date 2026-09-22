@@ -12,7 +12,7 @@ renderer.outputColorSpace=THREE.SRGBColorSpace;view.append(renderer.domElement);
 const scene=new THREE.Scene();
 const skyDay=new THREE.Color("#8ad3f8"),skySpace=new THREE.Color("#070d20");
 scene.background=skyDay.clone();
-const camera=new THREE.PerspectiveCamera(69,innerWidth/innerHeight,.1,750);
+const camera=new THREE.PerspectiveCamera(69,innerWidth/innerHeight,.1,350);
 const sun=new THREE.DirectionalLight("#fff5db",1.35);sun.position.set(-80,160,-70);scene.add(sun);
 scene.add(new THREE.HemisphereLight("#fff6dc","#52768a",2.1));
 const ocean=oceanPlane();scene.add(ocean);
@@ -29,12 +29,18 @@ new GLTFLoader().load("/ship/ship.glb",gltf=>{
 },undefined,()=>{ /* no uploaded model yet: retain the sphere */ });
 
 let world=sampleWorld(),copies=[],yaw=0,mode="world",quality="low",time=0,last=performance.now();
-let atmosphereWarned=false;
+let atmosphereWarned=false, cruise=false;
 const held=new Set();
 function pointGround(x,z){return cell(world,x,z);}
 function setMessage(message){notice.textContent=message;}
 function makeTerrain(){
- for(const instance of copies)scene.remove(instance);
+ // Clones share terrain geometry: release it only after all old instances detach.
+ const oldGeometry=new Set();
+ for(const instance of copies) {
+  instance.traverse(node=>{if(node.isMesh && node.geometry)oldGeometry.add(node.geometry);});
+  scene.remove(instance);
+ }
+ oldGeometry.forEach(geometry=>geometry.dispose());
  copies=[];
  const base=terrainGroup(world);
  // Nine lightweight copies share the SAME mesh/texture/geometry. Only render
@@ -45,8 +51,13 @@ function makeTerrain(){
 }
 function resetSpawn(){
  const p=world.spawns[0]||{x:world.width/2,z:world.height/2};
- ship.position.set(p.x,Math.max(75,pointGround(p.x,p.z).height+25),p.z);
- yaw=0;atmosphereWarned=false;setMessage("");
+ // Begin the two-island flight offshore, facing the near coast. Starting over
+ // a tall ridge made W/S feel broken because movement was blocked at spawn.
+ const offshore=world.width>120 ? 60 : 0;
+ const startZ=p.z+offshore;
+ ship.position.set(p.x,Math.max(offshore?34:75,pointGround(p.x,startZ).height+23),startZ);
+ yaw=0;cruise=false;document.getElementById("cruise").textContent="Fly forward: Off";
+ atmosphereWarned=false;setMessage(offshore?"Press W or Fly forward to approach the island. A/D turns.":"");
 }
 makeTerrain();resetSpawn();
 
@@ -69,6 +80,10 @@ function enter(){
  window.dispatchEvent(new CustomEvent("substrate:world-enter",{detail:{worldId:world.name}}));
 }
 document.getElementById("wake").addEventListener("click",worldExit);
+document.getElementById("cruise").addEventListener("click",()=>{
+ cruise=!cruise;
+ document.getElementById("cruise").textContent="Fly forward: "+(cruise?"On":"Off");
+});
 document.getElementById("reenter").addEventListener("click",enter);
 
 document.getElementById("quality").addEventListener("click",()=>{
@@ -105,11 +120,13 @@ function frame(now){
  if(mode==="world"){
   const turn=(held.has("KeyA")?1:0)-(held.has("KeyD")?1:0);
   yaw+=turn*1.4*dt;
-  const forward=(held.has("KeyW")?1:0)-(held.has("KeyS")?1:0);
+  const forward=((held.has("KeyW")||cruise)?1:0)-(held.has("KeyS")?1:0);
   const speed=(held.has("ShiftLeft")||held.has("ShiftRight")?65:27)*dt*forward;
-  const nextX=wrap(ship.position.x-Math.sin(yaw)*speed,world.width);
-  const nextZ=wrap(ship.position.z-Math.cos(yaw)*speed,world.height);
-  const current=pointGround(ship.position.x,ship.position.z),target=pointGround(nextX,nextZ);
+  // Keep the flight coordinates continuous; wrap ONLY when sampling map data.
+  // Wrapping ship/camera positions directly causes a 500-unit camera jump.
+  const nextX=ship.position.x-Math.sin(yaw)*speed;
+  const nextZ=ship.position.z-Math.cos(yaw)*speed;
+  const target=pointGround(nextX,nextZ);
   // A high ridge is an actual approach obstacle. Do not teleport through it.
   if(target.height+2 < ship.position.y || target.ground===ID.ocean){
    ship.position.x=nextX;ship.position.z=nextZ;
@@ -130,17 +147,22 @@ function frame(now){
  // Keep sky pale and ocean deep: never merge their colors at the horizon.
  ocean.position.x=ship.position.x;ocean.position.z=ship.position.z;
  cloudSystem.update(ship.position.x,ship.position.z,time);
+ const repeatX=Math.round((ship.position.x-world.width/2)/world.width)*world.width;
+ const repeatZ=Math.round((ship.position.z-world.height/2)/world.height)*world.height;
  for(const instance of copies){
-  instance.position.set(instance.userData.dx*world.width,0,instance.userData.dz*world.height);
-  instance.visible=Math.abs((instance.userData.dx+.5)*world.width-ship.position.x)<world.width*1.5
-    && Math.abs((instance.userData.dz+.5)*world.height-ship.position.z)<world.height*1.5;
+  instance.position.set(repeatX+instance.userData.dx*world.width,0,
+    repeatZ+instance.userData.dz*world.height);
+  const centerX=instance.position.x+world.width/2;
+  const centerZ=instance.position.z+world.height/2;
+  instance.visible=Math.abs(centerX-ship.position.x)<world.width/2+camera.far
+    && Math.abs(centerZ-ship.position.z)<world.height/2+camera.far;
  }
  const behind=13,dx=Math.sin(yaw),dz=Math.cos(yaw);
  const desired=new THREE.Vector3(ship.position.x+dx*behind,ship.position.y+6,ship.position.z+dz*behind);
  camera.position.lerp(desired,Math.min(1,dt*6));
  camera.lookAt(ship.position.x-dx*16,ship.position.y+1,ship.position.z-dz*16);
  if(mode==="world")positionUI.textContent=
-  `X ${wrap(ship.position.x,world.width).toFixed(1)} · Z ${wrap(ship.position.z,world.height).toFixed(1)} · ALT ${ship.position.y.toFixed(1)} · GROUND ${pointGround(ship.position.x,ship.position.z).height.toFixed(1)}`;
+  `X ${wrap(ship.position.x,world.width).toFixed(1)} · Z ${wrap(ship.position.z,world.height).toFixed(1)} · ALT ${ship.position.y.toFixed(1)} · GROUND ${pointGround(ship.position.x,ship.position.z).height.toFixed(1)} · HEADING ${(yaw*180/Math.PI%360).toFixed(0)}°`;
  renderer.render(scene,camera);
 }
 requestAnimationFrame(frame);
