@@ -87,7 +87,13 @@ export function buildOceanGeometry(planetRadius=GLOBE_RADIUS){
  const sectors=120,rings=54,extent=Math.max(925,Math.PI*planetRadius*1.02);
  const verts=[0,0,0],index=[];
  for(let ring=1;ring<=rings;ring++){
-  const radius=extent*Math.pow(ring/rings,1.8);
+  // Dense local ocean rings; distant rings span the whole projected sphere.
+  const innerRings=Math.floor(rings/2);
+  const nearRadius=Math.min(1100,planetRadius*2);
+  const radius=ring<=innerRings?
+   nearRadius*Math.pow(ring/innerRings,1.28):
+   nearRadius+(extent-nearRadius)*Math.pow(
+    (ring-innerRings)/(rings-innerRings),1.65);
   for(let segment=0;segment<sectors;segment++){
    const angle=2*Math.PI*segment/sectors;
    verts.push(Math.cos(angle)*radius,0,Math.sin(angle)*radius);
