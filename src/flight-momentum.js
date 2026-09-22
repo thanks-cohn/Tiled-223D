@@ -16,7 +16,7 @@ export const MOMENTUM=Object.freeze({
 });
 export function advanceMomentum(speed,input,dt,{accelerationFactor=1,altitudeMultiplier=1,boost=false,openness=0}={}){
  if(![speed,input,dt,accelerationFactor,altitudeMultiplier,openness].every(Number.isFinite)||
-  dt<0||dt>.2||Math.abs(input)>1||accelerationFactor<0||altitudeMultiplier<0)
+  dt<0||dt>10||Math.abs(input)>1||accelerationFactor<0||altitudeMultiplier<0)
   throw Error("Invalid momentum step");
  if(dt===0)return speed;
  if(input===0){
