@@ -16,6 +16,14 @@ For ongoing engine tasks see [docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md), but
 
 ---
 
+## Floating-island demo (new)
+
+The default world now places **one main floating island and two smaller nearby islands** ahead of your starting flight path. These are independent, named 3D objects above the original ocean and 2D terrain, not accidentally detached ground. The main island has stone, clay, dirt and grass layers and a real vertical opening. You can fly over or beneath islands and test the opening; the lightweight collision is intentionally approximate.
+
+Edit **`src/worlds/floating-islands.json`** to change an island's `at: [x,y,z]` position and move all its material parts/openings together. Definitions, ownership rules, the geometry algorithm and **future 2D RPG-character occlusion beneath an island** are explained in [docs/SPATIAL_GEOMETRY.md](docs/SPATIAL_GEOMETRY.md). The current demo does not yet implement the RPG view or character hiding.
+
+If a world is already running, stop its server (Ctrl+C), download the updated ZIP, then run `start-world.bat` from the new extracted folder. Existing local source files do not update automatically from GitHub.
+
 ## Editing semantic tiles in Tiled
 
 ## What is here
