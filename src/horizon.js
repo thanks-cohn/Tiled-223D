@@ -27,10 +27,12 @@ export function makeHorizonState(){
   globeRadius:{value:GLOBE_RADIUS}
  };
 }
-export function setHorizonPosition(state,ship,curvature,globeReveal=0){
+export function setHorizonPosition(state,ship,curvature,globeReveal=0,planetRadius=GLOBE_RADIUS){
  state.center.value.set(ship.x,ship.z);
  state.strength.value=THREE.MathUtils.clamp(curvature,0,1);
  state.globe.value=THREE.MathUtils.clamp(globeReveal,0,1);
+ state.globeRadius.value=planetRadius;
+ state.radius.value=HORIZON_RADIUS*planetRadius/GLOBE_RADIUS;
 }
 // Called once at material construction. The shared uniforms change each frame,
 // but mesh geometry, materials and textures are NEVER re-created per frame.
@@ -78,14 +80,14 @@ transformed.y -= mix(lowHorizonDrop,globeDrop,uGlobeReveal);`);
  material.needsUpdate=true;
  return material;
 }
-export function horizonOcean(state){
+export function buildOceanGeometry(planetRadius=GLOBE_RADIUS){
  // One opaque radial sea becomes an actual spherical shell as altitude rises.
  // Unlike a second transparent globe, this is still the ONLY sea mesh and it
  // never paints a blue layer over islands or doubles full-screen overdraw.
- const sectors=120,rings=54,extent=925;
+ const sectors=120,rings=54,extent=Math.max(925,Math.PI*planetRadius*1.02);
  const verts=[0,0,0],index=[];
  for(let ring=1;ring<=rings;ring++){
-  const radius=extent*Math.pow(ring/rings,1.15);
+  const radius=extent*Math.pow(ring/rings,1.8);
   for(let segment=0;segment<sectors;segment++){
    const angle=2*Math.PI*segment/sectors;
    verts.push(Math.cos(angle)*radius,0,Math.sin(angle)*radius);
@@ -105,6 +107,10 @@ export function horizonOcean(state){
  geometry.setAttribute("position",new THREE.Float32BufferAttribute(verts,3));
  geometry.setIndex(index);
  geometry.computeVertexNormals();
+ return geometry;
+}
+export function horizonOcean(state){
+ const geometry=buildOceanGeometry(state.globeRadius.value);
  const material=curveMaterial(new THREE.MeshBasicMaterial({
   color:"#19598d",side:THREE.DoubleSide,depthWrite:true,
   transparent:false,fog:false
