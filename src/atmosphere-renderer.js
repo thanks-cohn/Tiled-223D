@@ -29,7 +29,7 @@ const hash=(x,z,seed)=>fract(Math.sin(x*127.1+z*311.7+seed*53.71)*43758.5453);
 const layerStyle={
  low:{spacing:90,width:39,height:17,alpha:.48,fadeNear:105,fadeFar:205},
  middle:{spacing:165,width:83,height:29,alpha:.37,fadeNear:260,fadeFar:455},
- high:{spacing:270,width:151,height:43,alpha:.36,fadeNear:425,fadeFar:760},
+ high:{spacing:270,width:151,height:43,alpha:.36,fadeNear:820,fadeFar:1150},
  planetary:{spacing:94,width:61,height:21,alpha:.36,fadeNear:190,fadeFar:335}
 };
 function makeCloudSprite(texture,width,height){
@@ -79,8 +79,20 @@ export function createAtmosphere(scene){
      // frame or clouds that follow the ship's movement at identical speeds.
      const jx=(hash(gx,gz,11)-.5)*spacing*.48;
      const jz=(hash(gx,gz,17)-.5)*spacing*.48;
-     const x=(gx+.5)*spacing+jx+time*deck.wind;
-     const z=(gz+.5)*spacing+jz-time*deck.wind*.42;
+     let x=(gx+.5)*spacing+jx+time*deck.wind;
+     let z=(gz+.5)*spacing+jz-time*deck.wind*.42;
+     if(deck.id==="high"){
+      // Distant sky decoration, not a reachable physical cloud. A sparse
+      // slow-moving ring keeps high clouds in the view even while hovering
+      // near the ocean and looking toward (rather than above) the horizon.
+      // Its enormous depth causes it to drift much more slowly than the
+      // world-anchored low clouds during a Shift acceleration.
+      const angle=2*Math.PI*i/sprites.length+
+       (ship.x+ship.z)*.00006+time*deck.wind*.0003;
+      const radius=655+(i%3)*53;
+      x=ship.x+Math.cos(angle)*radius;
+      z=ship.z+Math.sin(angle)*radius;
+     }
      const distance=Math.hypot(x-ship.x,z-ship.z);
      const fading=1-smoothBand(style.fadeNear,style.fadeFar,distance);
      const opacity=style.alpha*weight*fading;
