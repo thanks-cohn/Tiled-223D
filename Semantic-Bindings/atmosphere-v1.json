@@ -40,9 +40,9 @@
       "windUnitsPerSecond": 0.045,
       "spriteCount": 6,
       "relativeMotion": 0.12,
-      "anchoring": "world-fixed-grid",
+      "anchoring": "distant-camera-relative-sky-ring",
       "reachable": false,
-      "why": "Majestic cinematic cloud formations remain visible from near-sea-level and drift gently."
+      "why": "Six huge cards stay high above the sea-level horizon in a very distant, slow-moving decorative sky ring. They are not physical reachable clouds and move far less than the world-anchored low deck."
     },
     {
       "id": "planetary",
@@ -129,7 +129,7 @@
     "Do not resize world or alter collision to implement cloud parallax",
     "Keep src/horizon.js ocean and terrain projection shared; never add a blue globe overlay",
     "Keep low clouds world-anchored so apparent motion follows actual ship movement",
-    "Four layers must not all follow the camera at identical rates",
+    "Keep LOW clouds physically world-anchored; distant HIGH clouds are decorative camera-relative sky cards with slow angular parallax",
     "High clouds remain visible from sea-level",
     "Planetary deck is hidden unless globeReveal is positive",
     "Do not change src/flight-momentum.js or the island flyby reward",
