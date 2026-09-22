@@ -16,6 +16,10 @@ For ongoing engine tasks see [docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md), but
 
 ---
 
+## Experimental dreamlike altitude flight (this branch only)
+
+This branch adds smoother banking/acceleration, altitude-scaled travel speed, camera lag and downward reveal, three cloud/parallax layers, and an inexpensive flat-ocean-to-curved-planet visual transition. Ascend with ↑, descend with ↓; high-altitude travel covers the map faster and returns to normal speed as you approach the surface. See [the implementation notes and honest current limitations](docs/DREAMLIKE_ALTITUDE_FLIGHT.md). The globe is a visual projection over the existing flat/wrapped map, **not** a complete spherical physics/navigation engine. This branch is separate from `main`; it requires visual testing on a 4 GB PC before merging.
+
 ## Floating-island demo (new)
 
 The default world now places **one main floating island and two smaller nearby islands** ahead of your starting flight path. These are independent, named 3D objects above the original ocean and 2D terrain, not accidentally detached ground. The main island has stone, clay, dirt and grass layers and a real vertical opening. You can fly over or beneath islands and test the opening; the lightweight collision is intentionally approximate.
