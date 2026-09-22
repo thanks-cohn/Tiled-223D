@@ -11,6 +11,7 @@ import {nearestWrappedOffset} from "./landmasses.js";
 import {altitudeProfile,damp,targetTravelSpeed,LIMITS} from "./flight-model.js";
 import {makeHorizonState,setHorizonPosition} from "./horizon.js";
 import {protectedRegions,travelRegion} from "./travel-regions.js";
+import {positionIslandVisual,cinematicShipScale,cameraAscentHeight} from "./visual-anchors.js";
 
 const view=document.getElementById("view");
 const positionUI=document.getElementById("position"),statusUI=document.getElementById("status");
@@ -247,6 +248,9 @@ function frame(now){
  ship.rotation.y=yaw;
  ship.rotation.z=bank;
  ship.rotation.x=pitch;
+ // The visual ship stays recognizable even when the camera centers the globe.
+ // Physics uses the unscaled semantic ship position and its explicit radius.
+ ship.scale.setScalar(cinematicShipScale(profile.globeReveal));
  // Small idle sway is applied only to the default sphere's visual child,
  // never to the ship's authoritative navigation or collision transform.
  sphere.position.y=Math.sin(time*.72)*.09;
@@ -272,15 +276,20 @@ function frame(now){
  // no object ever vanishes merely because it crossed an arbitrary LOD band.
  // Floating islands remain deliberately airborne, bright and readable.
  // Their semantic positions and near/mid/far impostors are unchanged.
- for(let i=0;i<floatingInstances.length;i++)
-  updateIslandImpostor(islandCards[i],floatingInstances[i].group,ship.position,world);
+ for(let i=0;i<floatingInstances.length;i++){
+  const island=floatingInstances[i],card=islandCards[i];
+  updateIslandImpostor(card,island.group,ship.position,world);
+  positionIslandVisual(card,island.group,ship.position,profile);
+ }
  const dx=Math.sin(yaw),dz=Math.cos(yaw);
  const desired=new THREE.Vector3(
   ship.position.x+dx*profile.cameraDistance,
-  ship.position.y+profile.cameraHeight,
+  ship.position.y+cameraAscentHeight(profile.cameraHeight,profile.globeReveal),
   ship.position.z+dz*profile.cameraDistance
  );
- camera.position.lerp(desired,1-Math.exp(-3.2*dt));
+ // At turbo speeds, shorten camera lag so the ship cannot outrun the frame.
+ const followRate=3.2+15*profile.globeReveal+Math.min(10,Math.abs(forwardVelocity)/80);
+ camera.position.lerp(desired,1-Math.exp(-followRate*dt));
  // Approach the true globe view gradually: the planet becomes the camera's
  // primary subject, not a thin tip at the bottom of the screen. The ship and
  // authoritative world remain freely navigable throughout this transition.
