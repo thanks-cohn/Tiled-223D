@@ -16,7 +16,11 @@ For ongoing engine tasks see [docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md), but
 
 ---
 
-## Globe Center Stage V3 (this branch only)
+## Expansive Ocean V4 (this branch only)
+
+The existing small island/sky-archipelago cluster is now the **minimum protected diameter for the familiar V3 movement feel**, not a resized asset or map. Within each island's semantic circular region, movement and Shift work as before. Farther out over open ocean, low-altitude crossing requires a longer journey through a smooth, ocean-only travel-speed profile; Shift remains extremely fast, and ascending progressively restores V3's high-altitude travel speeds. The existing 500 × 500 map, terrain geometry, island size, map wrap and collision rules are unchanged. V4 also attempts to keep the ship prominent at high altitude and point floating islands' bottoms toward the globe without shrinking them. See [V4 design, settings and limitations](docs/EXPANSIVE_OCEAN_V4.md). This new branch remains experimental and is not merged into `main` or V3.
+
+## Globe Center Stage V3 (previous branch)
 
 This branch builds on the clear, single-ocean Horizon-First V2. Fly upward and the curved horizon now **opens into a round planet centered in the camera**, using the same GPU projection for the ocean and *actual ground islands*. You can continue moving above altitude 500; use Return to SUBSTRATE to leave intentionally. Shift gives a strong 8× travel boost, and low-altitude flyby wisps and three cloud layers create richer natural parallax. No translucent blue globe cover, independent floating land discs, heavy volumetric renderer or extra 3D scene is added. [Read V3 design and limitations](docs/GLOBE_CENTERSTAGE_V3.md). Experimental branch: visually test performance and shoreline continuity before merging.
 
