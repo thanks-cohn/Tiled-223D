@@ -26,6 +26,8 @@ If a world is already running, stop its server (Ctrl+C), download the updated ZI
 
 **Design proposal:** [Surface docking, local RPG worlds, and optional cinematics](docs/PROPOSAL_DOCKING_AND_CINEMATICS.md). This describes future features; the present browser demo does not yet implement docking or the RPG transition.
 
+**In-game map:** Click **Map (M)** in the flight HUD, or press **M**, to see the current world as a lightweight top-down 2D map without opening Tiled. A yellow arrow marks your ship and heading; pale rings mark floating islands. Flight pauses while the map is open. Click **Back to flight** or press **M / Esc** to close it. Imported Tiled JSON maps appear here too. The map is a viewing tool, not a separate world or a teleporter.
+
 ## Editing semantic tiles in Tiled
 
 ## What is here
