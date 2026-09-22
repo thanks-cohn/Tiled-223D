@@ -11,6 +11,15 @@ button:hover,label.file:hover{background:#2b6585}input[type=file]{display:none}
 #exit.show{visibility:visible;opacity:1}#exit h2{font-size:clamp(28px,7vw,58px);font-weight:400;letter-spacing:.04em;margin:0 0 14px}#exit p{font-size:16px;color:#b3cad8}
 #exit button{margin:18px auto}
 #help{color:#c4dae4;font-size:12px}#status{color:#b8eecc}
+#mapPanel[hidden]{display:none}
+#mapPanel{position:fixed;inset:0;z-index:4;display:grid;place-items:center;padding:16px;background:#061522db}
+#mapCard{width:min(94vw,760px);max-height:94vh;overflow:auto;background:#0d2739;border:1px solid #c9eaff66;border-radius:13px;padding:16px;box-shadow:0 16px 48px #0007}
+#mapTop{display:flex;justify-content:space-between;align-items:center;gap:10px}
+#mapTop h2{margin:0;font-weight:600;font-size:19px}
+#mapCanvas{display:block;width:auto;height:auto;max-width:100%;max-height:68vh;aspect-ratio:auto;margin:12px auto;border:1px solid #9dd2e6a8;image-rendering:pixelated;background:#18548d}
+#mapLabel,#mapLegend{color:#d0e6ec;font-size:12px;line-height:1.5}
+#mapLegend{text-align:center}
+
 </style></head><body>
 <div id="view"></div>
 <section id="hud"><h1>Tiled-223D · Toon World</h1>
@@ -18,8 +27,9 @@ button:hover,label.file:hover{background:#2b6585}input[type=file]{display:none}
 <div id="help">W/S: fly forward/back · A/D: steer · ↑/↓: climb/descend · Shift: boost · R: take off. Click the flight view before using keys.</div>
 <label class="file">Import Tiled JSON <input id="mapFile" type="file" accept=".json,application/json"/></label>
 <label class="file">Optional elevation JSON <input id="heightFile" type="file" accept=".json,application/json"/></label>
-<button id="import">Load map</button><button id="cruise">Fly forward: Off</button><button id="quality">Quality: Low</button><button id="wake">Return to SUBSTRATE</button>
+<button id="import">Load map</button><button id="mapButton" aria-haspopup="dialog" aria-controls="mapPanel">Map (M)</button><button id="cruise">Fly forward: Off</button><button id="quality">Quality: Low</button><button id="wake">Return to SUBSTRATE</button>
 </section><div id="notice" role="status" aria-live="polite"></div>
+<section id="mapPanel" role="dialog" aria-modal="true" aria-label="Overworld map" hidden><div id="mapCard"><div id="mapTop"><h2>Overworld map</h2><button id="closeMap" aria-label="Close map">Back to flight ×</button></div><div id="mapLabel">Loading map…</div><canvas id="mapCanvas" aria-label="Top-down map of current world with ship marker"></canvas><div id="mapLegend">Yellow arrow: ship · Pale rings: floating islands · Dark green: trees · M or Esc: close</div></div></section>
 <section id="exit" aria-live="polite"><div><h2>You're awake.</h2><p>SUBSTRATE canvas · standalone placeholder</p>
 <button id="reenter">Return to Toon World</button></div></section>
 <script type="module" src="/src/main.js"></script>
