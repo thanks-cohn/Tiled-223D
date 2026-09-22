@@ -1,0 +1,289 @@
+{
+  "schemaVersion": 1,
+  "worldId": "two-islands",
+  "cluster": {
+    "id": "sky_archipelago",
+    "type": "floating_island_cluster",
+    "parent": "two-islands",
+    "description": "One main floating island and two nearby satellites; all are independent of the ocean/ground grid."
+  },
+  "objects": [
+    {
+      "id": "island_A",
+      "parent": "sky_archipelago",
+      "type": "floating_island",
+      "at": [
+        145,
+        47,
+        279
+      ],
+      "parts": [
+        {
+          "id": "island_A.stone",
+          "parent": "island_A",
+          "material": "stone",
+          "height": [
+            0,
+            9
+          ],
+          "footprint": {
+            "type": "ellipse",
+            "radii": [
+              8.3,
+              7.4
+            ],
+            "segments": 24
+          },
+          "openings": [
+            {
+              "id": "island_A.shaft",
+              "at": [
+                2,
+                -1
+              ],
+              "radii": [
+                1.5,
+                1.5
+              ],
+              "height": [
+                0,
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "id": "island_A.clay",
+          "parent": "island_A",
+          "material": "clay",
+          "height": [
+            9,
+            16
+          ],
+          "footprint": {
+            "type": "ellipse",
+            "radii": [
+              10.2,
+              8.6
+            ],
+            "segments": 24
+          },
+          "openings": [
+            {
+              "id": "island_A.shaft",
+              "at": [
+                2,
+                -1
+              ],
+              "radii": [
+                1.5,
+                1.5
+              ],
+              "height": [
+                0,
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "id": "island_A.dirt",
+          "parent": "island_A",
+          "material": "dirt",
+          "height": [
+            16,
+            20
+          ],
+          "footprint": {
+            "type": "ellipse",
+            "radii": [
+              12,
+              10
+            ],
+            "segments": 24
+          },
+          "openings": [
+            {
+              "id": "island_A.shaft",
+              "at": [
+                2,
+                -1
+              ],
+              "radii": [
+                1.5,
+                1.5
+              ],
+              "height": [
+                0,
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "id": "island_A.grass",
+          "parent": "island_A",
+          "material": "grass",
+          "height": [
+            20,
+            21
+          ],
+          "footprint": {
+            "type": "ellipse",
+            "radii": [
+              12,
+              10
+            ],
+            "segments": 24
+          },
+          "openings": [
+            {
+              "id": "island_A.shaft",
+              "at": [
+                2,
+                -1
+              ],
+              "radii": [
+                1.5,
+                1.5
+              ],
+              "height": [
+                0,
+                21
+              ]
+            }
+          ],
+          "walkable": true
+        }
+      ]
+    },
+    {
+      "id": "island_B",
+      "parent": "sky_archipelago",
+      "type": "floating_island",
+      "at": [
+        121,
+        35,
+        272
+      ],
+      "parts": [
+        {
+          "id": "island_B.stone",
+          "parent": "island_B",
+          "material": "stone",
+          "height": [
+            0,
+            10
+          ],
+          "footprint": {
+            "type": "ellipse",
+            "radii": [
+              4.2,
+              4.9
+            ],
+            "segments": 18
+          }
+        },
+        {
+          "id": "island_B.dirt",
+          "parent": "island_B",
+          "material": "dirt",
+          "height": [
+            10,
+            13
+          ],
+          "footprint": {
+            "type": "ellipse",
+            "radii": [
+              5.7,
+              5.5
+            ],
+            "segments": 18
+          }
+        },
+        {
+          "id": "island_B.grass",
+          "parent": "island_B",
+          "material": "grass",
+          "height": [
+            13,
+            14
+          ],
+          "footprint": {
+            "type": "ellipse",
+            "radii": [
+              5.7,
+              5.5
+            ],
+            "segments": 18
+          },
+          "walkable": true
+        }
+      ]
+    },
+    {
+      "id": "island_C",
+      "parent": "sky_archipelago",
+      "type": "floating_island",
+      "at": [
+        169,
+        55,
+        269
+      ],
+      "parts": [
+        {
+          "id": "island_C.stone",
+          "parent": "island_C",
+          "material": "stone",
+          "height": [
+            0,
+            8
+          ],
+          "footprint": {
+            "type": "ellipse",
+            "radii": [
+              4.7,
+              5
+            ],
+            "segments": 18
+          }
+        },
+        {
+          "id": "island_C.clay",
+          "parent": "island_C",
+          "material": "clay",
+          "height": [
+            8,
+            13
+          ],
+          "footprint": {
+            "type": "ellipse",
+            "radii": [
+              6.2,
+              6
+            ],
+            "segments": 18
+          }
+        },
+        {
+          "id": "island_C.grass",
+          "parent": "island_C",
+          "material": "grass",
+          "height": [
+            13,
+            14
+          ],
+          "footprint": {
+            "type": "ellipse",
+            "radii": [
+              6.2,
+              6
+            ],
+            "segments": 18
+          },
+          "walkable": true
+        }
+      ]
+    }
+  ]
+}
