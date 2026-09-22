@@ -52,150 +52,157 @@ function makeCloudSprite(texture,width,height){
  sprite.visible=false;return sprite;
 }
 export function createAtmosphere(scene){
- const texture=makeSoftCloudTexture(),clouds=[];
+ // Four tiny shared texture variants total 128 KiB of raw RGBA pixels.
+ // Cloud objects, geometries and textures NEVER grow with map dimensions.
+ const textures=CLOUD_FAMILIES.map((_,i)=>makeSoftCloudTexture(i));
  const planeGeometry=new THREE.PlaneGeometry(1,1);
  const planeNormal=new THREE.Vector3(0,0,1),up=new THREE.Vector3(0,1,0);
- const surfaceNormal=new THREE.Vector3(),flatPosition=new THREE.Vector3(),surfacePosition=new THREE.Vector3();
+ const surfaceNormal=new THREE.Vector3(),flatPosition=new THREE.Vector3();
+ const surfacePosition=new THREE.Vector3();
+ const clouds=[];
  for(const deck of CLOUD_LAYERS){
-  const style=layerStyle[deck.id],sprites=[],planes=[];
+  const style=layerStyle[deck.id],slots=[];
   for(let i=0;i<deck.count;i++){
-   const width=style.width*(.84+(i%3)*.13),
-    height=style.height*(.9+(i%2)*.2);
-   const sprite=makeCloudSprite(texture,width,height);
+   const sprite=makeCloudSprite(textures[0],style.width,style.height);
    const plane=new THREE.Mesh(planeGeometry,new THREE.MeshBasicMaterial({
-    map:texture,transparent:true,opacity:0,depthWrite:false,depthTest:true,
-    side:THREE.DoubleSide,toneMapped:false
+    map:textures[0],transparent:true,opacity:0,depthWrite:false,
+    depthTest:true,side:THREE.DoubleSide,toneMapped:false
    }));
-   plane.scale.set(width,height,1);
-   plane.visible=false;
-   plane.frustumCulled=false; // GPU projection matches its local position.
-   scene.add(sprite,plane);sprites.push(sprite);planes.push(plane);
+   plane.scale.set(style.width,style.height,1);
+   plane.visible=false;plane.frustumCulled=false;
+   scene.add(sprite,plane);
+   slots.push({sprite,plane,anchor:null,sequence:i,slotIndex:i});
   }
-  clouds.push({deck,style,sprites,planes});
+  clouds.push({deck,style,slots,nextCheck:0});
  }
- const count=clouds.reduce((n,deck)=>n+deck.sprites.length,0);
- if(count!==CLOUD_RENDER_BUDGET.sprites)throw Error("Atmosphere sprite budget mismatch");
+ const count=clouds.reduce((sum,item)=>sum+item.slots.length,0);
+ if(count!==CLOUD_RENDER_BUDGET.sprites)throw Error("Cloud budget mismatch");
  let entered=false;
+ function reassign(slot,deck,ship,world,heading,radius,time){
+  const placement=seededCloudPlacement(ship,heading,deck.id,
+   slot.sequence,world,radius);
+  slot.sequence+=deck.count;
+  slot.anchor=placement;
+  slot.assignedAt=time;
+  const texture=textures[Math.max(0,CLOUD_FAMILIES.indexOf(placement.family))];
+  slot.sprite.material.map=texture;
+  slot.plane.material.map=texture;
+  slot.sprite.material.rotation=placement.spin;
+  slot.sprite.material.needsUpdate=true;
+  slot.plane.material.needsUpdate=true;
+ }
  return {
-  update(ship,world,time,profile=null,speed=0,origin={x:0,z:0}){
+  update(ship,world,time,profile=null,speed=0,origin={x:0,z:0},camera=null,heading=0){
    const reveal=profile?.globeReveal??0;
-   const state=altitudeCloudProfile(profile?.atmosphericAltitude??ship.y,reveal);
-   const movement=Math.abs(speed);
+   const altitude=profile?.atmosphericAltitude??ship.y;
+   const state=altitudeCloudProfile(altitude,reveal);
+   const motion=cloudMotionProfile(altitude,reveal);
    const radius=profile?.planetRadius??GLOBE_RADIUS;
    const unfold=smoothBand(.08,.75,reveal);
+   const shipSpeed=Math.abs(speed);
+   const travelHeading=heading+(speed<0?Math.PI:0);
    let withinReachableCloud=false;
-   for(const {deck,style,sprites,planes} of clouds){
-    const weight=state.layers[deck.id];
-    // Invisible decks do not update expensive pixel/sprite placement.
+   for(const deckState of clouds){
+    const {deck,style,slots}=deckState;
+    const weight=state.layers[deck.id]*
+     (.65+.35*motion.emphasis[deck.id]);
     if(weight<.003){
-     for(const sprite of sprites)sprite.visible=false;
-     for(const plane of planes)plane.visible=false;
+     for(const slot of slots){slot.sprite.visible=false;slot.plane.visible=false;}
      continue;
     }
-    // Planet cloud patches scale optically with radius, not by adding
-    // sprites. The other three decks keep their current near-flight sizes.
     const planetRatio=deck.id==="planetary"?
      Math.max(1,radius/GLOBE_RADIUS):1;
-    const spacing=deck.id==="planetary"?
-     Math.max(style.spacing,radius*.42):style.spacing;
-    const cx=Math.floor(ship.x/spacing),cz=Math.floor(ship.z/spacing);
-    for(let i=0;i<sprites.length;i++){
-     const sprite=sprites[i],plane=planes[i];
-     const dx=(i%3)-1,dz=Math.floor(i/3)-(deck.id==="planetary"?.5:1);
-     const gx=cx+dx,gz=cz+dz;
-     // Deterministic world-anchored clouds rather than sprites made on each
-     // frame or clouds that follow the ship's movement at identical speeds.
-     const jx=(hash(gx,gz,11)-.5)*spacing*.48;
-     const jz=(hash(gx,gz,17)-.5)*spacing*.48;
-     let x=(gx+.5)*spacing+jx+time*deck.wind;
-     let z=(gz+.5)*spacing+jz-time*deck.wind*.42;
-     if(deck.id==="planetary"){
-      // Six stable semantic formations on the logical world, not an
-      // infinite player-following grid that repaints itself at high speed.
-      const anchorX=world.width*([.22,.49,.77][i%3]);
-      const anchorZ=world.height*([.24,.69][Math.floor(i/3)]);
-      x=anchorX+Math.round((ship.x-anchorX)/world.width)*world.width+
-       time*deck.wind;
-      z=anchorZ+Math.round((ship.z-anchorZ)/world.height)*world.height-
-       time*deck.wind*.42;
-      const visualScale=Math.pow(planetRatio,.75);
-      const w=style.width*(.84+(i%3)*.13)*visualScale;
-      const h=style.height*(.9+(i%2)*.2)*visualScale;
-      sprite.scale.set(w,h,1);
-      plane.scale.copy(sprite.scale);
+    const fadeScale=deck.id==="planetary"?planetRatio:1;
+    const near=style.fadeNear*fadeScale,far=style.fadeFar*fadeScale;
+    const policy=cloudRecyclePolicy(deck.id,altitude,shipSpeed,radius);
+    const canCheck=time>=deckState.nextCheck;
+    let available=canCheck?policy.maxReassignments:0;
+    if(canCheck)deckState.nextCheck=time+policy.interval;
+    for(const slot of slots){
+     if(!slot.anchor)reassign(slot,deck,ship,world,travelHeading,radius,time);
+     let assignment=slot.anchor;
+     let x=assignment.x+time*deck.wind;
+     let z=assignment.z-time*deck.wind*.42;
+     let dx=x-ship.x,dz=z-ship.z;
+     let distance=Math.hypot(dx,dz);
+     const ahead=-Math.sin(travelHeading)*dx-
+      Math.cos(travelHeading)*dz;
+     // Recycle only after a formation is behind/outside its layer's useful
+     // field. Existing clouds never jump or accelerate to chase the ship.
+     // Each layer gets an independent timer AND per-check work quota.
+     const expired=distance>far*1.04||
+      (ahead< -near*.6 && distance>near*.83);
+     if(expired&&available>0){
+      reassign(slot,deck,ship,world,travelHeading,radius,time);
+      available--;
+      assignment=slot.anchor;
+      x=assignment.x+time*deck.wind;
+      z=assignment.z-time*deck.wind*.42;
+      dx=x-ship.x;dz=z-ship.z;distance=Math.hypot(dx,dz);
      }
-     if(deck.id==="high"){
-      // Distant sky decoration, not a reachable physical cloud. A sparse
-      // slow-moving ring keeps high clouds in the view even while hovering
-      // near the ocean and looking toward (rather than above) the horizon.
-      // Its enormous depth causes it to drift much more slowly than the
-      // world-anchored low clouds during a Shift acceleration.
-      const angle=2*Math.PI*i/sprites.length+
-       (ship.x+ship.z)*.00006+time*deck.wind*.0003;
-      const radius=655+(i%3)*53;
-      x=ship.x+Math.cos(angle)*radius;
-      z=ship.z+Math.sin(angle)*radius;
+     const fade=1-smoothBand(near,far,distance);
+     // Prevent instant popping at a new assignment; incoming clouds grow
+     // visible softly while older cloud silhouettes drift out of range.
+     const birthFade=smoothBand(0,.65,time-slot.assignedAt);
+     const opacity=style.alpha*weight*assignment.opacityScale*fade*birthFade;
+     if(opacity<.006){
+      slot.sprite.visible=false;slot.plane.visible=false;continue;
      }
-     const distance=Math.hypot(x-ship.x,z-ship.z);
-     const fadeScale=deck.id==="planetary"?planetRatio:1;
-     const fading=1-smoothBand(style.fadeNear*fadeScale,
-      style.fadeFar*fadeScale,distance);
-     // Repeated world-coordinate anchors are safely invisible before
-     // switching to another wrapped copy at the far periodic seam.
-     const seamFade=deck.id==="planetary"?
-      1-smoothBand(world.width*.28,world.width*.42,
-       Math.max(Math.abs(x-ship.x),Math.abs(z-ship.z))):1;
-     const opacity=style.alpha*weight*fading*seamFade;
-     if(opacity<.006){sprite.visible=false;plane.visible=false;continue;}
-     const height=deck.height+((hash(gx,gz,23)-.5)*16);
+     const opticalScale=deck.id==="planetary"?
+      Math.pow(planetRatio,.75):1;
+     const visualWidth=style.width*assignment.widthScale*opticalScale;
+     const visualHeight=style.height*assignment.heightScale*opticalScale;
+     slot.sprite.scale.set(visualWidth,visualHeight,1);
+     slot.plane.scale.copy(slot.sprite.scale);
+     const height=deck.height+
+      (cloudHashForHeight(assignment)*16-8);
      const arc=Math.min(distance/radius,Math.PI);
      const projectedDistance=(radius+height)*Math.sin(arc);
-     const radialRatio=distance>1e-5?projectedDistance/distance:1;
-     const curvedX=ship.x+(x-ship.x)*radialRatio;
-     const curvedZ=ship.z+(z-ship.z)*radialRatio;
+     const ratio=distance>1e-5?projectedDistance/distance:1;
+     const curvedX=ship.x+dx*ratio;
+     const curvedZ=ship.z+dz*ratio;
      const curvedY=height-(radius+height)*(1-Math.cos(arc));
-     // Both representations share exactly the same source formation.
-     // At sea level, translucent sprites face the pilot for an iconic sky.
-     // As the globe appears, those sprites CROSSFADE into tangent planes:
-     // their local normal points away from the planet, never toward camera.
      flatPosition.set(x-origin.x,height,z-origin.z);
      surfacePosition.set(curvedX-origin.x,curvedY,curvedZ-origin.z);
-     sprite.position.copy(flatPosition);
-     sprite.material.opacity=opacity*(1-unfold);
-     sprite.visible=sprite.material.opacity>.006;
-     plane.position.copy(flatPosition).lerp(surfacePosition,reveal);
+     slot.sprite.position.copy(flatPosition);
+     slot.sprite.material.opacity=opacity*(1-unfold);
+     slot.sprite.visible=slot.sprite.material.opacity>.006;
+     slot.plane.position.copy(flatPosition).lerp(surfacePosition,reveal);
      surfaceNormal.set(
-      distance>1e-5?(x-ship.x)/distance*Math.sin(arc):0,
+      distance>1e-5?dx/distance*Math.sin(arc):0,
       Math.cos(arc),
-      distance>1e-5?(z-ship.z)/distance*Math.sin(arc):0
-     );
-     surfaceNormal.lerpVectors(up,surfaceNormal,reveal).normalize();
-     plane.quaternion.setFromUnitVectors(planeNormal,surfaceNormal);
-     plane.material.opacity=opacity*unfold;
-     plane.visible=plane.material.opacity>.006;
-     // No new material, texture or geometry is created in the update loop.
-     // The near deck is the ONLY reachable cloud deck. Passing through it
-     // adds soft local opacity without blue fogging over the entire landscape.
-     if(deck.id==="low"&&distance<sprite.scale.x*.37 &&
-       Math.abs(ship.y-height)<sprite.scale.y*.44)
+      distance>1e-5?dz/distance*Math.sin(arc):0
+     ).lerpVectors(up,surfaceNormal,reveal).normalize();
+     slot.plane.quaternion.setFromUnitVectors(planeNormal,surfaceNormal);
+     slot.plane.rotateZ(assignment.spin);
+     slot.plane.material.opacity=opacity*unfold;
+     slot.plane.visible=slot.plane.material.opacity>.006;
+     if(deck.id==="low"&&distance<visualWidth*.37&&
+      Math.abs(ship.y-height)<visualHeight*.44)
       withinReachableCloud=true;
     }
    }
    entered=withinReachableCloud;
-   return {inside:entered,band:state.dominant,speed:movement};
+   return {inside:entered,band:state.dominant,speed:shipSpeed};
   },
   getSummary(){
-   return {layers:clouds.map(({deck,sprites})=>({id:deck.id,
-    height:deck.height,wind:deck.wind,count:sprites.length,
-    visible:sprites.filter(sprite=>sprite.visible).length})),
-    sprites:count,textures:1,volumetricPasses:0};
+   return {layers:clouds.map(({deck,slots})=>({
+    id:deck.id,count:slots.length,
+    visible:slots.filter(s=>s.sprite.visible||s.plane.visible).length
+   })),formations:count,textures:textures.length,volumetricPasses:0};
   },
   dispose(){
-   for(const {sprites,planes} of clouds){
-    for(const sprite of sprites){scene.remove(sprite);sprite.material.dispose();}
-    for(const plane of planes){scene.remove(plane);plane.material.dispose();}
+   for(const {slots} of clouds)for(const {sprite,plane} of slots){
+    scene.remove(sprite,plane);
+    sprite.material.dispose();plane.material.dispose();
    }
-   planeGeometry.dispose();texture.dispose();
+   planeGeometry.dispose();
+   for(const texture of textures)texture.dispose();
   }
  };
+}
+// Stable tiny variation within an assigned cloud (not random per frame).
+function cloudHashForHeight(assignment){
+ return (assignment.widthScale*.61803398875+
+  assignment.heightScale*.38196601125)%1;
 }
