@@ -7,6 +7,7 @@ import {buildFloatingIslands,disposeFloatingIslands} from "./floating-islands.js
 import {spatialHit} from "./spatial.js";
 import {createWorldMap} from "./world-map.js";
 import {createIslandImpostors,updateIslandImpostor,disposeIslandImpostors} from "./island-impostors.js";
+import {nearestWrappedOffset} from "./landmasses.js";
 
 const view=document.getElementById("view");
 const positionUI=document.getElementById("position"),statusUI=document.getElementById("status");
@@ -69,11 +70,10 @@ function makeTerrain(){
  oldGeometry.forEach(geometry=>geometry.dispose());
  copies=[];
  const base=terrainGroup(world);
- // Nine lightweight copies share the SAME mesh/texture/geometry. Only render
- // copies near camera; seamless repeated tile data does not allocate new ocean cells.
- for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++){
-  const duplicate=base.clone(true);duplicate.userData={dx,dz};scene.add(duplicate);copies.push(duplicate);
- }
+ // Only ONE rendered instance of each semantic landmass exists.
+ // Its own group is repositioned to the closest wrapped world coordinate,
+ // so a long view distance never exposes 9 repeated maps at once.
+ scene.add(base);copies.push(base);
 }
 function resetSpawn(){
  const p=world.spawns[0]||{x:world.width/2,z:world.height/2};
@@ -197,16 +197,15 @@ function frame(now){
  sun.intensity=1.35*(1-.35*fade);
  // Keep sky pale and ocean deep: never merge their colors at the horizon.
  ocean.position.x=ship.position.x;ocean.position.z=ship.position.z;
- cloudSystem.update(ship.position.x,ship.position.z,time);
- const repeatX=Math.round((ship.position.x-world.width/2)/world.width)*world.width;
- const repeatZ=Math.round((ship.position.z-world.height/2)/world.height)*world.height;
- for(const instance of copies){
-  instance.position.set(repeatX+instance.userData.dx*world.width,0,
-    repeatZ+instance.userData.dz*world.height);
-  const centerX=instance.position.x+world.width/2;
-  const centerZ=instance.position.z+world.height/2;
-  instance.visible=Math.abs(centerX-ship.position.x)<world.width/2+camera.far
-    && Math.abs(centerZ-ship.position.z)<world.height/2+camera.far;
+ cloudSystem.update(ship.position,world,time);
+ // Independently wrap each distinct island to its single nearest appearance.
+ // A player can still travel continuously, but cannot see repeated clones.
+ for(const terrain of copies)for(const mass of terrain.children){
+  mass.position.set(
+   nearestWrappedOffset(ship.position.x,mass.userData.centerX,world.width),
+   0,
+   nearestWrappedOffset(ship.position.z,mass.userData.centerZ,world.height)
+  );
  }
  // A cheap billboard replaces each floating island as it recedes.
  // The card follows the same wrapped coordinate as the real 3D parent;
