@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "kind": "semantic-world-scale-binding",
+  "id": "tiled-223d.scale-profiles-v1",
+  "status": "experimental",
+  "branch": "feature/scale-profiles-floating-origin-v7",
+  "designIntent": "Three world sizes with only local terrain stored, gentle huge-ocean cruising and high-altitude cloud cards parallel to curved ground; render budget must remain viable on a 4 GB Windows computer.",
+  "presets": [
+    {
+      "id": "current",
+      "width": 500,
+      "height": 500,
+      "surfaceAreaRelative": 1,
+      "visualRadius": 235,
+      "altitudeScale": 1
+    },
+    {
+      "id": "bigger",
+      "width": 2500,
+      "height": 2500,
+      "surfaceAreaRelative": 25,
+      "visualRadius": 1175,
+      "altitudeScale": 5
+    },
+    {
+      "id": "massive",
+      "width": 16000,
+      "height": 16000,
+      "surfaceAreaRelative": 1024,
+      "visualRadius": 7520,
+      "altitudeScale": 32
+    }
+  ],
+  "sources": {
+    "worldSchema": "src/scale-world.js",
+    "flight": "src/main.js",
+    "horizon": "src/horizon.js",
+    "altitude": "src/flight-model.js",
+    "clouds": "src/atmosphere-renderer.js",
+    "map": "src/world-map.js",
+    "tests": "tests/scale-profiles.test.js",
+    "agentNotes": "Semantic-Bindings/scale-profiles-v1.md"
+  },
+  "renderBudget": {
+    "sourceGroundTiles": 250000,
+    "globalSparseGroundTiles": 0,
+    "localDetailedLandmasses": 2,
+    "oceanMeshes": 1,
+    "oceanVertices": 6481,
+    "overviewPixels": 250000,
+    "logicalClouds": 27,
+    "cloudTexturePixels": [
+      128,
+      64
+    ],
+    "volumetricPasses": 0
+  },
+  "spatialContract": {
+    "navigation": "JS global double-precision X/Z and Y",
+    "render": "local floating X/Z origin anchored at pilot",
+    "terrain": "original source map only near semantic island clusters; open ocean elsewhere",
+    "planet": "stylized player-centered sphere deformation; not true globe lat-long",
+    "clouds": "at high altitude cloud planes' normals align with local outward planet normal, not camera"
+  },
+  "futureNotImplemented": [
+    "true spherical orbital physics",
+    "sun and moon time cycle",
+    "sparse imported arbitrary large maps",
+    "large-scale biome generation",
+    "verified FPS on 4 GB computer"
+  ],
+  "guardrails": [
+    "never allocate width times height grid for larger presets",
+    "do not multiply original island mesh scale",
+    "keep high-altitude cloud cards tangent to globe",
+    "retain original optional Tiled exporter",
+    "run npm test and npm run build; verify actual visuals before merge"
+  ]
+}
