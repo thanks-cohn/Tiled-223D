@@ -59,6 +59,8 @@ export function makeScaleWorld(local,id="current"){
    z:wrap(region.z+(host?.offsetZ||0),scale.height)};
  });
  function groundAt(x,z){
+  // Preserve the exact full map in the original and imported-world modes.
+  if(scale.id==="current")return cell(local,x,z);
   for(const placement of placements){
    const dx=signed(x,placement.x,scale.width);
    const dz=signed(z,placement.z,scale.height);
