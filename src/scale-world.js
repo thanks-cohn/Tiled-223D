@@ -78,13 +78,31 @@ export function makeScaleWorld(local,id="current"){
   x:placement.x,z:placement.z,radius:placement.radius}));
  const nav={
   width:scale.width,height:scale.height,name:local.name+" · "+scale.label,
+  ground:scale.id==="current"?local.ground:null,
+  heights:scale.id==="current"?local.heights:null,
+  trees:scale.id==="current"?local.trees:[],
   objects,spawns,placements,regions,mapMarkers,
   groundAt:(x,z)=>groundAt(x,z).ground,
   isOcean:(x,z)=>groundAt(x,z).ground===ID.ocean,
   sparse:scale.id!=="current",
   localWidth:local.width,localHeight:local.height
  };
- return {preset:scale,nav,groundAt,
+ const pathNearLand=(x0,z0,x1,z1)=>{
+  // Broad-phase only: skip per-0.75-unit terrain/object checks over vast
+  // empty ocean. Check a bounded number of existing semantic destinations.
+  const midX=(x0+x1)/2,midZ=(z0+z1)/2;
+  const lengthSquared=(x1-x0)**2+(z1-z0)**2;
+  for(const region of regions){
+   const cx=region.x+nearest(midX,region.x,scale.width);
+   const cz=region.z+nearest(midZ,region.z,scale.height);
+   const fraction=lengthSquared>0?Math.max(0,Math.min(1,
+    ((cx-x0)*(x1-x0)+(cz-z0)*(z1-z0))/lengthSquared)):0;
+   if(Math.hypot(cx-(x0+(x1-x0)*fraction),
+    cz-(z0+(z1-z0)*fraction))<region.radius+7)return true;
+  }
+  return false;
+ };
+ return {preset:scale,nav,groundAt,pathNearLand,
   placementOf:(id)=>placements.find(x=>x.id===id),
   nearestLandInstance:(pilot,placement)=>({
    x:placement.offsetX+nearest(pilot.x,placement.x,scale.width),
