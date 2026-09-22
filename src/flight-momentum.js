@@ -71,16 +71,22 @@ export function updateFlybys(tracker,world,regions,x,z,y,speed,elapsedSeconds){
   const dist=regionDistance(world,region,x,z);
   const near=dist<=region.radius+8;
   const wasInside=tracker.inside.has(region.id);
-  if(near&&!wasInside){
-   tracker.inside.add(region.id);
+  const departed=wasInside&&dist>region.radius+24;
+  const arrived=near&&!wasInside;
+  if(arrived)tracker.inside.add(region.id);
+  if(departed)tracker.inside.delete(region.id);
+  // The ship may start inside a cluster. Departing that familiar-speed
+  // region also earns the slipstream, not just approaching an island.
+  if(arrived||departed){
    const last=tracker.lastAward.get(region.id)??-Infinity;
    if(y<=MOMENTUM.flybyMaximumAltitude &&
       elapsedSeconds-last>=MOMENTUM.flybyCooldownSeconds){
-    reward=flybyImpulse(speed);
-    if(reward!==0){tracker.lastAward.set(region.id,elapsedSeconds);passed=region.id;}
+    const candidate=flybyImpulse(speed);
+    if(candidate!==0){
+     reward+=candidate;
+     tracker.lastAward.set(region.id,elapsedSeconds);passed=region.id;
+    }
    }
-  } else if(!near&&dist>region.radius+24){
-   tracker.inside.delete(region.id);
   }
  }
  return {reward,passed};
