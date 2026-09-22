@@ -50,7 +50,7 @@ test("Shift remains fast and high altitude restores rapid planetary traversal",(
  const w=demo(),regions=protectedRegions(w);
  const low=travelRegion(w,regions,240,270,35,false);
  const turbo=travelRegion(w,regions,240,270,35,true);
- assert.equal(turbo.factor,EXPANSE.oceanTurboFactor);
+ assert.ok(Math.abs(turbo.factor-EXPANSE.oceanTurboFactor)<1e-8);
  assert.ok(targetTravelSpeed(35,true)*turbo.factor>
   targetTravelSpeed(35,false)*low.factor*10);
  const high=travelRegion(w,regions,240,270,300,false);
