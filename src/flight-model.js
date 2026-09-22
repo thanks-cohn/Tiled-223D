@@ -2,7 +2,7 @@
 // Gameplay uses authoritative flat X/Z/Y coordinates; these values only
 // determine speed and the VISUAL projection of the low-memory prototype.
 export const LIMITS=Object.freeze({
-  low:65,transition:115,nearSpace:270,warning:350,exit:500
+  low:65,transition:115,nearSpace:270,warning:1200,exit:1800
 });
 export function smoothstep(start,end,value) {
  if(!Number.isFinite(value)||!(end>start))throw Error("Invalid smoothstep input");
@@ -19,10 +19,11 @@ export function altitudeProfile(altitude) {
  const cruise=smoothstep(65,285,altitude);
  const curvature=smoothstep(105,265,altitude);
  const space=smoothstep(225,445,altitude);
+ const globeReveal=smoothstep(235,445,altitude);
  const travelMultiplier=1+2.8*cruise+1.2*space;
  return {
   layer:altitude<110?"overworld":altitude<285?"atmosphere":"near-space",
-  cruise,curvature,space,travelMultiplier,
+  cruise,curvature,space,globeReveal,travelMultiplier,
   cloudFade:1-smoothstep(210,315,altitude),
   cameraDistance:13+12*cruise+5*space,
   cameraHeight:6+8*cruise+12*space,
@@ -36,5 +37,7 @@ export function altitudeProfile(altitude) {
 // a fixed world speed actually makes distant ground drift more slowly onscreen.
 export function targetTravelSpeed(altitude,boost=false) {
  const p=altitudeProfile(altitude);
- return (boost?65:27)*p.travelMultiplier;
+ // Shift is intentionally a major turbo mode, especially noticeable low down.
+ // Ground: 27 -> 216 units/s; altitude amplifies both consistently.
+ return 27*(boost?8:1)*p.travelMultiplier;
 }
