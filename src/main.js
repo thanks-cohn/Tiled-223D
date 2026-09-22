@@ -10,6 +10,7 @@ import {createIslandImpostors,updateIslandImpostor,disposeIslandImpostors} from 
 import {nearestWrappedOffset} from "./landmasses.js";
 import {altitudeProfile,damp,targetTravelSpeed,LIMITS} from "./flight-model.js";
 import {makeHorizonState,setHorizonPosition} from "./horizon.js";
+import {protectedRegions,travelRegion} from "./travel-regions.js";
 
 const view=document.getElementById("view");
 const positionUI=document.getElementById("position"),statusUI=document.getElementById("status");
@@ -41,6 +42,7 @@ new GLTFLoader().load("/ship/ship.glb",gltf=>{
 
 let world=sampleWorld(),copies=[],floatingInstances=[],islandCards=[],yaw=0,mode="world",quality="low",time=0,last=performance.now();
 world.objects=islandData.objects;
+let regions=protectedRegions(world);
 let atmosphereWarned=false,cruise=false,forwardVelocity=0,verticalVelocity=0,bank=0,pitch=0;
 let safeFlightCeiling=0;
 const held=new Set();
@@ -54,6 +56,7 @@ document.getElementById("closeMap").addEventListener("click",()=>{mapUI.close();
 function pointGround(x,z){return cell(world,x,z);}
 function setMessage(message){notice.textContent=message;}
 function makeTerrain(){
+ regions=protectedRegions(world);
  // Above every authoritative terrain and object top, turbo flight needs no
  // per-substep collision queries; never skip collision near actual surfaces.
  safeFlightCeiling=world.heights.reduce((maximum,height)=>Math.max(maximum,height),0);
@@ -178,7 +181,12 @@ function frame(now){
   yaw+=turn*(1.38-.35*profile.cruise)*dt;
   bank=damp(bank,-turn*.22,4,dt);
   const forward=((held.has("KeyW")||cruise)?1:0)-(held.has("KeyS")?1:0);
-  const requestedSpeed=targetTravelSpeed(ship.position.y,boost)*forward;
+  // This changes perceived travel requirements, NOT map size. Each named
+  // destination's existing local diameter retains V3 speed exactly. Ocean
+  // outside its protected circle takes longer to cross near the surface.
+  // Turbo remains much faster, and altitude restores normal travel speed.
+  const travel=travelRegion(world,regions,ship.position.x,ship.position.z,ship.position.y,boost);
+  const requestedSpeed=targetTravelSpeed(ship.position.y,boost)*travel.factor*forward;
   forwardVelocity=damp(forwardVelocity,requestedSpeed,forward?(boost?2.4:3.1):2.2,dt);
   if(Math.abs(forwardVelocity)<.02)forwardVelocity=0;
   const distance=forwardVelocity*dt;
@@ -286,7 +294,7 @@ function frame(now){
  const nextFov=damp(camera.fov,profile.fieldOfView+(boosting?7:0),4,dt);
  if(Math.abs(camera.fov-nextFov)>.012){camera.fov=nextFov;camera.updateProjectionMatrix();}
  if(mode==="world")positionUI.textContent=
-  `X ${wrap(ship.position.x,world.width).toFixed(1)} · Z ${wrap(ship.position.z,world.height).toFixed(1)} · ALT ${ship.position.y.toFixed(1)} · GROUND ${pointGround(ship.position.x,ship.position.z).height.toFixed(1)} · SPEED ${Math.abs(forwardVelocity).toFixed(0)} · ${profile.layer.toUpperCase()}`;
+  `X ${wrap(ship.position.x,world.width).toFixed(1)} · Z ${wrap(ship.position.z,world.height).toFixed(1)} · ALT ${ship.position.y.toFixed(1)} · GROUND ${pointGround(ship.position.x,ship.position.z).height.toFixed(1)} · SPEED ${Math.abs(forwardVelocity).toFixed(0)} · ${travelRegion(world,regions,ship.position.x,ship.position.z,ship.position.y,boosting).mode.toUpperCase()} · ${profile.layer.toUpperCase()}`;
  renderer.render(scene,camera);
 }
 requestAnimationFrame(frame);
