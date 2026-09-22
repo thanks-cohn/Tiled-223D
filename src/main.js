@@ -5,6 +5,7 @@ import {terrainGroup,oceanPlane,clouds} from "./terrain.js";
 import islandData from "./worlds/floating-islands.json";
 import {buildFloatingIslands,disposeFloatingIslands} from "./floating-islands.js";
 import {spatialHit} from "./spatial.js";
+import {createWorldMap} from "./world-map.js";
 
 const view=document.getElementById("view");
 const positionUI=document.getElementById("position"),statusUI=document.getElementById("status");
@@ -35,6 +36,13 @@ let world=sampleWorld(),copies=[],floatingInstances=[],yaw=0,mode="world",qualit
 world.objects=islandData.objects;
 let atmosphereWarned=false, cruise=false;
 const held=new Set();
+const mapUI=createWorldMap({
+ panel:document.getElementById("mapPanel"),canvas:document.getElementById("mapCanvas"),
+ label:document.getElementById("mapLabel"),worldGetter:()=>world,
+ positionGetter:()=>ship.position,headingGetter:()=>yaw
+});
+document.getElementById("mapButton").addEventListener("click",()=>{held.clear();mapUI.toggle();});
+document.getElementById("closeMap").addEventListener("click",()=>{mapUI.close();held.clear();});
 function pointGround(x,z){return cell(world,x,z);}
 function setMessage(message){notice.textContent=message;}
 function makeTerrain(){
@@ -71,6 +79,7 @@ makeTerrain();resetSpawn();
 
 function worldExit(){
  if(mode!=="world")return;
+ mapUI.close();held.clear();
  mode="exiting";setMessage("NOTICE · Exiting "+world.name+" atmosphere");
  exitUI.classList.add("show");
  setTimeout(()=>{
@@ -110,10 +119,18 @@ document.getElementById("import").addEventListener("click",async()=>{
   const heights=heightFile?JSON.parse(await heightFile.text()):null;
   const next=fromTiled(map,heights);
   next.objects=[];world=next;makeTerrain();resetSpawn();mode="world";exitUI.classList.remove("show");
+  mapUI.refreshWorld();mapUI.close();
   statusUI.textContent=world.name+" · "+world.width+" × "+world.height+(heights?" · elevated":" · flat (no elevation file)");
  }catch(err){statusUI.textContent="Import error: "+err.message;}
 });
 addEventListener("keydown",e=>{
+ if(e.code==="KeyM"&&!e.repeat&&mode==="world"){
+  e.preventDefault();held.clear();mapUI.toggle();return;
+ }
+ if(e.code==="Escape"&&mapUI.isOpen()){
+  e.preventDefault();mapUI.close();held.clear();return;
+ }
+ if(mapUI.isOpen())return;
  if(["ArrowUp","ArrowDown","Space"].includes(e.code))e.preventDefault();
  held.add(e.code);
  if(e.code==="KeyR"&&mode==="world")ship.position.y=Math.max(ship.position.y,pointGround(ship.position.x,ship.position.z).height+35);
@@ -124,7 +141,11 @@ addEventListener("resize",()=>{camera.aspect=innerWidth/innerHeight;camera.updat
 
 function frame(now){
  requestAnimationFrame(frame);
- const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;time+=dt;
+ const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;
+ // Map is a paused, inexpensive 2D inspection mode; do not run flight,
+ // redraw the 3D scene or move the ship while the overlay is open.
+ if(mapUI.isOpen())return;
+ time+=dt;
  if(mode==="world"){
   const turn=(held.has("KeyA")?1:0)-(held.has("KeyD")?1:0);
   yaw+=turn*1.4*dt;
