@@ -2,7 +2,7 @@
 // Gameplay uses authoritative flat X/Z/Y coordinates; these values only
 // determine speed and the VISUAL projection of the low-memory prototype.
 export const LIMITS=Object.freeze({
-  low:65,transition:115,nearSpace:270,warning:1200,exit:1800
+  low:65,transition:115,nearSpace:270,warning:350,exit:Number.POSITIVE_INFINITY
 });
 export function smoothstep(start,end,value) {
  if(!Number.isFinite(value)||!(end>start))throw Error("Invalid smoothstep input");
