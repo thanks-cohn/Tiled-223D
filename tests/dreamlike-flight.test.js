@@ -2,8 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import {altitudeProfile,targetTravelSpeed,damp,smoothstep,LIMITS} from "../src/flight-model.js";
-import {createPlanetVisuals,curvatureDrop,VISUAL_PLANET_RADIUS} from "../src/planet-visuals.js";
-import {sampleWorld} from "../src/world-data.js";
+import {curvatureDrop,HORIZON_FLAT_RADIUS,makeHorizonState,setHorizonPosition,curveMaterial,horizonOcean} from "../src/horizon.js";
 
 test("altitude speed increases continuously and descending restores normal travel",()=>{
  const low=altitudeProfile(30),mid=altitudeProfile(175),high=altitudeProfile(380);
@@ -35,26 +34,31 @@ test("damping is frame-rate independent for constant input",()=>{
  assert.ok(first>0 && first<100);
  assert.throws(()=>damp(0,10,4,-1),/Invalid/);
 });
-test("visual planet has real curvature while local ground remains canonical",()=>{
- const R=VISUAL_PLANET_RADIUS;
+test("horizon stays flat nearby, then grows smoothly with altitude",()=>{
  assert.equal(curvatureDrop(0),0);
- assert.ok(curvatureDrop(40)>0);
- assert.ok(curvatureDrop(200)>curvatureDrop(40));
- assert.equal(curvatureDrop(R),R);
- const world=sampleWorld(),scene=new THREE.Scene();
- const flatOcean=new THREE.Mesh(new THREE.PlaneGeometry(10,10),
-  new THREE.MeshBasicMaterial({color:"#19598d"}));
- const visuals=createPlanetVisuals(scene,flatOcean,world);
- const globe=scene.getObjectByName("altitude-visual-ocean-sphere");
- visuals.update({x:145,y:30,z:280},altitudeProfile(30),world);
- assert.equal(flatOcean.visible,true);assert.equal(globe.visible,false);
- visuals.update({x:145,y:180,z:280},altitudeProfile(180),world);
- assert.equal(globe.visible,true);assert.ok(globe.material.opacity>0 && globe.material.opacity<1);
- visuals.update({x:145,y:325,z:280},altitudeProfile(325),world);
- assert.equal(flatOcean.visible,false);assert.equal(globe.material.opacity,1);
- const proxies=scene.children.filter(child=>child.name.startsWith("planet-proxy:"));
- assert.equal(proxies.length,2);
- visuals.dispose();
- assert.equal(scene.getObjectByName("altitude-visual-ocean-sphere"),undefined);
- flatOcean.geometry.dispose();flatOcean.material.dispose();
+ assert.equal(curvatureDrop(HORIZON_FLAT_RADIUS),0);
+ assert.equal(curvatureDrop(HORIZON_FLAT_RADIUS+10,0),0);
+ assert.ok(curvatureDrop(HORIZON_FLAT_RADIUS+50,.4)>0);
+ assert.ok(curvatureDrop(HORIZON_FLAT_RADIUS+100,1)>curvatureDrop(HORIZON_FLAT_RADIUS+50,1));
+ assert.ok(curvatureDrop(HORIZON_FLAT_RADIUS+75,.6)<curvatureDrop(HORIZON_FLAT_RADIUS+75,1));
+ assert.throws(()=>curvatureDrop(-1),/Invalid/);
+});
+test("a single opaque ocean and land share one curvature uniform",()=>{
+ const state=makeHorizonState(),ship={x:152,y:195,z:271};
+ setHorizonPosition(state,ship,altitudeProfile(ship.y).curvature);
+ assert.equal(state.center.value.x,ship.x);
+ assert.equal(state.center.value.y,ship.z);
+ const ocean=horizonOcean(state);
+ assert.equal(ocean.name,"single-curved-horizon-ocean");
+ assert.equal(ocean.material.transparent,false);
+ assert.equal(ocean.material.opacity,1);
+ assert.ok(ocean.geometry.getAttribute("position").count<5000);
+ assert.equal(ocean.material.userData.horizonState,state);
+ const groundMaterial=curveMaterial(new THREE.MeshLambertMaterial(),state);
+ assert.equal(groundMaterial.userData.horizonState,ocean.material.userData.horizonState);
+ const shader={uniforms:{},vertexShader:"#include <common>\n#include <begin_vertex>"};
+ groundMaterial.onBeforeCompile(shader);
+ assert.ok(shader.vertexShader.includes("horizonWorldVertex"));
+ assert.equal(shader.uniforms.uHorizonStrength,state.strength);
+ ocean.geometry.dispose();ocean.material.dispose();groundMaterial.dispose();
 });
