@@ -85,15 +85,81 @@ export function oceanPlane(){
  ocean.rotation.x=-Math.PI/2;ocean.position.y=-.35;return ocean;
 }
 export function clouds(scene){
- const canvas=document.createElement("canvas");canvas.width=128;canvas.height=64;
- const g=canvas.getContext("2d");g.fillStyle="rgba(255,255,255,0.82)";
- for(const [x,y,r] of [[33,38,18],[55,28,23],[80,35,19],[102,42,12]]){g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill();}
- const texture=new THREE.CanvasTexture(canvas),sprites=[];
- for(let i=0;i<14;i++){
-  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,opacity:.68,depthWrite:false,fog:false}));
-  sprite.scale.set(27+(i%4)*10,12+(i%3)*4,1);scene.add(sprite);sprites.push(sprite);
+ // ONE small reusable texture for both horizon decoration and reachable clouds.
+ // Soft alpha (rather than opaque white circles) makes the nearby layers dreamy.
+ const canvas=document.createElement("canvas");
+ canvas.width=128;canvas.height=64;
+ const ctx=canvas.getContext("2d");
+ for(const [x,y,rx,ry] of [[27,39,25,18],[48,27,29,23],[76,34,28,20],[99,42,20,15]]) {
+  ctx.save();ctx.translate(x,y);ctx.scale(rx,ry);
+  const glow=ctx.createRadialGradient(0,0,.12,0,0,1);
+  glow.addColorStop(0,"rgba(255,255,255,.77)");
+  glow.addColorStop(.60,"rgba(252,254,255,.49)");
+  glow.addColorStop(1,"rgba(250,253,255,0)");
+  ctx.fillStyle=glow;ctx.beginPath();ctx.arc(0,0,1,0,Math.PI*2);ctx.fill();ctx.restore();
  }
- return {update(x,z,time){sprites.forEach((s,i)=>{const a=i*2.39996,r=115+(i%5)*34;
-  s.position.set(x+Math.cos(a)*r+Math.sin(time*.014+i)*5,30+(i%4)*24,z+Math.sin(a)*r);
- });}};
+ const texture=new THREE.CanvasTexture(canvas);
+ texture.colorSpace=THREE.SRGBColorSpace;
+ texture.minFilter=THREE.LinearFilter;
+ texture.magFilter=THREE.LinearFilter;
+ const makeSprite=(opacity,width,height)=>{
+  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({
+   map:texture,transparent:true,opacity,depthWrite:false,depthTest:true,
+   fog:false,rotation:0
+  }));
+  sprite.scale.set(width,height,1);scene.add(sprite);return sprite;
+ };
+ // Far/background decoration: intentionally unreachable. All these sprites
+ // stay hundreds of units away, following the camera like the sky dome.
+ const distant=Array.from({length:10},(_,i)=>makeSprite(.41,66+(i%4)*20,21+(i%3)*7));
+ // Exactly four world-anchored cloud formations with three layered sprites each.
+ // They do NOT follow the ship; you can actually fly into and through them.
+ const reachable=Array.from({length:4},()=>Array.from({length:3},(_,j)=>
+  makeSprite(j===1?.42:.30,32+j*10,12+j*3)));
+ const bases=[
+  [.29,.405,92,17],[.245,.55,111,15],
+  [.69,.44,101,18],[.745,.57,125,15]
+ ];
+ const cloudFog=new THREE.FogExp2("#eaf3f7",.033);
+ let inside=false;
+ return {
+  update(ship,world,time){
+   const altitudeFade=THREE.MathUtils.clamp((310-ship.y)/90,0,1);
+   distant.forEach((sprite,i)=>{
+    const angle=i*2.399963,radius=525+(i%4)*64;
+    sprite.position.set(ship.x+Math.cos(angle)*radius,
+      ship.y+67+(i%4)*34,ship.z+Math.sin(angle)*radius);
+    sprite.material.opacity=altitudeFade*.41;
+    sprite.visible=altitudeFade>.001;
+   });
+   let inAny=false;
+   reachable.forEach((layers,i)=>{
+    const [fx,fz,y,radius]=bases[i];
+    const logicalX=world.width*fx,logicalZ=world.height*fz;
+    const x=logicalX+Math.round((ship.x-logicalX)/world.width)*world.width;
+    const z=logicalZ+Math.round((ship.z-logicalZ)/world.height)*world.height;
+    const drift=Math.sin(time*.11+i)*1.8;
+    layers.forEach((sprite,j)=>{
+     const dx=[-7,1,8][j],dz=[3,-2,-1][j];
+     sprite.position.set(x+dx+drift,y+(j-1)*2,z+dz);
+     sprite.material.opacity=altitudeFade*(j===1?.44:.31);
+     sprite.visible=altitudeFade>.001 &&
+       Math.hypot(sprite.position.x-ship.x,sprite.position.z-ship.z)<420;
+    });
+    if(Math.hypot(ship.x-x-drift,ship.z-z)<radius && Math.abs(ship.y-y)<11)
+     inAny=true;
+   });
+   inside=inAny && altitudeFade>.001;
+   // Passing THROUGH a fixed cloud gives a soft haze without a solid collider,
+   // full-screen video effect, or CPU-heavy particle/volumetric simulation.
+   scene.fog=inside?cloudFog:null;
+   return {inside};
+  },
+  dispose(){
+   for(const sprite of [...distant,...reachable.flat()]) {
+    scene.remove(sprite);sprite.material.dispose();
+   }
+   texture.dispose();
+  }
+ };
 }
