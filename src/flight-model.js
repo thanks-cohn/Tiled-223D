@@ -26,7 +26,8 @@ export function altitudeProfile(altitude) {
   cloudFade:1-smoothstep(210,315,altitude),
   cameraDistance:13+12*cruise+5*space,
   cameraHeight:6+8*cruise+12*space,
-  lookDown:3+30*curvature+15*space,
+  // Look toward the distant horizon instead of straight at the ocean.
+  lookDown:2+6*curvature+10*space,
   fieldOfView:69+5*cruise+2*space,
   skyFade:smoothstep(185,455,altitude)
  };

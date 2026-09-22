@@ -9,7 +9,7 @@ import {createWorldMap} from "./world-map.js";
 import {createIslandImpostors,updateIslandImpostor,disposeIslandImpostors} from "./island-impostors.js";
 import {nearestWrappedOffset} from "./landmasses.js";
 import {altitudeProfile,damp,targetTravelSpeed,LIMITS} from "./flight-model.js";
-import {createPlanetVisuals} from "./planet-visuals.js";
+import {makeHorizonState,setHorizonPosition} from "./horizon.js";
 
 const view=document.getElementById("view");
 const positionUI=document.getElementById("position"),statusUI=document.getElementById("status");
@@ -25,7 +25,8 @@ scene.background=skyDay.clone();
 const camera=new THREE.PerspectiveCamera(69,innerWidth/innerHeight,.1,900);
 const sun=new THREE.DirectionalLight("#fff5db",1.35);sun.position.set(-80,160,-70);scene.add(sun);
 scene.add(new THREE.HemisphereLight("#fff6dc","#52768a",2.1));
-const ocean=oceanPlane();scene.add(ocean);
+const horizonState=makeHorizonState();
+const ocean=oceanPlane(horizonState);scene.add(ocean);
 const cloudSystem=clouds(scene);
 
 const ship=new THREE.Group();
@@ -40,7 +41,6 @@ new GLTFLoader().load("/ship/ship.glb",gltf=>{
 
 let world=sampleWorld(),copies=[],floatingInstances=[],islandCards=[],yaw=0,mode="world",quality="low",time=0,last=performance.now();
 world.objects=islandData.objects;
-const planetVisuals=createPlanetVisuals(scene,ocean,world);
 let atmosphereWarned=false,cruise=false,forwardVelocity=0,verticalVelocity=0,bank=0,pitch=0;
 const held=new Set();
 const mapUI=createWorldMap({
@@ -72,7 +72,7 @@ function makeTerrain(){
  }
  oldGeometry.forEach(geometry=>geometry.dispose());
  copies=[];
- const base=terrainGroup(world);
+ const base=terrainGroup(world,horizonState);
  // Only ONE rendered instance of each semantic landmass exists.
  // Its own group is repositioned to the closest wrapped world coordinate,
  // so a long view distance never exposes 9 repeated maps at once.
@@ -133,7 +133,7 @@ document.getElementById("import").addEventListener("click",async()=>{
   const map=JSON.parse(await mapFile.text());
   const heights=heightFile?JSON.parse(await heightFile.text()):null;
   const next=fromTiled(map,heights);
-  next.objects=[];world=next;makeTerrain();planetVisuals.setWorld(world);
+  next.objects=[];world=next;makeTerrain();
   resetSpawn();mode="world";exitUI.classList.remove("show");
   mapUI.refreshWorld();mapUI.close();
   statusUI.textContent=world.name+" · "+world.width+" × "+world.height+(heights?" · elevated":" · flat (no elevation file)");
@@ -234,7 +234,7 @@ function frame(now){
  scene.background.copy(skyDay).lerp(skySpace,profile.skyFade);
  sun.intensity=1.35*(1-.35*profile.skyFade);
  ocean.position.x=ship.position.x;ocean.position.z=ship.position.z;
- planetVisuals.update(ship.position,profile,world);
+ setHorizonPosition(horizonState,ship.position,profile.curvature);
  cloudSystem.update(ship.position,world,time,profile);
  // Independently wrap each distinct island to its single nearest appearance.
  // A player can still travel continuously, but cannot see repeated clones.
@@ -244,34 +244,17 @@ function frame(now){
    0,
    nearestWrappedOffset(ship.position.z,mass.userData.centerZ,world.height)
   );
-  // Cross-dissolve the local flat land into its map-derived globe proxy.
-  // Collision always keeps using the unchanged canonical land-height data.
-  const opacity=1-profile.curvature;
-  mass.visible=opacity>.002;
-  mass.traverse(node=>{
-   if(!node.isMesh)return;
-   node.material.transparent=opacity<.999;
-   node.material.opacity=opacity;
-   node.material.depthWrite=opacity>.999;
-  });
+  // Keep actual islands fully opaque and bend their GPU vertices with
+  // precisely the same horizon function as the sea. No detached land proxy,
+  // blue overlay, or per-frame transparency/material traversal.
  }
  // A cheap billboard replaces each floating island as it recedes.
  // The card follows the same wrapped coordinate as the real 3D parent;
  // no object ever vanishes merely because it crossed an arbitrary LOD band.
- for(let i=0;i<floatingInstances.length;i++){
+ // Floating islands remain deliberately airborne, bright and readable.
+ // Their semantic positions and near/mid/far impostors are unchanged.
+ for(let i=0;i<floatingInstances.length;i++)
   updateIslandImpostor(islandCards[i],floatingInstances[i].group,ship.position,world);
-  const opacity=1-profile.curvature;
-  const group=floatingInstances[i].group;
-  group.traverse(node=>{
-   if(!node.isMesh)return;
-   node.material.opacity*=opacity;
-   if(opacity<.999)node.material.depthWrite=false;
-  });
-  if(opacity<.002)group.visible=false;
-  islandCards[i].mid.material.opacity*=opacity;
-  islandCards[i].far.material.opacity*=opacity;
-  if(opacity<.002){islandCards[i].mid.visible=false;islandCards[i].far.visible=false;}
- }
  const dx=Math.sin(yaw),dz=Math.cos(yaw);
  const desired=new THREE.Vector3(
   ship.position.x+dx*profile.cameraDistance,
@@ -279,9 +262,10 @@ function frame(now){
   ship.position.z+dz*profile.cameraDistance
  );
  camera.position.lerp(desired,1-Math.exp(-3.2*dt));
- camera.lookAt(ship.position.x-dx*(17+19*profile.cruise),
+ // At altitude the camera gazes toward the curved horizon, not straight down.
+ camera.lookAt(ship.position.x-dx*(33+70*profile.curvature),
   ship.position.y-profile.lookDown,
-  ship.position.z-dz*(17+19*profile.cruise));
+  ship.position.z-dz*(33+70*profile.curvature));
  camera.rotateZ(bank*.12);
  const nextFov=damp(camera.fov,profile.fieldOfView+
   ((held.has("ShiftLeft")||held.has("ShiftRight"))?2:0),4,dt);

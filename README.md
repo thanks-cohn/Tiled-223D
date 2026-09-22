@@ -16,9 +16,9 @@ For ongoing engine tasks see [docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md), but
 
 ---
 
-## Experimental dreamlike altitude flight (this branch only)
+## Horizon-first V2 (this branch only)
 
-This branch adds smoother banking/acceleration, altitude-scaled travel speed, camera lag and downward reveal, three cloud/parallax layers, and an inexpensive flat-ocean-to-curved-planet visual transition. Ascend with ↑, descend with ↓; high-altitude travel covers the map faster and returns to normal speed as you approach the surface. See [the implementation notes and honest current limitations](docs/DREAMLIKE_ALTITUDE_FLIGHT.md). The globe is a visual projection over the existing flat/wrapped map, **not** a complete spherical physics/navigation engine. This branch is separate from `main`; it requires visual testing on a 4 GB PC before merging.
+This new branch keeps the previous version's smooth flight, banking, altitude-scaled speed and cloud parallax, but **removes the translucent blue globe overlay and detached land-proxy discs**. The single opaque dark-blue ocean gently curves downward near the horizon as you climb. Ordinary islands use the exact same visual curvature and stay fully colored and attached to the ocean, rather than fading or hovering above the globe. Camera gaze follows the horizon during ascent. This is a lightweight **horizon-first** approximation over the unchanged 500 × 500 Tiled map, not a complete spherical physics engine or an orbital planet. See [Horizon-first V2 implementation and limitations](docs/HORIZON_FIRST_V2.md). Your previous experimental branch and `main` are preserved. Please visually test this branch on the 4 GB computer before merging.
 
 ## Floating-island demo (new)
 

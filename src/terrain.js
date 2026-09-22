@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import {cell,ID} from "./world-data.js";
 import {landmasses} from "./landmasses.js";
+import {curveMaterial,horizonOcean} from "./horizon.js";
 // One mesh per terrain material, not one mesh or draw call per tile.
 const materials=[
  new THREE.MeshLambertMaterial({color:"#65a44f",side:THREE.DoubleSide}),
@@ -8,7 +9,7 @@ const materials=[
  new THREE.MeshLambertMaterial({color:"#e2cb88",side:THREE.DoubleSide}),
  new THREE.MeshLambertMaterial({color:"#806d59",side:THREE.DoubleSide})
 ];
-export function terrainGroup(world) {
+export function terrainGroup(world,horizonState=null) {
  const root=new THREE.Group();
  const regions=landmasses(world);
  // A single group per connected island: NEVER nine copies of each region.
@@ -53,16 +54,17 @@ export function terrainGroup(world) {
    const geometry=new THREE.BufferGeometry();
    geometry.setAttribute("position",new THREE.Float32BufferAttribute(data,3));
    geometry.computeVertexNormals();
-   rootForIsland.add(new THREE.Mesh(geometry,materials[material]));
+   rootForIsland.add(new THREE.Mesh(geometry,horizonState?
+    curveMaterial(materials[material],horizonState):materials[material]));
   });
   const trees=treesByRegion[i];
   if(trees.length){
    const trunks=new THREE.InstancedMesh(
     new THREE.CylinderGeometry(.09,.12,.85,5),
-    new THREE.MeshLambertMaterial({color:"#81532d"}),trees.length);
+    curveMaterial(new THREE.MeshLambertMaterial({color:"#81532d"}),horizonState),trees.length);
    const crowns=new THREE.InstancedMesh(
     new THREE.ConeGeometry(.47,1.3,5),
-    new THREE.MeshLambertMaterial({color:"#387945"}),trees.length);
+    curveMaterial(new THREE.MeshLambertMaterial({color:"#387945"}),horizonState),trees.length);
    const dummy=new THREE.Object3D();
    trees.forEach((tree,index)=>{
     const elevation=cell(world,tree.x,tree.z).height;
@@ -78,12 +80,7 @@ export function terrainGroup(world) {
  });
  return root;
 }
-export function oceanPlane(){
- // A camera-centered ocean plane extends beyond the camera far clip. A small
- // circular disk exposes a curved edge, which looked like floating islands.
- const ocean=new THREE.Mesh(new THREE.PlaneGeometry(1800,1800),new THREE.MeshBasicMaterial({color:"#19598d",side:THREE.DoubleSide,depthWrite:true,fog:false}));
- ocean.rotation.x=-Math.PI/2;ocean.position.y=-.35;return ocean;
-}
+export function oceanPlane(horizonState){return horizonOcean(horizonState);}
 export function clouds(scene){
  // ONE small reusable texture for both horizon decoration and reachable clouds.
  // Soft alpha (rather than opaque white circles) makes the nearby layers dreamy.
