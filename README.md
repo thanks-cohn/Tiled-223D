@@ -1,21 +1,20 @@
-# Tiled-223D — standalone Toon World
+# Tiled-223D — Fly the Two-Island World
 
-**Agent handoff:** [AGENTS.md](AGENTS.md) and [docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md). Start there before implementing anything.
+**You do not need Codex.** This repository already has a standalone Three.js browser viewer. Run it locally with the included starter scripts.
 
-A lightweight Tiled 2D semantic terrain + elevation → low-poly browser 3D flight world. This repo is developed independently so it can later be embedded in FrameChute/SUBSTRATE.
+**Windows:** In GitHub, choose **Code → Download ZIP**, extract the ZIP, then double-click `start-world.bat` inside the extracted folder. The first launch installs the small JavaScript dependencies; later launches reuse them. Node.js LTS must be installed on your computer ([nodejs.org](https://nodejs.org/)). A browser window should open to the flight demo. Keep the terminal window running while you play.
 
-## Run the existing prototype
+**Mac/Linux:** Extract the ZIP, open a terminal in the project folder, and run `sh start-world.sh`.
 
-```bash
-npm install
-npm run dev
-npm test
-npm run build
-```
+**Manual launch:** `npm install` followed by `npm run dev -- --open`. Do **not** double-click `index.html` directly: the project uses ES module imports that need the local Vite server.
 
-The standalone viewer currently lives in `index.html` and `src/`. It generates a procedural 500 × 500 two-island world with mostly ocean, ridges, simple ship flight, procedural clouds, and a fade-to-“You're awake” exit placeholder. A sphere is the default ship. Put an optional custom `ship.glb` in `public/ship/` to override it; a missing model leaves the sphere intact. The viewer can also import ordinary Tiled JSON and optional matching elevation JSON.
+**Flight controls:** W/S forward/back, A/D turn, Up/Down ascend/descend, Shift boost, R take off. Import your Tiled map JSON and its separate elevation JSON through the on-screen buttons. The ship defaults to a low-poly sphere; add `public/ship/ship.glb` to replace it.
 
-**Important status:** This is an early visual/flight prototype, not a verified finished terrain engine. The Tiled `.sworld.json` extension export is not yet accepted by the viewer; the 500 × 500 example is generated in JavaScript rather than supplied as a 500 × 500 Tiled map. Sky is currently a scene background, not a separate globe; horizon, geometry streaming, resource budgets, the FrameChute return, and paired-asset workflow require further testing and implementation. See the Codex handoff for ordered tasks and acceptance criteria.
+The default demo procedurally generates a **500 × 500 mostly-ocean world with two sandy-coast islands**; the committed `maps/test-world.tmx` is a separate smaller editing example. This is an early flight/landscape demo, **not yet a fully verified browser experience on a 4 GB machine or a finished FrameChute integration**. The “You're awake” screen is a standalone canvas placeholder.
+
+For ongoing engine tasks see [docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md), but **you can launch and explore without Codex**.
+
+---
 
 ## Editing semantic tiles in Tiled
 
