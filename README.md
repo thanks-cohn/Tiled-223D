@@ -59,16 +59,16 @@ If a world is already running, stop its server (Ctrl+C), download the updated ZI
 - `tilesets/terrain-atlas.svg`: original 7-tile 32px pixel-art palette (trees have transparency).
 - `assets3d/*.gltf`: original, low-poly, lightweight 3D counterparts for every semantic tile, including an actual 3D tree. These are *visual prototypes* and not a physics engine or inferred 3D reconstruction.
 - `assets3d/catalog.json`: stable semantic-to-3D mapping. The tile's `asset3d` property and this catalog point to the same assets.
-- `extension/substrate-world.js`: Tiled JavaScript export plugin for `.sworld.json`, with per-cell semantic descriptions.
+- The optional Tiled JavaScript exporter is excluded from this V5 branch's download following a Windows Security detection. The browser viewer does not need it.
 - `docs/SCHEMA.md`: coordinate system, layer rules and how agents and future renderers should use the data.
 
 ## Open and paint
 
 Clone/download the repository **with its folders intact**, then open `maps/test-world.tmx` in Tiled. Select `Ground` to paint grass/dirt/sand/ocean/river/lake. Select `Structures` to paint trees over a ground tile. Keep `Spawns/LandingPoint` on walkable ground. The three water tiles have distinct colors and distinct `waterBody` semantics: ocean != river != lake even though their physical material is water.
 
-## Install exporter in Tiled
+## Export maps from Tiled
 
-Copy `extension/substrate-world.js` into Tiled's user extensions folder (open it from Tiled's Preferences > Plugins), then reopen/reload Tiled if needed. Open your TMX map and choose **File > Export As... > SUBSTRATE semantic world**, saving as `.sworld.json`. The exported format is an agent-readable manifest; the browser import adapter for this format is still pending. Tiled also exports ordinary JSON directly without this extension.
+For the standalone browser viewer, use Tiled's built-in **File > Export As...** and select standard JSON. The optional SUBSTRATE `.sworld.json` exporter is not included in this V5 branch's ZIP. Its browser import adapter was not implemented. No browser viewer feature relies on that optional exporter.
 
 ## 2D/3D switch contract
 
