@@ -1,19 +1,29 @@
 import * as THREE from "three";
 import {CLOUD_LAYERS,CLOUD_RENDER_BUDGET,altitudeCloudProfile,smoothBand} from "./atmosphere-model.js";
-import {globeSurface,GLOBE_RADIUS} from "./horizon.js";
+import {GLOBE_RADIUS} from "./horizon.js";
+import {cloudAppearance,cloudMotionProfile,cloudRecyclePolicy,seededCloudPlacement,CLOUD_FAMILIES} from "./cloud-choreography.js";
 
 // All 4 decks reuse one tiny alpha texture; no volumetric lighting, new water
 // body, weather simulation, external images, or continuously created geometry.
-function makeSoftCloudTexture(){
+function makeSoftCloudTexture(family=0){
  const canvas=document.createElement("canvas");
  canvas.width=128;canvas.height=64;
  const ctx=canvas.getContext("2d");
  if(!ctx)throw Error("Cloud texture canvas unavailable");
- for(const [x,y,rx,ry] of [[29,39,27,18],[50,27,28,24],[78,31,27,23],[101,43,20,14]]){
+ // Four deliberately different families, drawn ONCE per engine startup.
+ // Reusing the same four tiny texture objects provides variety without
+ // generating images or materials while flying.
+ const shapes=[
+  [[27,40,24,15],[48,29,23,24],[77,30,26,22],[103,40,20,14]],
+  [[18,39,19,6],[40,29,29,7],[80,37,38,7],[106,27,20,5]],
+  [[24,42,32,10],[59,37,39,15],[91,36,32,12],[115,43,16,8]],
+  [[17,44,15,8],[45,24,16,19],[66,39,19,8],[96,31,18,14],[116,43,10,6]]
+ ];
+ for(const [x,y,rx,ry] of shapes[family]||shapes[0]){
   ctx.save();ctx.translate(x,y);ctx.scale(rx,ry);
   const glow=ctx.createRadialGradient(0,0,.05,0,0,1);
-  glow.addColorStop(0,"rgba(255,255,255,.81)");
-  glow.addColorStop(.58,"rgba(253,254,255,.55)");
+  glow.addColorStop(0,"rgba(255,255,255,.90)");
+  glow.addColorStop(.57,"rgba(253,254,255,.62)");
   glow.addColorStop(1,"rgba(250,254,255,0)");
   ctx.fillStyle=glow;ctx.beginPath();ctx.arc(0,0,1,0,Math.PI*2);ctx.fill();
   ctx.restore();
