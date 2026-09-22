@@ -16,7 +16,13 @@ For ongoing engine tasks see [docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md), but
 
 ---
 
-## Ocean Momentum V5 (this experimental branch)
+## Four-Layer Atmosphere V6 (this experimental branch)
+
+This branch adds **four deliberately different cloud decks and four smoothly blending altitude moods**: low reachable clouds that sweep past during fast low-altitude travel, middle clouds that establish depth, majestic slow high clouds visible even near sea level, and sparse cloud cards projected over the globe from above. The lowest flight remains calm and cinematic, active ascent emphasizes parallax, higher flight emphasizes scale, and the planetary view shifts to broad cloud formations. The 27-sprite pool shares one tiny generated alpha texture, uses no volumetric simulation, and does not change V5 flight momentum, island geometry, the opaque globe, collision, or the 500 × 500 map.
+
+**Agent/LLM handoff:** [Semantic-Bindings/README.md](Semantic-Bindings/README.md) explains *what changed, why, invariants and source files*. [Semantic-Bindings/atmosphere-v1.json](Semantic-Bindings/atmosphere-v1.json) is a machine-readable manifest for follow-on work. Performance and appearance still require a visual check on the 4 GB Windows test computer before merging.
+
+## Ocean Momentum V5 (previous branch)
 
 **Your existing island speed is preserved as earned momentum when you leave.** Open ocean requires roughly twice the previous acceleration effort at low altitude, but no longer snaps the ship down to an ocean target speed. Flying near/away from a protected island region can earn an **additive island slipstream** that persists into your next journey. Acceleration gradually diminishes at higher speeds while holding W/Shift continues increasing momentum; releasing thrust lets the ship coast. A collision-escape fix allows forward/back movement when already touching or embedded in a surface. Light world-anchored glints on the ocean convey actual low-altitude speed without a heavy particle system. **The world and islands remain their original physical sizes.** [V5 mechanics, tuning, test instructions and limits](docs/OCEAN_MOMENTUM_V5.md).
 
