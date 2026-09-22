@@ -1,17 +1,16 @@
 import * as THREE from "three";
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
-import {sampleWorld,fromTiled,cell,wrap,ID} from "./world-data.js";
+import {sampleWorld,fromTiled,wrap} from "./world-data.js";
 import {terrainGroup,oceanPlane,clouds} from "./terrain.js";
 import islandData from "./worlds/floating-islands.json";
 import {buildFloatingIslands,disposeFloatingIslands} from "./floating-islands.js";
 import {spatialHit} from "./spatial.js";
 import {createWorldMap} from "./world-map.js";
 import {createIslandImpostors,updateIslandImpostor,disposeIslandImpostors} from "./island-impostors.js";
-import {nearestWrappedOffset} from "./landmasses.js";
-import {altitudeProfile,damp,targetTravelSpeed,LIMITS} from "./flight-model.js";
+import {altitudeProfile,damp,LIMITS} from "./flight-model.js";
 import {makeHorizonState,setHorizonPosition,buildOceanGeometry} from "./horizon.js";
 import {makeScaleWorld,SCALE_PRESETS} from "./scale-world.js";
-import {protectedRegions,travelRegion} from "./travel-regions.js";
+import {travelRegion} from "./travel-regions.js";
 import {positionIslandVisual,cinematicShipScale,cameraAscentHeight} from "./visual-anchors.js";
 import {advanceMomentum,createFlybyTracker,resetFlybyTracker,updateFlybys} from "./flight-momentum.js";
 import {terrainBlocksEntry,objectBlocksEntry} from "./flight-collision.js";
@@ -270,7 +269,7 @@ function frame(now){
   const proposedY=pilot.y+verticalVelocity*dt;
   let verticalObstacle=null;
   if(Math.min(proposedY,pilot.y)<=safeFlightCeiling){
-   const vSteps=Math.max(1,Math.ceil(Math.abs(proposedY-ship.position.y)/.75));
+   const vSteps=Math.max(1,Math.ceil(Math.abs(proposedY-pilot.y)/.75));
    for(let i=1;i<=vSteps;i++){
     verticalObstacle=spatialHit(world.objects,pilot.x,
      THREE.MathUtils.lerp(pilot.y,proposedY,i/vSteps),
