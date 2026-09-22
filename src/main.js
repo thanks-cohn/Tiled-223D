@@ -22,7 +22,7 @@ const skyDay=new THREE.Color("#8ad3f8"),skySpace=new THREE.Color("#070d20");
 scene.background=skyDay.clone();
 // This default map wraps every 500 units; 350 clipped islands when turning.
 // 900 keeps every nearest repeated island inside the viewable range.
-const camera=new THREE.PerspectiveCamera(69,innerWidth/innerHeight,.1,900);
+const camera=new THREE.PerspectiveCamera(69,innerWidth/innerHeight,.5,4000);
 const sun=new THREE.DirectionalLight("#fff5db",1.35);sun.position.set(-80,160,-70);scene.add(sun);
 scene.add(new THREE.HemisphereLight("#fff6dc","#52768a",2.1));
 const horizonState=makeHorizonState();
@@ -42,6 +42,7 @@ new GLTFLoader().load("/ship/ship.glb",gltf=>{
 let world=sampleWorld(),copies=[],floatingInstances=[],islandCards=[],yaw=0,mode="world",quality="low",time=0,last=performance.now();
 world.objects=islandData.objects;
 let atmosphereWarned=false,cruise=false,forwardVelocity=0,verticalVelocity=0,bank=0,pitch=0;
+let safeFlightCeiling=0;
 const held=new Set();
 const mapUI=createWorldMap({
  panel:document.getElementById("mapPanel"),canvas:document.getElementById("mapCanvas"),
@@ -53,6 +54,12 @@ document.getElementById("closeMap").addEventListener("click",()=>{mapUI.close();
 function pointGround(x,z){return cell(world,x,z);}
 function setMessage(message){notice.textContent=message;}
 function makeTerrain(){
+ // Above every authoritative terrain and object top, turbo flight needs no
+ // per-substep collision queries; never skip collision near actual surfaces.
+ safeFlightCeiling=world.heights.reduce((maximum,height)=>Math.max(maximum,height),0);
+ for(const object of world.objects||[])for(const part of object.parts||[])
+  safeFlightCeiling=Math.max(safeFlightCeiling,object.at[1]+part.height[1]);
+ safeFlightCeiling+=5;
  disposeIslandImpostors(islandCards,scene);
  islandCards=[];
  for(const item of floatingInstances)scene.remove(item.group);
@@ -172,7 +179,7 @@ function frame(now){
   bank=damp(bank,-turn*.22,4,dt);
   const forward=((held.has("KeyW")||cruise)?1:0)-(held.has("KeyS")?1:0);
   const requestedSpeed=targetTravelSpeed(ship.position.y,boost)*forward;
-  forwardVelocity=damp(forwardVelocity,requestedSpeed,forward?3.1:2.2,dt);
+  forwardVelocity=damp(forwardVelocity,requestedSpeed,forward?(boost?2.4:3.1):2.2,dt);
   if(Math.abs(forwardVelocity)<.02)forwardVelocity=0;
   const distance=forwardVelocity*dt;
   const nextX=ship.position.x-Math.sin(yaw)*distance;
@@ -180,17 +187,19 @@ function frame(now){
   // Even at high-altitude cruise, test the intervening terrain and objects
   // rather than teleporting through an imported tall obstacle.
   let blocked=null;
-  const steps=Math.max(1,Math.ceil(Math.abs(distance)/.75));
-  for(let step=1;step<=steps;step++){
-   const fraction=step/steps,px=THREE.MathUtils.lerp(ship.position.x,nextX,fraction);
-   const pz=THREE.MathUtils.lerp(ship.position.z,nextZ,fraction);
-   const ground=pointGround(px,pz);
-   if(ground.ground!==ID.ocean && ground.height+2>=ship.position.y){
-    blocked="RIDGE AHEAD · Ascend to clear terrain";break;
-   }
-   const obstacle=spatialHit(world.objects,px,ship.position.y,pz,.85,world.width,world.height);
-   if(obstacle){
-    blocked="FLOATING ISLAND · "+obstacle.objectId+" · Fly over, under, or through its opening";break;
+  if(ship.position.y<=safeFlightCeiling){
+   const steps=Math.max(1,Math.ceil(Math.abs(distance)/.75));
+   for(let step=1;step<=steps;step++){
+    const fraction=step/steps,px=THREE.MathUtils.lerp(ship.position.x,nextX,fraction);
+    const pz=THREE.MathUtils.lerp(ship.position.z,nextZ,fraction);
+    const ground=pointGround(px,pz);
+    if(ground.ground!==ID.ocean && ground.height+2>=ship.position.y){
+     blocked="RIDGE AHEAD · Ascend to clear terrain";break;
+    }
+    const obstacle=spatialHit(world.objects,px,ship.position.y,pz,.85,world.width,world.height);
+    if(obstacle){
+     blocked="FLOATING ISLAND · "+obstacle.objectId+" · Fly over, under, or through its opening";break;
+    }
    }
   }
   if(!blocked){ship.position.x=nextX;ship.position.z=nextZ;}
@@ -199,13 +208,15 @@ function frame(now){
   verticalVelocity=damp(verticalVelocity,climb*(32+11*profile.cruise),climb?4.5:3.2,dt);
   if(Math.abs(verticalVelocity)<.015)verticalVelocity=0;
   const proposedY=ship.position.y+verticalVelocity*dt;
-  const vSteps=Math.max(1,Math.ceil(Math.abs(proposedY-ship.position.y)/.75));
   let verticalObstacle=null;
-  for(let i=1;i<=vSteps;i++){
-   verticalObstacle=spatialHit(world.objects,ship.position.x,
-    THREE.MathUtils.lerp(ship.position.y,proposedY,i/vSteps),
-    ship.position.z,.85,world.width,world.height);
-   if(verticalObstacle)break;
+  if(Math.min(proposedY,ship.position.y)<=safeFlightCeiling){
+   const vSteps=Math.max(1,Math.ceil(Math.abs(proposedY-ship.position.y)/.75));
+   for(let i=1;i<=vSteps;i++){
+    verticalObstacle=spatialHit(world.objects,ship.position.x,
+     THREE.MathUtils.lerp(ship.position.y,proposedY,i/vSteps),
+     ship.position.z,.85,world.width,world.height);
+    if(verticalObstacle)break;
+   }
   }
   if(!verticalObstacle)ship.position.y=proposedY;
   else{verticalVelocity=0;setMessage("FLOATING ISLAND · "+verticalObstacle.objectId+" · Surface reached");}
@@ -222,7 +233,7 @@ function frame(now){
   if(ship.position.y<LIMITS.warning-30&&atmosphereWarned){
    atmosphereWarned=false;setMessage("");
   }
-  if(ship.position.y>=LIMITS.exit)worldExit();
+  // Continue free flight above the globe. Wake/Return button is always available.
  }
  const profile=altitudeProfile(ship.position.y);
  ship.rotation.y=yaw;
@@ -234,8 +245,8 @@ function frame(now){
  scene.background.copy(skyDay).lerp(skySpace,profile.skyFade);
  sun.intensity=1.35*(1-.35*profile.skyFade);
  ocean.position.x=ship.position.x;ocean.position.z=ship.position.z;
- setHorizonPosition(horizonState,ship.position,profile.curvature);
- cloudSystem.update(ship.position,world,time,profile);
+ setHorizonPosition(horizonState,ship.position,profile.curvature,profile.globeReveal);
+ cloudSystem.update(ship.position,world,time,profile,Math.abs(forwardVelocity));
  // Independently wrap each distinct island to its single nearest appearance.
  // A player can still travel continuously, but cannot see repeated clones.
  for(const terrain of copies)for(const mass of terrain.children){
@@ -262,13 +273,17 @@ function frame(now){
   ship.position.z+dz*profile.cameraDistance
  );
  camera.position.lerp(desired,1-Math.exp(-3.2*dt));
- // At altitude the camera gazes toward the curved horizon, not straight down.
- camera.lookAt(ship.position.x-dx*(33+70*profile.curvature),
-  ship.position.y-profile.lookDown,
-  ship.position.z-dz*(33+70*profile.curvature));
- camera.rotateZ(bank*.12);
- const nextFov=damp(camera.fov,profile.fieldOfView+
-  ((held.has("ShiftLeft")||held.has("ShiftRight"))?2:0),4,dt);
+ // Approach the true globe view gradually: the planet becomes the camera's
+ // primary subject, not a thin tip at the bottom of the screen. The ship and
+ // authoritative world remain freely navigable throughout this transition.
+ const globe=profile.globeReveal;
+ const focusX=THREE.MathUtils.lerp(ship.position.x-dx*(33+70*profile.curvature),ship.position.x,globe);
+ const focusZ=THREE.MathUtils.lerp(ship.position.z-dz*(33+70*profile.curvature),ship.position.z,globe);
+ const focusY=THREE.MathUtils.lerp(ship.position.y-profile.lookDown,-horizonState.globeRadius.value,globe);
+ camera.lookAt(focusX,focusY,focusZ);
+ camera.rotateZ(bank*.12*(1-globe*.8));
+ const boosting=held.has("ShiftLeft")||held.has("ShiftRight");
+ const nextFov=damp(camera.fov,profile.fieldOfView+(boosting?7:0),4,dt);
  if(Math.abs(camera.fov-nextFov)>.012){camera.fov=nextFov;camera.updateProjectionMatrix();}
  if(mode==="world")positionUI.textContent=
   `X ${wrap(ship.position.x,world.width).toFixed(1)} · Z ${wrap(ship.position.z,world.height).toFixed(1)} · ALT ${ship.position.y.toFixed(1)} · GROUND ${pointGround(ship.position.x,ship.position.z).height.toFixed(1)} · SPEED ${Math.abs(forwardVelocity).toFixed(0)} · ${profile.layer.toUpperCase()}`;
