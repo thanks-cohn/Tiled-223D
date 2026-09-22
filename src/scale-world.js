@@ -84,7 +84,7 @@ export function makeScaleWorld(local,id="current"){
   objects,spawns,placements,regions,mapMarkers,
   groundAt:(x,z)=>groundAt(x,z).ground,
   isOcean:(x,z)=>groundAt(x,z).ground===ID.ocean,
-  sparse:scale.id!=="current",
+  sparse:scale.id!=="current",altitudeScale:scale.altitudeScale,
   localWidth:local.width,localHeight:local.height
  };
  const pathNearLand=(x0,z0,x1,z1)=>{
