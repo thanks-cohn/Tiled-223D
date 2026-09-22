@@ -33,5 +33,6 @@ export function landmasses(world) {
 export function nearestWrappedOffset(position,center,size) {
  if(!Number.isFinite(position)||!Number.isFinite(center)||!Number.isFinite(size)||size<=0)
   throw Error("Invalid wrapped position or size");
- return Math.round((position-center)/size)*size;
+ const turns=Math.round((position-center)/size);
+ return turns===0?0:turns*size; // avoid negative zero at the central copy
 }
