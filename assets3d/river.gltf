@@ -1,0 +1,95 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "Tiled-223D"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "river",
+      "mesh": 0
+    }
+  ],
+  "meshes": [
+    {
+      "name": "river",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0
+          },
+          "indices": 1,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "name": "river",
+      "alphaMode": "BLEND",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.23529411764705882,
+          0.6039215686274509,
+          0.796078431372549,
+          0.78
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.35
+      },
+      "doubleSided": true
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "data:application/octet-stream;base64,AAAAAI/C9bwAAAAAAACAP4/C9bwAAAAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAI/C9bwAAIA/AACAP4/C9bwAAIA/AACAPwAAAAAAAIA/AAAAAAAAAAAAAIA/BAAFAAYABAAGAAcAAQAAAAMAAQADAAIAAAAEAAcAAAAHAAMABQABAAIABQACAAYABwAGAAIABwACAAMAAAABAAUAAAAFAAQA",
+      "byteLength": 168
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 96,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 96,
+      "byteLength": 72,
+      "target": 34963
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 8,
+      "type": "VEC3",
+      "min": [
+        0,
+        -0.03,
+        0
+      ],
+      "max": [
+        1,
+        0,
+        1
+      ]
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    }
+  ]
+}

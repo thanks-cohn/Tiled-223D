@@ -1,32 +1,145 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="30" height="20" tilewidth="32" tileheight="32" infinite="0" nextlayerid="3" nextobjectid="2">
- <tileset firstgid="1" name="grass" tilewidth="32" tileheight="32" tilecount="1" columns="1">
-  <image source="../tilesets/grass.png" width="32" height="32"/>
-  <tile id="0"><properties><property name="material" value="grass"/><property name="walkable" type="bool" value="true"/><property name="elevation" type="float" value="0"/></properties></tile>
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="30" height="20" tilewidth="32" tileheight="32" infinite="0" nextlayerid="4" nextobjectid="2">
+ <properties>
+  <property name="substrateSchema" value="terrain-v1"/>
+  <property name="metersPerTile" type="float" value="1"/>
+ </properties>
+ <tileset firstgid="1" name="substrate-terrain-v1" tilewidth="32" tileheight="32" tilecount="7" columns="7">
+  <image source="../tilesets/terrain-atlas.svg" width="224" height="32"/>
+  <tile id="0" type="grass">
+   <properties>
+    <property name="semantic" value="grass"/>
+    <property name="kind" value="terrain"/>
+    <property name="material" value="grass"/>
+    <property name="walkable" type="bool" value="true"/>
+    <property name="liquid" type="bool" value="false"/>
+    <property name="asset3d" value="assets3d/grass.gltf"/>
+    <property name="description" value="Firm grassy ground; default landing surface."/>
+   </properties>
+  </tile>
+  <tile id="1" type="dirt">
+   <properties>
+    <property name="semantic" value="dirt"/>
+    <property name="kind" value="terrain"/>
+    <property name="material" value="soil"/>
+    <property name="walkable" type="bool" value="true"/>
+    <property name="liquid" type="bool" value="false"/>
+    <property name="asset3d" value="assets3d/dirt.gltf"/>
+    <property name="description" value="Firm brown dirt path or bare soil."/>
+   </properties>
+  </tile>
+  <tile id="2" type="sand">
+   <properties>
+    <property name="semantic" value="sand"/>
+    <property name="kind" value="terrain"/>
+    <property name="material" value="sand"/>
+    <property name="walkable" type="bool" value="true"/>
+    <property name="liquid" type="bool" value="false"/>
+    <property name="asset3d" value="assets3d/sand.gltf"/>
+    <property name="description" value="Dry sandy terrain or shoreline."/>
+   </properties>
+  </tile>
+  <tile id="3" type="ocean">
+   <properties>
+    <property name="semantic" value="ocean"/>
+    <property name="kind" value="water"/>
+    <property name="material" value="water"/>
+    <property name="walkable" type="bool" value="false"/>
+    <property name="liquid" type="bool" value="true"/>
+    <property name="asset3d" value="assets3d/ocean.gltf"/>
+    <property name="description" value="Deep blue open ocean; not a walkable surface."/>
+    <property name="waterBody" value="ocean"/>
+   </properties>
+  </tile>
+  <tile id="4" type="river">
+   <properties>
+    <property name="semantic" value="river"/>
+    <property name="kind" value="water"/>
+    <property name="material" value="water"/>
+    <property name="walkable" type="bool" value="false"/>
+    <property name="liquid" type="bool" value="true"/>
+    <property name="asset3d" value="assets3d/river.gltf"/>
+    <property name="description" value="Flowing lighter-blue freshwater river."/>
+    <property name="waterBody" value="river"/>
+   </properties>
+  </tile>
+  <tile id="5" type="lake">
+   <properties>
+    <property name="semantic" value="lake"/>
+    <property name="kind" value="water"/>
+    <property name="material" value="water"/>
+    <property name="walkable" type="bool" value="false"/>
+    <property name="liquid" type="bool" value="true"/>
+    <property name="asset3d" value="assets3d/lake.gltf"/>
+    <property name="description" value="Still medium-blue freshwater lake."/>
+    <property name="waterBody" value="lake"/>
+   </properties>
+  </tile>
+  <tile id="6" type="tree">
+   <properties>
+    <property name="semantic" value="tree"/>
+    <property name="kind" value="structure"/>
+    <property name="material" value="wood"/>
+    <property name="walkable" type="bool" value="false"/>
+    <property name="liquid" type="bool" value="false"/>
+    <property name="asset3d" value="assets3d/tree.gltf"/>
+    <property name="description" value="Low-poly tree; paint this above a ground tile on the Structures layer."/>
+   </properties>
+  </tile>
  </tileset>
  <layer id="1" name="Ground" width="30" height="20">
-  <properties><property name="role" value="landing_surface"/><property name="walkable" type="bool" value="true"/></properties>
+  <properties>
+   <property name="role" value="landing_surface"/>
+   <property name="coordinatePlane" value="XZ"/>
+  </properties>
   <data encoding="csv">
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+  4,4,4,4,3,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+  4,4,4,4,3,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+  4,4,4,4,3,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+  4,4,4,4,3,3,1,1,1,5,5,5,5,5,1,1,1,1,1,1,1,1,1,1,5,5,5,5,1,1
+  4,4,4,4,3,3,1,5,5,1,5,5,1,5,5,5,5,1,1,1,1,1,5,5,1,5,5,1,1,1
+  4,4,4,4,3,3,1,5,5,1,1,1,1,1,5,1,5,5,5,5,5,5,5,5,1,1,1,1,1,1
+  4,4,4,4,3,3,1,1,1,1,1,1,1,1,1,1,1,5,1,5,5,1,1,1,1,1,1,1,1,1
+  4,4,4,4,3,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+  4,4,4,4,3,3,1,1,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+  4,4,4,4,3,3,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+  4,4,4,4,3,3,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+  4,4,4,4,3,3,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,1,1,6,6,6,6,6,1,1
+  4,4,4,4,3,3,1,1,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,6,6,6,6,6,1,1
+  4,4,4,4,3,3,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,6,6,6,6,6,1,1
+  4,4,4,4,3,3,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,6,6,6,6,6,1,1
+  4,4,4,4,3,3,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,6,6,6,6,6,1,1
+  4,4,4,4,3,3,1,1,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+  4,4,4,4,3,3,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+  4,4,4,4,3,3,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+  4,4,4,4,3,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+  </data>
+ </layer>
+ <layer id="3" name="Structures" width="30" height="20">
+  <properties>
+   <property name="role" value="structure"/>
+  </properties>
+  <data encoding="csv">
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,7,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
   </data>
  </layer>
  <objectgroup id="2" name="Spawns">
