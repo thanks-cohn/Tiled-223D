@@ -2,6 +2,9 @@ import * as THREE from "three";
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 import {sampleWorld,fromTiled,cell,wrap,ID} from "./world-data.js";
 import {terrainGroup,oceanPlane,clouds} from "./terrain.js";
+import islandData from "./worlds/floating-islands.json";
+import {buildFloatingIslands,disposeFloatingIslands} from "./floating-islands.js";
+import {spatialHit} from "./spatial.js";
 
 const view=document.getElementById("view");
 const positionUI=document.getElementById("position"),statusUI=document.getElementById("status");
@@ -28,12 +31,17 @@ new GLTFLoader().load("/ship/ship.glb",gltf=>{
  ship.add(gltf.scene);
 },undefined,()=>{ /* no uploaded model yet: retain the sphere */ });
 
-let world=sampleWorld(),copies=[],yaw=0,mode="world",quality="low",time=0,last=performance.now();
+let world=sampleWorld(),copies=[],floatingInstances=[],yaw=0,mode="world",quality="low",time=0,last=performance.now();
+world.objects=islandData.objects;
 let atmosphereWarned=false, cruise=false;
 const held=new Set();
 function pointGround(x,z){return cell(world,x,z);}
 function setMessage(message){notice.textContent=message;}
 function makeTerrain(){
+ for(const item of floatingInstances)scene.remove(item.group);
+ disposeFloatingIslands(floatingInstances);
+ floatingInstances=world.objects?.length?buildFloatingIslands(world.objects,islandData.cluster.id):[];
+ for(const item of floatingInstances)scene.add(item.group);
  // Clones share terrain geometry: release it only after all old instances detach.
  const oldGeometry=new Set();
  for(const instance of copies) {
@@ -101,7 +109,7 @@ document.getElementById("import").addEventListener("click",async()=>{
   const map=JSON.parse(await mapFile.text());
   const heights=heightFile?JSON.parse(await heightFile.text()):null;
   const next=fromTiled(map,heights);
-  world=next;makeTerrain();resetSpawn();mode="world";exitUI.classList.remove("show");
+  next.objects=[];world=next;makeTerrain();resetSpawn();mode="world";exitUI.classList.remove("show");
   statusUI.textContent=world.name+" · "+world.width+" × "+world.height+(heights?" · elevated":" · flat (no elevation file)");
  }catch(err){statusUI.textContent="Import error: "+err.message;}
 });
@@ -126,13 +134,25 @@ function frame(now){
   // Wrapping ship/camera positions directly causes a 500-unit camera jump.
   const nextX=ship.position.x-Math.sin(yaw)*speed;
   const nextZ=ship.position.z-Math.cos(yaw)*speed;
-  const target=pointGround(nextX,nextZ);
-  // A high ridge is an actual approach obstacle. Do not teleport through it.
-  if(target.height+2 < ship.position.y || target.ground===ID.ocean){
-   ship.position.x=nextX;ship.position.z=nextZ;
-  }else if(forward){setMessage("RIDGE AHEAD · Ascend to clear terrain");}
+  // Sample intermediate positions so the ship cannot skip a thin floating
+  // island or hillside in a single boosted frame.
+  let blocked=null;
+  const steps=Math.max(1,Math.ceil(Math.abs(speed)/.75));
+  for(let step=1;step<=steps;step++){
+   const fraction=step/steps,px=THREE.MathUtils.lerp(ship.position.x,nextX,fraction);
+   const pz=THREE.MathUtils.lerp(ship.position.z,nextZ,fraction);
+   const ground=pointGround(px,pz);
+   if(ground.ground!==ID.ocean && ground.height+2 >= ship.position.y){blocked="RIDGE AHEAD · Ascend to clear terrain";break;}
+   const obstacle=spatialHit(world.objects,px,ship.position.y,pz,.85,world.width,world.height);
+   if(obstacle){blocked="FLOATING ISLAND · "+obstacle.objectId+" · Fly over, under, or through its opening";break;}
+  }
+  if(!blocked){ship.position.x=nextX;ship.position.z=nextZ;}
+  else if(speed!==0)setMessage(blocked);
   const climb=(held.has("ArrowUp")?1:0)-(held.has("ArrowDown")?1:0);
-  ship.position.y+=climb*32*dt;
+  const proposedY=ship.position.y+climb*32*dt;
+  const verticalObstacle=climb!==0?spatialHit(world.objects,ship.position.x,proposedY,ship.position.z,.85,world.width,world.height):null;
+  if(!verticalObstacle)ship.position.y=proposedY;
+  else setMessage("FLOATING ISLAND · "+verticalObstacle.objectId+" · Surface reached");
   const floor=pointGround(ship.position.x,ship.position.z).height;
   if(ship.position.y<floor+2){ship.position.y=floor+2;if(climb<0)setMessage("Touchdown · Press ↑ to ascend");}
   ship.position.y=Math.min(2000,Math.max(1.8,ship.position.y));
@@ -156,6 +176,12 @@ function frame(now){
   const centerZ=instance.position.z+world.height/2;
   instance.visible=Math.abs(centerX-ship.position.x)<world.width/2+camera.far
     && Math.abs(centerZ-ship.position.z)<world.height/2+camera.far;
+ }
+ for(const {object,group} of floatingInstances){
+  const x=object.at[0]+Math.round((ship.position.x-object.at[0])/world.width)*world.width;
+  const z=object.at[2]+Math.round((ship.position.z-object.at[2])/world.height)*world.height;
+  group.position.set(x,object.at[1],z);
+  group.visible=Math.hypot(x-ship.position.x,z-ship.position.z)<camera.far+25;
  }
  const behind=13,dx=Math.sin(yaw),dz=Math.cos(yaw);
  const desired=new THREE.Vector3(ship.position.x+dx*behind,ship.position.y+6,ship.position.z+dz*behind);
