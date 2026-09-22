@@ -380,7 +380,7 @@ function frame(now){
  camera.rotateZ(bank*.12*(1-globe*.8));
  const nextFov=damp(camera.fov,profile.fieldOfView+(boosting?7:0),4,dt);
  if(Math.abs(camera.fov-nextFov)>.012){camera.fov=nextFov;camera.updateProjectionMatrix();}
- cloudSystem.update(pilot,world,time,profile,Math.abs(forwardVelocity),pilot,camera);
+ cloudSystem.update(pilot,world,time,profile,forwardVelocity,pilot,camera,yaw);
  if(mode==="world")positionUI.textContent=
   `X ${wrap(pilot.x,world.width).toFixed(1)} · Z ${wrap(pilot.z,world.height).toFixed(1)} · ALT ${pilot.y.toFixed(1)} · GROUND ${pointGround(pilot.x,pilot.z).height.toFixed(1)} · MOMENTUM ${Math.abs(forwardVelocity).toFixed(0)} · ${currentTravel.mode.toUpperCase()} · ${profile.layer.toUpperCase()}`;
  renderer.render(scene,camera);
