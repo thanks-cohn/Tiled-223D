@@ -112,6 +112,9 @@ export function clouds(scene){
  // Far/background decoration: intentionally unreachable. All these sprites
  // stay hundreds of units away, following the camera like the sky dome.
  const distant=Array.from({length:10},(_,i)=>makeSprite(.41,66+(i%4)*20,21+(i%3)*7));
+ // Mid-atmosphere wisps drift at a different apparent rate from both the
+ // horizon decoration and the fixed, fly-through clouds.
+ const middle=Array.from({length:6},(_,i)=>makeSprite(.23,42+(i%3)*16,17+(i%2)*8));
  // Exactly four world-anchored cloud formations with three layered sprites each.
  // They do NOT follow the ship; you can actually fly into and through them.
  const reachable=Array.from({length:4},()=>Array.from({length:3},(_,j)=>
@@ -123,13 +126,27 @@ export function clouds(scene){
  const cloudFog=new THREE.FogExp2("#eaf3f7",.033);
  let inside=false;
  return {
-  update(ship,world,time){
-   const altitudeFade=THREE.MathUtils.clamp((310-ship.y)/90,0,1);
+  update(ship,world,time,profile=null){
+   const altitudeFade=profile?.cloudFade ??
+     1-THREE.MathUtils.smoothstep(ship.y,210,315);
+   // Distinct layers: physical near cloud coordinates stay fixed; middle
+   // wisps drift moderately; remote sky decoration changes only slowly.
+   // These are designed parallax velocities, not three separate physics sims.
+   const travelPhase=(ship.x+ship.z);
    distant.forEach((sprite,i)=>{
-    const angle=i*2.399963,radius=525+(i%4)*64;
+    const angle=i*2.399963+time*.0004+travelPhase*.00017;
+    const radius=525+(i%4)*64;
     sprite.position.set(ship.x+Math.cos(angle)*radius,
-      ship.y+67+(i%4)*34,ship.z+Math.sin(angle)*radius);
-    sprite.material.opacity=altitudeFade*.41;
+      85+(i%4)*23,ship.z+Math.sin(angle)*radius);
+    sprite.material.opacity=altitudeFade*.38;
+    sprite.visible=altitudeFade>.001;
+   });
+   middle.forEach((sprite,i)=>{
+    const angle=i*1.047+time*.0011+travelPhase*.00052;
+    const radius=255+(i%3)*42;
+    sprite.position.set(ship.x+Math.cos(angle)*radius,
+      77+(i%3)*19,ship.z+Math.sin(angle)*radius);
+    sprite.material.opacity=altitudeFade*.24;
     sprite.visible=altitudeFade>.001;
    });
    let inAny=false;
@@ -156,7 +173,7 @@ export function clouds(scene){
    return {inside};
   },
   dispose(){
-   for(const sprite of [...distant,...reachable.flat()]) {
+   for(const sprite of [...distant,...middle,...reachable.flat()]) {
     scene.remove(sprite);sprite.material.dispose();
    }
    texture.dispose();
