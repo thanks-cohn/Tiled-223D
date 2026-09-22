@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Tiled-223D | Enter the World</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0c1726;color:#f0f5fa;font:14px system-ui,sans-serif;overflow:hidden}
+#view{position:fixed;inset:0}canvas{display:block}#hud{position:fixed;left:14px;top:12px;max-width:min(510px,calc(100vw - 28px));padding:12px 14px;background:#0b2334ca;border:1px solid #ffffff39;border-radius:12px;line-height:1.6}
+h1{font-size:17px;margin:0 0 4px}button,label.file{display:inline-block;color:#f5fbff;border:1px solid #cce8ff65;background:#1c516e;border-radius:7px;padding:6px 9px;margin:3px 4px 2px 0;cursor:pointer;font:inherit}
+button:hover,label.file:hover{background:#2b6585}input[type=file]{display:none}
+#notice{position:fixed;left:50%;top:18%;transform:translateX(-50%);font-weight:700;font-size:19px;text-align:center;color:#fff7c7;text-shadow:0 2px 10px #122536}
+#exit{position:fixed;inset:0;background:#09101c;opacity:0;visibility:hidden;transition:opacity 1.15s;display:grid;place-content:center;text-align:center;z-index:5}
+#exit.show{visibility:visible;opacity:1}#exit h2{font-size:clamp(28px,7vw,58px);font-weight:400;letter-spacing:.04em;margin:0 0 14px}#exit p{font-size:16px;color:#b3cad8}
+#exit button{margin:18px auto}
+#help{color:#c4dae4;font-size:12px}#status{color:#b8eecc}
+</style></head><body>
+<div id="view"></div>
+<section id="hud"><h1>Tiled-223D · Toon World</h1>
+<div id="position">Loading world…</div><div id="status">Two Islands · 500 × 500 · low-poly</div>
+<div id="help">W/S: forward/back · A/D: turn · ↑/↓: ascend/descend · Shift: boost · R: take off</div>
+<label class="file">Import Tiled JSON <input id="mapFile" type="file" accept=".json,application/json"/></label>
+<label class="file">Optional elevation JSON <input id="heightFile" type="file" accept=".json,application/json"/></label>
+<button id="import">Load map</button><button id="quality">Quality: Low</button><button id="wake">Return to SUBSTRATE</button>
+</section><div id="notice" role="status" aria-live="polite"></div>
+<section id="exit" aria-live="polite"><div><h2>You're awake.</h2><p>SUBSTRATE canvas · standalone placeholder</p>
+<button id="reenter">Return to Toon World</button></div></section>
+<script type="module" src="/src/main.js"></script>
+</body></html>
