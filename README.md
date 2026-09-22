@@ -16,7 +16,11 @@ For ongoing engine tasks see [docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md), but
 
 ---
 
-## Expansive Ocean V4 (this branch only)
+## Ocean Momentum V5 (this experimental branch)
+
+**Your existing island speed is preserved as earned momentum when you leave.** Open ocean requires roughly twice the previous acceleration effort at low altitude, but no longer snaps the ship down to an ocean target speed. Flying near/away from a protected island region can earn an **additive island slipstream** that persists into your next journey. Acceleration gradually diminishes at higher speeds while holding W/Shift continues increasing momentum; releasing thrust lets the ship coast. A collision-escape fix allows forward/back movement when already touching or embedded in a surface. Light world-anchored glints on the ocean convey actual low-altitude speed without a heavy particle system. **The world and islands remain their original physical sizes.** [V5 mechanics, tuning, test instructions and limits](docs/OCEAN_MOMENTUM_V5.md).
+
+## Expansive Ocean V4 (previous branch)
 
 The existing small island/sky-archipelago cluster is now the **minimum protected diameter for the familiar V3 movement feel**, not a resized asset or map. Within each island's semantic circular region, movement and Shift work as before. Farther out over open ocean, low-altitude crossing requires a longer journey through a smooth, ocean-only travel-speed profile; Shift remains extremely fast, and ascending progressively restores V3's high-altitude travel speeds. The existing 500 × 500 map, terrain geometry, island size, map wrap and collision rules are unchanged. V4 also attempts to keep the ship prominent at high altitude and point floating islands' bottoms toward the globe without shrinking them. See [V4 design, settings and limitations](docs/EXPANSIVE_OCEAN_V4.md). This new branch remains experimental and is not merged into `main` or V3.
 
