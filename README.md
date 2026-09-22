@@ -28,7 +28,9 @@ If a world is already running, stop its server (Ctrl+C), download the updated ZI
 
 **In-game map:** Click **Map (M)** in the flight HUD, or press **M**, to see the current world as a lightweight top-down 2D map without opening Tiled. A yellow arrow marks your ship and heading; pale rings mark floating islands. Flight pauses while the map is open. Click **Back to flight** or press **M / Esc** to close it. Imported Tiled JSON maps appear here too. The map is a viewing tool, not a separate world or a teleporter.
 
-**Visual rendering proposal:** [Geometry-faithful paper diorama impostors and optional learned stylization](docs/PROPOSAL_PAPER_DIORAMA.md). This is a future render mode, not yet implemented.
+**Island visibility fix:** Floating islands now crossfade from their real 3D geometry into a lightweight, geometry-derived painterly card, then a darker distant silhouette. Cards always face the camera and preserve each island's semantic position. The 500 × 500 demonstration also uses a longer 3D viewing range so the ordinary terrain islands are not clipped at the old 350-unit limit. Cards are stylized approximations created once from the island's material-layer dimensions, not yet offscreen snapshots or the advanced multi-angle paper renderer. The physics model remains the real geometry. These changes are in the standalone viewer; they have not been visually benchmarked on a 4 GB machine.
+
+**Future rendering proposal:** [Geometry-faithful paper diorama impostors and optional learned stylization](docs/PROPOSAL_PAPER_DIORAMA.md). The full multi-angle/ML system remains a proposal.
 
 ## Editing semantic tiles in Tiled
 
