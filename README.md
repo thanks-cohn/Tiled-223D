@@ -16,7 +16,11 @@ For ongoing engine tasks see [docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md), but
 
 ---
 
-## Four-Layer Atmosphere V6 (this experimental branch)
+## Three Planet Scales V7 (this experimental branch)
+
+Choose **Current (500²)**, **Bigger (2,500² / 25× area)**, or **Massive (16,000² / 1,024× area)** from the flight HUD. The existing island geometry and 500² source map remain unchanged; bigger planets use sparse island coordinates and procedural ocean instead of constructing enormous tile grids. The planet radius and visible curvature respond to the selected profile. A floating render origin keeps the camera and scenery close to zero in GPU X/Z space to reduce high-altitude jitter. From altitude, cloud cards transition to planes **parallel to the curved planetary ground**, not perpetually facing the camera. A bounded 500² overview and fixed cloud/ocean geometry budgets preserve the low-compute design; this does **not** guarantee a particular FPS on a 4 GB computer. See [V7 implementation and limits](docs/SCALE_PROFILES_V7.md), [agent documentation](Semantic-Bindings/scale-profiles-v1.md) and [machine-readable binding](Semantic-Bindings/scale-profiles-v1.json). This is a separate unmerged branch; the earlier antivirus alert is not addressed by planet scaling.
+
+## Four-Layer Atmosphere V6 (previous branch)
 
 This branch adds **four deliberately different cloud decks and four smoothly blending altitude moods**: low reachable clouds that sweep past during fast low-altitude travel, middle clouds that establish depth, majestic slow high clouds visible even near sea level, and sparse cloud cards projected over the globe from above. The lowest flight remains calm and cinematic, active ascent emphasizes parallax, higher flight emphasizes scale, and the planetary view shifts to broad cloud formations. The 27-sprite pool shares one tiny generated alpha texture, uses no volumetric simulation, and does not change V5 flight momentum, island geometry, the opaque globe, collision, or the 500 × 500 map.
 
