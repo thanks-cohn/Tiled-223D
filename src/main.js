@@ -262,9 +262,10 @@ function frame(now){
   ship.position.z+dz*profile.cameraDistance
  );
  camera.position.lerp(desired,1-Math.exp(-3.2*dt));
- camera.lookAt(ship.position.x-dx*(17+19*profile.cruise),
+ // At altitude the camera gazes toward the curved horizon, not straight down.
+ camera.lookAt(ship.position.x-dx*(33+70*profile.curvature),
   ship.position.y-profile.lookDown,
-  ship.position.z-dz*(17+19*profile.cruise));
+  ship.position.z-dz*(33+70*profile.curvature));
  camera.rotateZ(bank*.12);
  const nextFov=damp(camera.fov,profile.fieldOfView+
   ((held.has("ShiftLeft")||held.has("ShiftRight"))?2:0),4,dt);
