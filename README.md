@@ -28,6 +28,8 @@ If a world is already running, stop its server (Ctrl+C), download the updated ZI
 
 **In-game map:** Click **Map (M)** in the flight HUD, or press **M**, to see the current world as a lightweight top-down 2D map without opening Tiled. A yellow arrow marks your ship and heading; pale rings mark floating islands. Flight pauses while the map is open. Click **Back to flight** or press **M / Esc** to close it. Imported Tiled JSON maps appear here too. The map is a viewing tool, not a separate world or a teleporter.
 
+**Visual rendering proposal:** [Geometry-faithful paper diorama impostors and optional learned stylization](docs/PROPOSAL_PAPER_DIORAMA.md). This is a future render mode, not yet implemented.
+
 ## Editing semantic tiles in Tiled
 
 ## What is here
