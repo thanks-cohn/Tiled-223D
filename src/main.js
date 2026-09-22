@@ -12,6 +12,9 @@ import {altitudeProfile,damp,targetTravelSpeed,LIMITS} from "./flight-model.js";
 import {makeHorizonState,setHorizonPosition} from "./horizon.js";
 import {protectedRegions,travelRegion} from "./travel-regions.js";
 import {positionIslandVisual,cinematicShipScale,cameraAscentHeight} from "./visual-anchors.js";
+import {advanceMomentum,createFlybyTracker,resetFlybyTracker,updateFlybys} from "./flight-momentum.js";
+import {terrainBlocksEntry,objectBlocksEntry} from "./flight-collision.js";
+import {makeOceanSpeedCues} from "./ocean-speed-cues.js";
 
 const view=document.getElementById("view");
 const positionUI=document.getElementById("position"),statusUI=document.getElementById("status");
@@ -30,6 +33,7 @@ scene.add(new THREE.HemisphereLight("#fff6dc","#52768a",2.1));
 const horizonState=makeHorizonState();
 const ocean=oceanPlane(horizonState);scene.add(ocean);
 const cloudSystem=clouds(scene);
+const speedCues=makeOceanSpeedCues(scene);
 
 const ship=new THREE.Group();
 const sphere=new THREE.Mesh(new THREE.SphereGeometry(.9,9,6),new THREE.MeshLambertMaterial({color:"#fbdf77",flatShading:true}));
@@ -44,6 +48,7 @@ new GLTFLoader().load("/ship/ship.glb",gltf=>{
 let world=sampleWorld(),copies=[],floatingInstances=[],islandCards=[],yaw=0,mode="world",quality="low",time=0,last=performance.now();
 world.objects=islandData.objects;
 let regions=protectedRegions(world);
+const flybys=createFlybyTracker();
 let atmosphereWarned=false,cruise=false,forwardVelocity=0,verticalVelocity=0,bank=0,pitch=0;
 let safeFlightCeiling=0;
 const held=new Set();
@@ -96,6 +101,7 @@ function resetSpawn(){
  const offshore=world.width>120 ? 60 : 0;
  const startZ=p.z+offshore;
  ship.position.set(p.x,Math.max(offshore?34:75,pointGround(p.x,startZ).height+23),startZ);
+ resetFlybyTracker(flybys,world,regions,ship.position.x,ship.position.z);
  yaw=0;cruise=false;forwardVelocity=0;verticalVelocity=0;bank=0;pitch=0;
  document.getElementById("cruise").textContent="Fly forward: Off";
  atmosphereWarned=false;setMessage(offshore?"Press W or Fly forward to approach the island. A/D turns.":"");
@@ -182,37 +188,52 @@ function frame(now){
   yaw+=turn*(1.38-.35*profile.cruise)*dt;
   bank=damp(bank,-turn*.22,4,dt);
   const forward=((held.has("KeyW")||cruise)?1:0)-(held.has("KeyS")?1:0);
-  // This changes perceived travel requirements, NOT map size. Each named
-  // destination's existing local diameter retains V3 speed exactly. Ocean
-  // outside its protected circle takes longer to cross near the surface.
-  // Turbo remains much faster, and altitude restores normal travel speed.
+  // Ocean now slows how quickly NEW momentum is earned, never hard-clamps
+  // speed that the player accumulated near an island or from a flyby.
   const travel=travelRegion(world,regions,ship.position.x,ship.position.z,ship.position.y,boost);
-  const requestedSpeed=targetTravelSpeed(ship.position.y,boost)*travel.factor*forward;
-  forwardVelocity=damp(forwardVelocity,requestedSpeed,forward?(boost?2.4:3.1):2.2,dt);
-  if(Math.abs(forwardVelocity)<.02)forwardVelocity=0;
+  forwardVelocity=advanceMomentum(forwardVelocity,forward,dt,{
+   accelerationFactor:travel.factor,
+   altitudeMultiplier:profile.travelMultiplier,
+   boost,openness:travel.openness
+  });
   const distance=forwardVelocity*dt;
   const nextX=ship.position.x-Math.sin(yaw)*distance;
   const nextZ=ship.position.z-Math.cos(yaw)*distance;
   // Even at high-altitude cruise, test the intervening terrain and objects
   // rather than teleporting through an imported tall obstacle.
   let blocked=null;
-  if(ship.position.y<=safeFlightCeiling){
+  if(ship.position.y<=safeFlightCeiling && Math.abs(distance)>1e-7){
+   const startingGround=pointGround(ship.position.x,ship.position.z);
+   const startingHit=spatialHit(world.objects,ship.position.x,ship.position.y,
+    ship.position.z,.85,world.width,world.height);
    const steps=Math.max(1,Math.ceil(Math.abs(distance)/.75));
    for(let step=1;step<=steps;step++){
     const fraction=step/steps,px=THREE.MathUtils.lerp(ship.position.x,nextX,fraction);
     const pz=THREE.MathUtils.lerp(ship.position.z,nextZ,fraction);
-    const ground=pointGround(px,pz);
-    if(ground.ground!==ID.ocean && ground.height+2>=ship.position.y){
-     blocked="RIDGE AHEAD · Ascend to clear terrain";break;
+    if(terrainBlocksEntry(startingGround,pointGround(px,pz),ship.position.y)){
+     blocked="RIDGE AHEAD · Reverse or ascend to clear the surface";break;
     }
-    const obstacle=spatialHit(world.objects,px,ship.position.y,pz,.85,world.width,world.height);
-    if(obstacle){
-     blocked="FLOATING ISLAND · "+obstacle.objectId+" · Fly over, under, or through its opening";break;
+    const obstacle=spatialHit(world.objects,px,ship.position.y,pz,.85,
+     world.width,world.height);
+    if(objectBlocksEntry(startingHit,obstacle)){
+     blocked="FLOATING ISLAND · "+obstacle.objectId+" · Reverse or ascend";break;
     }
    }
   }
-  if(!blocked){ship.position.x=nextX;ship.position.z=nextZ;}
-  else if(distance!==0){forwardVelocity=0;setMessage(blocked);}
+  if(!blocked){
+   ship.position.x=nextX;ship.position.z=nextZ;
+   const flyby=updateFlybys(flybys,world,regions,ship.position.x,ship.position.z,
+    ship.position.y,forwardVelocity,time);
+   if(flyby.reward){
+    // Additive world-speed impulse. No target-speed damping can erase it on
+    // the following frame, even after leaving the cluster for open ocean.
+    forwardVelocity+=flyby.reward;
+    setMessage("ISLAND SLIPSTREAM "+(flyby.reward>0?"+":"")+
+     Math.round(flyby.reward)+" · "+flyby.passed);
+   }
+  }else if(Math.abs(distance)>1e-7){
+   forwardVelocity=0;setMessage(blocked);
+  }
   const climb=(held.has("ArrowUp")?1:0)-(held.has("ArrowDown")?1:0);
   verticalVelocity=damp(verticalVelocity,climb*(32+11*profile.cruise),climb?4.5:3.2,dt);
   if(Math.abs(verticalVelocity)<.015)verticalVelocity=0;
@@ -259,6 +280,10 @@ function frame(now){
  ocean.position.x=ship.position.x;ocean.position.z=ship.position.z;
  setHorizonPosition(horizonState,ship.position,profile.curvature,profile.globeReveal);
  cloudSystem.update(ship.position,world,time,profile,Math.abs(forwardVelocity));
+ const boosting=held.has("ShiftLeft")||held.has("ShiftRight");
+ const currentTravel=travelRegion(world,regions,ship.position.x,ship.position.z,
+  ship.position.y,boosting);
+ speedCues.update(ship.position,world,Math.abs(forwardVelocity),yaw,currentTravel.openness);
  // Independently wrap each distinct island to its single nearest appearance.
  // A player can still travel continuously, but cannot see repeated clones.
  for(const terrain of copies)for(const mass of terrain.children){
@@ -299,11 +324,10 @@ function frame(now){
  const focusY=THREE.MathUtils.lerp(ship.position.y-profile.lookDown,-horizonState.globeRadius.value,globe);
  camera.lookAt(focusX,focusY,focusZ);
  camera.rotateZ(bank*.12*(1-globe*.8));
- const boosting=held.has("ShiftLeft")||held.has("ShiftRight");
  const nextFov=damp(camera.fov,profile.fieldOfView+(boosting?7:0),4,dt);
  if(Math.abs(camera.fov-nextFov)>.012){camera.fov=nextFov;camera.updateProjectionMatrix();}
  if(mode==="world")positionUI.textContent=
-  `X ${wrap(ship.position.x,world.width).toFixed(1)} · Z ${wrap(ship.position.z,world.height).toFixed(1)} · ALT ${ship.position.y.toFixed(1)} · GROUND ${pointGround(ship.position.x,ship.position.z).height.toFixed(1)} · SPEED ${Math.abs(forwardVelocity).toFixed(0)} · ${travelRegion(world,regions,ship.position.x,ship.position.z,ship.position.y,boosting).mode.toUpperCase()} · ${profile.layer.toUpperCase()}`;
+  `X ${wrap(ship.position.x,world.width).toFixed(1)} · Z ${wrap(ship.position.z,world.height).toFixed(1)} · ALT ${ship.position.y.toFixed(1)} · GROUND ${pointGround(ship.position.x,ship.position.z).height.toFixed(1)} · MOMENTUM ${Math.abs(forwardVelocity).toFixed(0)} · ${currentTravel.mode.toUpperCase()} · ${profile.layer.toUpperCase()}`;
  renderer.render(scene,camera);
 }
 requestAnimationFrame(frame);
