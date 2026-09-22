@@ -59,7 +59,7 @@ export function createAtmosphere(scene){
  return {
   update(ship,world,time,profile=null,speed=0){
    const reveal=profile?.globeReveal??0;
-   const state=altitudeCloudProfile(ship.y,reveal);
+   const state=altitudeCloudProfile(profile?.atmosphericAltitude??ship.y,reveal);
    const movement=Math.abs(speed);
    let withinReachableCloud=false;
    for(const {deck,style,sprites} of clouds){
@@ -101,7 +101,7 @@ export function createAtmosphere(scene){
      if(deck.id==="planetary"){
       // Same local globe equations as the ocean's shared deformation. At
       // near-space altitude the cloud cards sit just above the opaque planet.
-      const curved=globeSurface(distance,GLOBE_RADIUS);
+      const curved=globeSurface(distance,profile?.planetRadius??GLOBE_RADIUS);
       const ratio=distance>1e-5?curved.horizontal/distance:1;
       px=ship.x+(x-ship.x)*ratio;
       pz=ship.z+(z-ship.z)*ratio;
