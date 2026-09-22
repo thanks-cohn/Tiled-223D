@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "kind": "semantic-atmosphere-binding",
+  "id": "tiled-223d.four-layer-atmosphere",
+  "status": "experimental",
+  "branch": "feature/four-layer-atmosphere-v6",
+  "intent": "Four cloud decks remain beautiful at every altitude. Nearby real-world cloud parallax and distant slow cloud motion communicate acceleration, atmospheric depth and planetary scale with minimal GPU/CPU work.",
+  "sourceOfTruth": {
+    "profiles": "src/atmosphere-model.js",
+    "renderer": "src/atmosphere-renderer.js",
+    "entrypoint": "src/terrain.js exports createAtmosphere as clouds",
+    "callsite": "src/main.js cloudSystem.update(ship.position,world,time,profile,Math.abs(forwardVelocity))",
+    "globeProjection": "src/horizon.js globeSurface",
+    "test": "tests/atmosphere-model.test.js"
+  },
+  "layers": [
+    {
+      "id": "low",
+      "heightUnits": 72,
+      "windUnitsPerSecond": 0.36,
+      "spriteCount": 9,
+      "relativeMotion": 1,
+      "anchoring": "world-fixed-grid",
+      "reachable": true,
+      "why": "Close optical motion as momentum increases; low hover aesthetics and possible fly-through."
+    },
+    {
+      "id": "middle",
+      "heightUnits": 153,
+      "windUnitsPerSecond": 0.15,
+      "spriteCount": 6,
+      "relativeMotion": 0.46,
+      "anchoring": "world-fixed-grid",
+      "reachable": false,
+      "why": "Slower optical motion from greater physical distance; depth during active ascent."
+    },
+    {
+      "id": "high",
+      "heightUnits": 282,
+      "windUnitsPerSecond": 0.045,
+      "spriteCount": 6,
+      "relativeMotion": 0.12,
+      "anchoring": "distant-camera-relative-sky-ring",
+      "reachable": false,
+      "why": "Six huge cards stay high above the sea-level horizon in a very distant, slow-moving decorative sky ring. They are not physical reachable clouds and move far less than the world-anchored low deck."
+    },
+    {
+      "id": "planetary",
+      "heightUnits": 12,
+      "windUnitsPerSecond": 0.018,
+      "spriteCount": 6,
+      "relativeMotion": 0.035,
+      "anchoring": "visual-globe-surface-projection",
+      "reachable": false,
+      "why": "Sparse cloud cards above single opaque planet surface during the globe reveal; no extra globe mesh."
+    }
+  ],
+  "altitudeMoods": [
+    {
+      "id": "cinematic-hover",
+      "mainRangeUnits": [
+        0,
+        65
+      ],
+      "blendOutUnits": [
+        65,
+        110
+      ],
+      "purpose": "calm ocean, dramatic high clouds, clear deep-blue water/sky horizon"
+    },
+    {
+      "id": "active-flight",
+      "mainRangeUnits": [
+        110,
+        160
+      ],
+      "blendInUnits": [
+        65,
+        110
+      ],
+      "blendOutUnits": [
+        160,
+        225
+      ],
+      "purpose": "strong nearby cloud movement vs slow overhead clouds"
+    },
+    {
+      "id": "expansive-ascent",
+      "mainRangeUnits": [
+        225,
+        300
+      ],
+      "blendInUnits": [
+        160,
+        225
+      ],
+      "blendOutUnits": [
+        300,
+        390
+      ],
+      "purpose": "clouds above and below, emphasize large-scale depth"
+    },
+    {
+      "id": "planetary",
+      "mainRangeUnits": [
+        390,
+        2000
+      ],
+      "blendInUnits": [
+        300,
+        390
+      ],
+      "purpose": "globe-forward cloud formations, high layers visually quiet"
+    }
+  ],
+  "transition": "smoothstep weights only; no hard abrupt visibility toggle at altitude band boundaries",
+  "performance": {
+    "spriteBudget": 27,
+    "textureCount": 1,
+    "texturePixels": [
+      128,
+      64
+    ],
+    "volumetricPasses": 0,
+    "perFrameNewMeshes": 0,
+    "perFrameNewTextures": 0
+  },
+  "invariants": [
+    "Do not resize world or alter collision to implement cloud parallax",
+    "Keep src/horizon.js ocean and terrain projection shared; never add a blue globe overlay",
+    "Keep low clouds world-anchored so apparent motion follows actual ship movement",
+    "Keep LOW clouds physically world-anchored; distant HIGH clouds are decorative camera-relative sky cards with slow angular parallax",
+    "High clouds remain visible from sea-level",
+    "Planetary deck is hidden unless globeReveal is positive",
+    "Do not change src/flight-momentum.js or the island flyby reward",
+    "Do not remove optional Tiled exporter; previous antivirus investigation is separate",
+    "Keep low-memory performance budget and verify on the 4 GB device before merging"
+  ],
+  "outOfScope": [
+    "50,000 × 50,000 sparse-world rendering",
+    "physical atmosphere simulation",
+    "dynamic storms",
+    "day/night calendar",
+    "planetwide true lat-long cloud navigation",
+    "antivirus remediation"
+  ]
+}
