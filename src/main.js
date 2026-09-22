@@ -67,7 +67,11 @@ function pointGround(x,z){return scaleScene.groundAt(x,z);}
 function setMessage(message){notice.textContent=message;}
 function makeTerrain(){
  regions=world.regions;
- camera.far=Math.max(4000,scaleScene.preset.radius*7);
+ // Keep the planet visible at the highest permitted altitude. Camera near is
+ // raised only when sufficiently distant so the 4 GB GPU retains depth
+ // precision instead of shimmering at enormous far/near clipping ratios.
+ camera.far=Math.max(4000,scaleScene.preset.radius*7,
+  2400*scaleScene.preset.altitudeScale+scaleScene.preset.radius*3);
  camera.updateProjectionMatrix();
  const oldOcean=ocean.geometry;
  ocean.geometry=buildOceanGeometry(scaleScene.preset.radius);
@@ -295,6 +299,11 @@ function frame(now){
   // Continue free flight above the globe. Wake/Return button is always available.
  }
  const profile=altitudeProfile(pilot.y,scaleScene.preset.altitudeScale);
+ const near=0.5+Math.min(40,profile.globeReveal*
+  Math.sqrt(scaleScene.preset.radius)*.25);
+ if(Math.abs(camera.near-near)>.08){
+  camera.near=near;camera.updateProjectionMatrix();
+ }
  ship.position.set(0,pilot.y,0);
  ship.rotation.y=yaw;
  ship.rotation.z=bank;
@@ -324,7 +333,10 @@ function frame(now){
   if(!placement){mass.visible=false;continue;}
   const near=scaleScene.nearestLandInstance(pilot,placement);
   mass.position.set(near.x-pilot.x,0,near.z-pilot.z);
-  mass.visible=Math.abs(placement.x-pilot.x)<world.width*2;
+  // Do not render far-away land geometry when its surface patch is on the
+  // other side of the planet. Keep the full local island untouched.
+  mass.visible=Math.hypot(near.x-pilot.x,near.z-pilot.z)<
+   Math.min(world.width*.8,scaleScene.preset.radius*2.6);
   // Keep actual islands fully opaque and bend their GPU vertices with
   // precisely the same horizon function as the sea. No detached land proxy,
   // blue overlay, or per-frame transparency/material traversal.
