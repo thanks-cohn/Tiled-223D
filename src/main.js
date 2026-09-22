@@ -8,6 +8,8 @@ import {spatialHit} from "./spatial.js";
 import {createWorldMap} from "./world-map.js";
 import {createIslandImpostors,updateIslandImpostor,disposeIslandImpostors} from "./island-impostors.js";
 import {nearestWrappedOffset} from "./landmasses.js";
+import {altitudeProfile,damp,targetTravelSpeed,LIMITS} from "./flight-model.js";
+import {createPlanetVisuals} from "./planet-visuals.js";
 
 const view=document.getElementById("view");
 const positionUI=document.getElementById("position"),statusUI=document.getElementById("status");
@@ -38,7 +40,8 @@ new GLTFLoader().load("/ship/ship.glb",gltf=>{
 
 let world=sampleWorld(),copies=[],floatingInstances=[],islandCards=[],yaw=0,mode="world",quality="low",time=0,last=performance.now();
 world.objects=islandData.objects;
-let atmosphereWarned=false, cruise=false;
+const planetVisuals=createPlanetVisuals(scene,ocean,world);
+let atmosphereWarned=false,cruise=false,forwardVelocity=0,verticalVelocity=0,bank=0,pitch=0;
 const held=new Set();
 const mapUI=createWorldMap({
  panel:document.getElementById("mapPanel"),canvas:document.getElementById("mapCanvas"),
@@ -82,7 +85,8 @@ function resetSpawn(){
  const offshore=world.width>120 ? 60 : 0;
  const startZ=p.z+offshore;
  ship.position.set(p.x,Math.max(offshore?34:75,pointGround(p.x,startZ).height+23),startZ);
- yaw=0;cruise=false;document.getElementById("cruise").textContent="Fly forward: Off";
+ yaw=0;cruise=false;forwardVelocity=0;verticalVelocity=0;bank=0;pitch=0;
+ document.getElementById("cruise").textContent="Fly forward: Off";
  atmosphereWarned=false;setMessage(offshore?"Press W or Fly forward to approach the island. A/D turns.":"");
 }
 makeTerrain();resetSpawn();
@@ -103,7 +107,8 @@ function worldExit(){
 }
 function enter(){
  exitUI.classList.remove("show");ship.position.y=Math.max(75,pointGround(ship.position.x,ship.position.z).height+25);
- atmosphereWarned=false;mode="world";setMessage("");held.clear();
+ atmosphereWarned=false;forwardVelocity=0;verticalVelocity=0;bank=0;pitch=0;
+ mode="world";setMessage("");held.clear();
  window.dispatchEvent(new CustomEvent("substrate:world-enter",{detail:{worldId:world.name}}));
 }
 document.getElementById("wake").addEventListener("click",worldExit);
@@ -128,7 +133,8 @@ document.getElementById("import").addEventListener("click",async()=>{
   const map=JSON.parse(await mapFile.text());
   const heights=heightFile?JSON.parse(await heightFile.text()):null;
   const next=fromTiled(map,heights);
-  next.objects=[];world=next;makeTerrain();resetSpawn();mode="world";exitUI.classList.remove("show");
+  next.objects=[];world=next;makeTerrain();planetVisuals.setWorld(world);
+  resetSpawn();mode="world";exitUI.classList.remove("show");
   mapUI.refreshWorld();mapUI.close();
   statusUI.textContent=world.name+" · "+world.width+" × "+world.height+(heights?" · elevated":" · flat (no elevation file)");
  }catch(err){statusUI.textContent="Import error: "+err.message;}
@@ -157,47 +163,79 @@ function frame(now){
  if(mapUI.isOpen())return;
  time+=dt;
  if(mode==="world"){
+  const profile=altitudeProfile(ship.position.y);
   const turn=(held.has("KeyA")?1:0)-(held.has("KeyD")?1:0);
-  yaw+=turn*1.4*dt;
+  const boost=held.has("ShiftLeft")||held.has("ShiftRight");
+  // At altitude the ship turns more gracefully, covering large distances
+  // without turning the planet into a jittering texture beneath the camera.
+  yaw+=turn*(1.38-.35*profile.cruise)*dt;
+  bank=damp(bank,-turn*.22,4,dt);
   const forward=((held.has("KeyW")||cruise)?1:0)-(held.has("KeyS")?1:0);
-  const speed=(held.has("ShiftLeft")||held.has("ShiftRight")?65:27)*dt*forward;
-  // Keep the flight coordinates continuous; wrap ONLY when sampling map data.
-  // Wrapping ship/camera positions directly causes a 500-unit camera jump.
-  const nextX=ship.position.x-Math.sin(yaw)*speed;
-  const nextZ=ship.position.z-Math.cos(yaw)*speed;
-  // Sample intermediate positions so the ship cannot skip a thin floating
-  // island or hillside in a single boosted frame.
+  const requestedSpeed=targetTravelSpeed(ship.position.y,boost)*forward;
+  forwardVelocity=damp(forwardVelocity,requestedSpeed,forward?3.1:2.2,dt);
+  if(Math.abs(forwardVelocity)<.02)forwardVelocity=0;
+  const distance=forwardVelocity*dt;
+  const nextX=ship.position.x-Math.sin(yaw)*distance;
+  const nextZ=ship.position.z-Math.cos(yaw)*distance;
+  // Even at high-altitude cruise, test the intervening terrain and objects
+  // rather than teleporting through an imported tall obstacle.
   let blocked=null;
-  const steps=Math.max(1,Math.ceil(Math.abs(speed)/.75));
+  const steps=Math.max(1,Math.ceil(Math.abs(distance)/.75));
   for(let step=1;step<=steps;step++){
    const fraction=step/steps,px=THREE.MathUtils.lerp(ship.position.x,nextX,fraction);
    const pz=THREE.MathUtils.lerp(ship.position.z,nextZ,fraction);
    const ground=pointGround(px,pz);
-   if(ground.ground!==ID.ocean && ground.height+2 >= ship.position.y){blocked="RIDGE AHEAD · Ascend to clear terrain";break;}
+   if(ground.ground!==ID.ocean && ground.height+2>=ship.position.y){
+    blocked="RIDGE AHEAD · Ascend to clear terrain";break;
+   }
    const obstacle=spatialHit(world.objects,px,ship.position.y,pz,.85,world.width,world.height);
-   if(obstacle){blocked="FLOATING ISLAND · "+obstacle.objectId+" · Fly over, under, or through its opening";break;}
+   if(obstacle){
+    blocked="FLOATING ISLAND · "+obstacle.objectId+" · Fly over, under, or through its opening";break;
+   }
   }
   if(!blocked){ship.position.x=nextX;ship.position.z=nextZ;}
-  else if(speed!==0)setMessage(blocked);
+  else if(distance!==0){forwardVelocity=0;setMessage(blocked);}
   const climb=(held.has("ArrowUp")?1:0)-(held.has("ArrowDown")?1:0);
-  const proposedY=ship.position.y+climb*32*dt;
-  const verticalObstacle=climb!==0?spatialHit(world.objects,ship.position.x,proposedY,ship.position.z,.85,world.width,world.height):null;
+  verticalVelocity=damp(verticalVelocity,climb*(32+11*profile.cruise),climb?4.5:3.2,dt);
+  if(Math.abs(verticalVelocity)<.015)verticalVelocity=0;
+  const proposedY=ship.position.y+verticalVelocity*dt;
+  const vSteps=Math.max(1,Math.ceil(Math.abs(proposedY-ship.position.y)/.75));
+  let verticalObstacle=null;
+  for(let i=1;i<=vSteps;i++){
+   verticalObstacle=spatialHit(world.objects,ship.position.x,
+    THREE.MathUtils.lerp(ship.position.y,proposedY,i/vSteps),
+    ship.position.z,.85,world.width,world.height);
+   if(verticalObstacle)break;
+  }
   if(!verticalObstacle)ship.position.y=proposedY;
-  else setMessage("FLOATING ISLAND · "+verticalObstacle.objectId+" · Surface reached");
+  else{verticalVelocity=0;setMessage("FLOATING ISLAND · "+verticalObstacle.objectId+" · Surface reached");}
   const floor=pointGround(ship.position.x,ship.position.z).height;
-  if(ship.position.y<floor+2){ship.position.y=floor+2;if(climb<0)setMessage("Touchdown · Press ↑ to ascend");}
+  if(ship.position.y<floor+2){
+   ship.position.y=floor+2;verticalVelocity=0;
+   if(climb<0)setMessage("Touchdown · Press ↑ to ascend");
+  }
   ship.position.y=Math.min(2000,Math.max(1.8,ship.position.y));
-  if(ship.position.y>=350&&!atmosphereWarned){atmosphereWarned=true;setMessage("NOTICE NOTICE · Leaving "+world.name+" atmosphere");}
-  if(ship.position.y<320&&atmosphereWarned){atmosphereWarned=false;setMessage("");}
-  if(ship.position.y>=500)worldExit();
+  pitch=damp(pitch,-climb*.11,4,dt);
+  if(ship.position.y>=LIMITS.warning&&!atmosphereWarned){
+   atmosphereWarned=true;setMessage("NOTICE NOTICE · Leaving "+world.name+" atmosphere");
+  }
+  if(ship.position.y<LIMITS.warning-30&&atmosphereWarned){
+   atmosphereWarned=false;setMessage("");
+  }
+  if(ship.position.y>=LIMITS.exit)worldExit();
  }
+ const profile=altitudeProfile(ship.position.y);
  ship.rotation.y=yaw;
- const fade=THREE.MathUtils.clamp((ship.position.y-270)/280,0,1);
- scene.background.copy(skyDay).lerp(skySpace,fade);
- sun.intensity=1.35*(1-.35*fade);
- // Keep sky pale and ocean deep: never merge their colors at the horizon.
+ ship.rotation.z=bank;
+ ship.rotation.x=pitch;
+ // Small idle sway is applied only to the default sphere's visual child,
+ // never to the ship's authoritative navigation or collision transform.
+ sphere.position.y=Math.sin(time*.72)*.09;
+ scene.background.copy(skyDay).lerp(skySpace,profile.skyFade);
+ sun.intensity=1.35*(1-.35*profile.skyFade);
  ocean.position.x=ship.position.x;ocean.position.z=ship.position.z;
- cloudSystem.update(ship.position,world,time);
+ planetVisuals.update(ship.position,profile,world);
+ cloudSystem.update(ship.position,world,time,profile);
  // Independently wrap each distinct island to its single nearest appearance.
  // A player can still travel continuously, but cannot see repeated clones.
  for(const terrain of copies)for(const mass of terrain.children){
@@ -206,18 +244,50 @@ function frame(now){
    0,
    nearestWrappedOffset(ship.position.z,mass.userData.centerZ,world.height)
   );
+  // Cross-dissolve the local flat land into its map-derived globe proxy.
+  // Collision always keeps using the unchanged canonical land-height data.
+  const opacity=1-profile.curvature;
+  mass.visible=opacity>.002;
+  mass.traverse(node=>{
+   if(!node.isMesh)return;
+   node.material.transparent=opacity<.999;
+   node.material.opacity=opacity;
+   node.material.depthWrite=opacity>.999;
+  });
  }
  // A cheap billboard replaces each floating island as it recedes.
  // The card follows the same wrapped coordinate as the real 3D parent;
  // no object ever vanishes merely because it crossed an arbitrary LOD band.
- for(let i=0;i<floatingInstances.length;i++)
+ for(let i=0;i<floatingInstances.length;i++){
   updateIslandImpostor(islandCards[i],floatingInstances[i].group,ship.position,world);
- const behind=13,dx=Math.sin(yaw),dz=Math.cos(yaw);
- const desired=new THREE.Vector3(ship.position.x+dx*behind,ship.position.y+6,ship.position.z+dz*behind);
- camera.position.lerp(desired,Math.min(1,dt*6));
- camera.lookAt(ship.position.x-dx*16,ship.position.y+1,ship.position.z-dz*16);
+  const opacity=1-profile.curvature;
+  const group=floatingInstances[i].group;
+  group.traverse(node=>{
+   if(!node.isMesh)return;
+   node.material.opacity*=opacity;
+   if(opacity<.999)node.material.depthWrite=false;
+  });
+  if(opacity<.002)group.visible=false;
+  islandCards[i].mid.material.opacity*=opacity;
+  islandCards[i].far.material.opacity*=opacity;
+  if(opacity<.002){islandCards[i].mid.visible=false;islandCards[i].far.visible=false;}
+ }
+ const dx=Math.sin(yaw),dz=Math.cos(yaw);
+ const desired=new THREE.Vector3(
+  ship.position.x+dx*profile.cameraDistance,
+  ship.position.y+profile.cameraHeight,
+  ship.position.z+dz*profile.cameraDistance
+ );
+ camera.position.lerp(desired,1-Math.exp(-3.2*dt));
+ camera.lookAt(ship.position.x-dx*(17+19*profile.cruise),
+  ship.position.y-profile.lookDown,
+  ship.position.z-dz*(17+19*profile.cruise));
+ camera.rotateZ(bank*.12);
+ const nextFov=damp(camera.fov,profile.fieldOfView+
+  ((held.has("ShiftLeft")||held.has("ShiftRight"))?2:0),4,dt);
+ if(Math.abs(camera.fov-nextFov)>.012){camera.fov=nextFov;camera.updateProjectionMatrix();}
  if(mode==="world")positionUI.textContent=
-  `X ${wrap(ship.position.x,world.width).toFixed(1)} · Z ${wrap(ship.position.z,world.height).toFixed(1)} · ALT ${ship.position.y.toFixed(1)} · GROUND ${pointGround(ship.position.x,ship.position.z).height.toFixed(1)} · HEADING ${(yaw*180/Math.PI%360).toFixed(0)}°`;
+  `X ${wrap(ship.position.x,world.width).toFixed(1)} · Z ${wrap(ship.position.z,world.height).toFixed(1)} · ALT ${ship.position.y.toFixed(1)} · GROUND ${pointGround(ship.position.x,ship.position.z).height.toFixed(1)} · SPEED ${Math.abs(forwardVelocity).toFixed(0)} · ${profile.layer.toUpperCase()}`;
  renderer.render(scene,camera);
 }
 requestAnimationFrame(frame);
