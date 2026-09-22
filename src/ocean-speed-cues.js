@@ -20,7 +20,7 @@ export function makeOceanSpeedCues(scene){
  scene.add(strokes);
  const clear=(i)=>{const n=i*6;positions[n+1]=positions[n+4]=-10000;};
  return {
-  update(ship,world,speed,heading,openness=0){
+  update(ship,world,speed,heading,openness=0,origin={x:0,z:0}){
    const altitude=Math.min(1,Math.max(0,(ship.y-85)/65));
    const intensity=Math.min(.29,Math.max(0,(Math.abs(speed)-16)/400))*
     (1-altitude)*(0.45+0.55*Math.min(1,openness));
@@ -36,12 +36,13 @@ export function makeOceanSpeedCues(scene){
     const tx=gx+(i%9)-4,tz=gz+Math.floor(i/9)-3;
     const x=(tx+rand(tx,tz,1)) * GRID;
     const z=(tz+rand(tx,tz,2)) * GRID;
-    const ix=((Math.floor(z)%world.height+world.height)%world.height)*world.width+
-      ((Math.floor(x)%world.width+world.width)%world.width);
-    if(world.ground[ix]!==ID.ocean){clear(i);continue;}
+    const ocean=typeof world.isOcean==="function"?world.isOcean(x,z):
+     world.ground[(((Math.floor(z)%world.height)+world.height)%world.height)*world.width+
+      (((Math.floor(x)%world.width)+world.width)%world.width)]===ID.ocean;
+    if(!ocean){clear(i);continue;}
     const n=i*6,half=streakLength*(.45+rand(tx,tz,3)*.5)*.5;
-    positions[n]=x-axisX*half;positions[n+1]=.10;positions[n+2]=z-axisZ*half;
-    positions[n+3]=x+axisX*half;positions[n+4]=.10;positions[n+5]=z+axisZ*half;
+    positions[n]=x-origin.x-axisX*half;positions[n+1]=.10;positions[n+2]=z-origin.z-axisZ*half;
+    positions[n+3]=x-origin.x+axisX*half;positions[n+4]=.10;positions[n+5]=z-origin.z+axisZ*half;
    }
    geometry.attributes.position.needsUpdate=true;
   },
