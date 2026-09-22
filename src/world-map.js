@@ -22,37 +22,49 @@ export function createWorldMap({panel,canvas,label,worldGetter,positionGetter,he
  let visible=false,base=null,builtFor=null;
  const redraw=()=>{
   const world=worldGetter(),w=world.width,h=world.height;
+  // Never allocate a 16k×16k canvas to display a tiny sparse world overview.
+  // All profiles use the SAME bounded 500×500 bitmap budget.
+  const cw=world.sparse?500:w,ch=world.sparse?500:h;
+  const sx=cw/w,sz=ch/h;
   if(builtFor!==world) {
-   canvas.width=w;canvas.height=h;
-   const pixels=context.createImageData(w,h);
-   for(let i=0;i<world.ground.length;i++) {
-    const c=mapColor(world.ground[i],world.heights[i]),p=i*4;
+   canvas.width=cw;canvas.height=ch;
+   const pixels=context.createImageData(cw,ch);
+   for(let i=0;i<cw*ch;i++){
+    const c=world.sparse?COLORS[ID.ocean]:mapColor(world.ground[i],world.heights[i]);
+    const p=i*4;
     pixels.data[p]=c[0];pixels.data[p+1]=c[1];pixels.data[p+2]=c[2];pixels.data[p+3]=255;
    }
-   // Trees and other sparse overlays are cheap to annotate on the map.
-   for(const tree of world.trees||[]) {
+   if(!world.sparse)for(const tree of world.trees||[]) {
     const x=Math.floor(wrap(tree.x,w)),z=Math.floor(wrap(tree.z,h)),i=(z*w+x)*4;
     pixels.data[i]=31;pixels.data[i+1]=94;pixels.data[i+2]=42;
    }
    base=pixels;builtFor=world;
   }
   context.putImageData(base,0,0);
+  if(world.sparse)for(const marker of world.mapMarkers||[]){
+   context.fillStyle="#d4be80";
+   context.beginPath();context.arc(marker.x*sx,marker.z*sz,
+    Math.max(3,marker.radius*sx),0,Math.PI*2);context.fill();
+   context.fillStyle="#639a62";
+   context.beginPath();context.arc(marker.x*sx,marker.z*sz,
+    Math.max(2,marker.radius*sx*.72),0,Math.PI*2);context.fill();
+  }
   for(const object of world.objects||[]) {
    if(!Array.isArray(object.at))continue;
    const {x,z}=mapCoordinates(world,object.at[0],object.at[2]);
-   const size=Math.max(1,Math.min(w,h)*.009);
+   const size=Math.max(2,Math.min(cw,ch)*.009);
    context.strokeStyle="#f9e8b2";context.lineWidth=Math.max(1,size*.45);
-   context.beginPath();context.arc(x,z,size,0,Math.PI*2);context.stroke();
+   context.beginPath();context.arc(x*sx,z*sz,size,0,Math.PI*2);context.stroke();
   }
   const pos=positionGetter(),p=mapCoordinates(world,pos.x,pos.z),heading=headingGetter();
-  const radius=Math.max(1.5,Math.min(w,h)*.012);
+  const radius=Math.max(1.5,Math.min(cw,ch)*.012);
   context.fillStyle="#ffed85";context.strokeStyle="#16263c";context.lineWidth=Math.max(1,radius*.4);
   // Ship points toward its actual heading in the map's X-right, Z-down plane.
   context.beginPath();
   const fx=-Math.sin(heading),fz=-Math.cos(heading),rx=-fz,rz=fx;
-  context.moveTo(p.x+fx*radius*1.6,p.z+fz*radius*1.6);
-  context.lineTo(p.x-fx*radius+rx*radius*.85,p.z-fz*radius+rz*radius*.85);
-  context.lineTo(p.x-fx*radius-rx*radius*.85,p.z-fz*radius-rz*radius*.85);
+  context.moveTo(p.x*sx+fx*radius*1.6,p.z*sz+fz*radius*1.6);
+  context.lineTo(p.x*sx-fx*radius+rx*radius*.85,p.z*sz-fz*radius+rz*radius*.85);
+  context.lineTo(p.x*sx-fx*radius-rx*radius*.85,p.z*sz-fz*radius-rz*radius*.85);
   context.closePath();context.stroke();context.fill();
   label.textContent=world.name+" · "+w+" × "+h+" · Ship X "+p.x.toFixed(1)+" · Z "+p.z.toFixed(1)+" · Alt "+pos.y.toFixed(1);
  };
