@@ -82,7 +82,12 @@ export function createAtmosphere(scene){
      for(const plane of planes)plane.visible=false;
      continue;
     }
-    const spacing=style.spacing;
+    // Planet cloud patches scale optically with radius, not by adding
+    // sprites. The other three decks keep their current near-flight sizes.
+    const planetRatio=deck.id==="planetary"?
+     Math.max(1,radius/GLOBE_RADIUS):1;
+    const spacing=deck.id==="planetary"?
+     Math.max(style.spacing,radius*.42):style.spacing;
     const cx=Math.floor(ship.x/spacing),cz=Math.floor(ship.z/spacing);
     for(let i=0;i<sprites.length;i++){
      const sprite=sprites[i],plane=planes[i];
@@ -94,6 +99,21 @@ export function createAtmosphere(scene){
      const jz=(hash(gx,gz,17)-.5)*spacing*.48;
      let x=(gx+.5)*spacing+jx+time*deck.wind;
      let z=(gz+.5)*spacing+jz-time*deck.wind*.42;
+     if(deck.id==="planetary"){
+      // Six stable semantic formations on the logical world, not an
+      // infinite player-following grid that repaints itself at high speed.
+      const anchorX=world.width*([.22,.49,.77][i%3]);
+      const anchorZ=world.height*([.24,.69][Math.floor(i/3)]);
+      x=anchorX+Math.round((ship.x-anchorX)/world.width)*world.width+
+       time*deck.wind;
+      z=anchorZ+Math.round((ship.z-anchorZ)/world.height)*world.height-
+       time*deck.wind*.42;
+      const visualScale=Math.pow(planetRatio,.75);
+      const w=style.width*(.84+(i%3)*.13)*visualScale;
+      const h=style.height*(.9+(i%2)*.2)*visualScale;
+      sprite.scale.set(w,h,1);
+      plane.scale.copy(sprite.scale);
+     }
      if(deck.id==="high"){
       // Distant sky decoration, not a reachable physical cloud. A sparse
       // slow-moving ring keeps high clouds in the view even while hovering
@@ -107,8 +127,15 @@ export function createAtmosphere(scene){
       z=ship.z+Math.sin(angle)*radius;
      }
      const distance=Math.hypot(x-ship.x,z-ship.z);
-     const fading=1-smoothBand(style.fadeNear,style.fadeFar,distance);
-     const opacity=style.alpha*weight*fading;
+     const fadeScale=deck.id==="planetary"?planetRatio:1;
+     const fading=1-smoothBand(style.fadeNear*fadeScale,
+      style.fadeFar*fadeScale,distance);
+     // Repeated world-coordinate anchors are safely invisible before
+     // switching to another wrapped copy at the far periodic seam.
+     const seamFade=deck.id==="planetary"?
+      1-smoothBand(world.width*.28,world.width*.42,
+       Math.max(Math.abs(x-ship.x),Math.abs(z-ship.z))):1;
+     const opacity=style.alpha*weight*fading*seamFade;
      if(opacity<.006){sprite.visible=false;plane.visible=false;continue;}
      const height=deck.height+((hash(gx,gz,23)-.5)*16);
      const arc=Math.min(distance/radius,Math.PI);
