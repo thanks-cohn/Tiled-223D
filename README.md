@@ -16,7 +16,11 @@ For ongoing engine tasks see [docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md), but
 
 ---
 
-## Horizon-first V2 (this branch only)
+## Globe Center Stage V3 (this branch only)
+
+This branch builds on the clear, single-ocean Horizon-First V2. Fly upward and the curved horizon now **opens into a round planet centered in the camera**, using the same GPU projection for the ocean and *actual ground islands*. You can continue moving above altitude 500; use Return to SUBSTRATE to leave intentionally. Shift gives a strong 8× travel boost, and low-altitude flyby wisps and three cloud layers create richer natural parallax. No translucent blue globe cover, independent floating land discs, heavy volumetric renderer or extra 3D scene is added. [Read V3 design and limitations](docs/GLOBE_CENTERSTAGE_V3.md). Experimental branch: visually test performance and shoreline continuity before merging.
+
+## Horizon-first V2 (previous branch)
 
 This new branch keeps the previous version's smooth flight, banking, altitude-scaled speed and cloud parallax, but **removes the translucent blue globe overlay and detached land-proxy discs**. The single opaque dark-blue ocean gently curves downward near the horizon as you climb. Ordinary islands use the exact same visual curvature and stay fully colored and attached to the ocean, rather than fading or hovering above the globe. Camera gaze follows the horizon during ascent. This is a lightweight **horizon-first** approximation over the unchanged 500 × 500 Tiled map, not a complete spherical physics engine or an orbital planet. See [Horizon-first V2 implementation and limitations](docs/HORIZON_FIRST_V2.md). Your previous experimental branch and `main` are preserved. Please visually test this branch on the 4 GB computer before merging.
 
