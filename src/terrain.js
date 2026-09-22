@@ -54,8 +54,12 @@ export function terrainGroup(world,horizonState=null) {
    const geometry=new THREE.BufferGeometry();
    geometry.setAttribute("position",new THREE.Float32BufferAttribute(data,3));
    geometry.computeVertexNormals();
-   rootForIsland.add(new THREE.Mesh(geometry,horizonState?
-    curveMaterial(materials[material],horizonState):materials[material]));
+   const landMesh=new THREE.Mesh(geometry,horizonState?
+    curveMaterial(materials[material],horizonState):materials[material]);
+   // The GPU projects the flat mesh onto a globe after Three.js has computed
+   // its old planar bounds; culling those stale bounds can make land disappear.
+   landMesh.frustumCulled=false;
+   rootForIsland.add(landMesh);
   });
   const trees=treesByRegion[i];
   if(trees.length){
