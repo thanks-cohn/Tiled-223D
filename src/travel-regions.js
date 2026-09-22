@@ -3,13 +3,14 @@ import {landmasses} from "./landmasses.js";
 
 // Perceptual travel model, NOT a change to map dimensions or island size.
 // Each small semantic location keeps its existing 1:1 flight-speed zone.
-// Open ocean demands more travel time at low altitude; Shift remains a turbo.
+// Ocean demands roughly twice the earlier acceleration effort. This factor
+// now controls NEW acceleration only: earned momentum must not be erased.
 export const EXPANSE=Object.freeze({
  localMinimumDiameter:100,
  maxProtectedDiameter:158,
  boundaryBlend:20,
- oceanCruiseFactor:.11,
- oceanTurboFactor:.22,
+ oceanCruiseFactor:.055,
+ oceanTurboFactor:.11,
  altitudeRecoveryStart:95,
  altitudeRecoveryEnd:260
 });
