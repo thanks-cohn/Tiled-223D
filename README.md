@@ -16,7 +16,13 @@ For ongoing engine tasks see [docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md), but
 
 ---
 
-## Three Planet Scales V7 (this experimental branch)
+## Altitude Parallax Cloud Choreography V8 (this experimental branch)
+
+Four altitude moods now coordinate a **stable world-anchored pool of 27 reusable cloud formations**: peaceful California-highway cruising, active atmospheric flybys, expansive layers above and below, and distant ground-parallel planetary clouds. The renderer reuses four tiny different procedural cloud silhouette textures; size, spacing, opacity and angle vary with a deterministic seed. Low clouds pass and recycle ahead more often; upper clouds stay longer as visual references for speed. Altitude/speed-dependent timers only limit recycling work, never move a visible cloud to fake travel. This is an unmerged experimental child of V7; the original first-person camera, W/S blockage and reported position-reset problems are **tracked, not fixed** in this cloud change.
+
+**Agent entry points:** [V8 cloud binding](Semantic-Bindings/cloud-parallax-v1.md), [machine-readable cloud schema](Semantic-Bindings/cloud-parallax-v1.json) and the new [Bugs/ registry](Bugs/README.md) distinguish implemented behavior from outstanding issues. These changes are intended to remain lightweight on a 4 GB computer, but appearance and FPS require actual in-browser validation before merging.
+
+## Three Planet Scales V7 (previous experimental branch)
 
 Choose **Current (500²)**, **Bigger (2,500² / 25× area)**, or **Massive (16,000² / 1,024× area)** from the flight HUD. The existing island geometry and 500² source map remain unchanged; bigger planets use sparse island coordinates and procedural ocean instead of constructing enormous tile grids. The planet radius and visible curvature respond to the selected profile. A floating render origin keeps the camera and scenery close to zero in GPU X/Z space to reduce high-altitude jitter. From altitude, cloud cards transition to planes **parallel to the curved planetary ground**, not perpetually facing the camera. A bounded 500² overview and fixed cloud/ocean geometry budgets preserve the low-compute design; this does **not** guarantee a particular FPS on a 4 GB computer. See [V7 implementation and limits](docs/SCALE_PROFILES_V7.md), [agent documentation](Semantic-Bindings/scale-profiles-v1.md) and [machine-readable binding](Semantic-Bindings/scale-profiles-v1.json). This is a separate unmerged branch; the earlier antivirus alert is not addressed by planet scaling.
 
