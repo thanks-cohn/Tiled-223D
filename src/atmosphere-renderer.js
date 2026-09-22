@@ -43,36 +43,49 @@ function makeCloudSprite(texture,width,height){
 }
 export function createAtmosphere(scene){
  const texture=makeSoftCloudTexture(),clouds=[];
+ const planeGeometry=new THREE.PlaneGeometry(1,1);
+ const planeNormal=new THREE.Vector3(0,0,1),up=new THREE.Vector3(0,1,0);
+ const surfaceNormal=new THREE.Vector3(),flatPosition=new THREE.Vector3(),surfacePosition=new THREE.Vector3();
  for(const deck of CLOUD_LAYERS){
-  const style=layerStyle[deck.id],sprites=[];
+  const style=layerStyle[deck.id],sprites=[],planes=[];
   for(let i=0;i<deck.count;i++){
-   const sprite=makeCloudSprite(texture,style.width*(.84+(i%3)*.13),
-    style.height*(.9+(i%2)*.2));
-   scene.add(sprite);sprites.push(sprite);
+   const width=style.width*(.84+(i%3)*.13),
+    height=style.height*(.9+(i%2)*.2);
+   const sprite=makeCloudSprite(texture,width,height);
+   const plane=new THREE.Mesh(planeGeometry,new THREE.MeshBasicMaterial({
+    map:texture,transparent:true,opacity:0,depthWrite:false,depthTest:true,
+    side:THREE.DoubleSide,toneMapped:false
+   }));
+   plane.scale.set(width,height,1);
+   plane.visible=false;
+   plane.frustumCulled=false; // GPU projection matches its local position.
+   scene.add(sprite,plane);sprites.push(sprite);planes.push(plane);
   }
-  clouds.push({deck,style,sprites});
+  clouds.push({deck,style,sprites,planes});
  }
  const count=clouds.reduce((n,deck)=>n+deck.sprites.length,0);
  if(count!==CLOUD_RENDER_BUDGET.sprites)throw Error("Atmosphere sprite budget mismatch");
- const origin=new THREE.Vector3();
  let entered=false;
  return {
-  update(ship,world,time,profile=null,speed=0){
+  update(ship,world,time,profile=null,speed=0,origin={x:0,z:0}){
    const reveal=profile?.globeReveal??0;
    const state=altitudeCloudProfile(profile?.atmosphericAltitude??ship.y,reveal);
    const movement=Math.abs(speed);
+   const radius=profile?.planetRadius??GLOBE_RADIUS;
+   const unfold=smoothBand(.08,.75,reveal);
    let withinReachableCloud=false;
-   for(const {deck,style,sprites} of clouds){
+   for(const {deck,style,sprites,planes} of clouds){
     const weight=state.layers[deck.id];
     // Invisible decks do not update expensive pixel/sprite placement.
     if(weight<.003){
      for(const sprite of sprites)sprite.visible=false;
+     for(const plane of planes)plane.visible=false;
      continue;
     }
     const spacing=style.spacing;
     const cx=Math.floor(ship.x/spacing),cz=Math.floor(ship.z/spacing);
     for(let i=0;i<sprites.length;i++){
-     const sprite=sprites[i];
+     const sprite=sprites[i],plane=planes[i];
      const dx=(i%3)-1,dz=Math.floor(i/3)-(deck.id==="planetary"?.5:1);
      const gx=cx+dx,gz=cz+dz;
      // Deterministic world-anchored clouds rather than sprites made on each
@@ -96,24 +109,38 @@ export function createAtmosphere(scene){
      const distance=Math.hypot(x-ship.x,z-ship.z);
      const fading=1-smoothBand(style.fadeNear,style.fadeFar,distance);
      const opacity=style.alpha*weight*fading;
-     if(opacity<.006){sprite.visible=false;continue;}
-     let px=x,py=deck.height+((hash(gx,gz,23)-.5)*16),pz=z;
-     if(deck.id==="planetary"){
-      // Same local globe equations as the ocean's shared deformation. At
-      // near-space altitude the cloud cards sit just above the opaque planet.
-      const curved=globeSurface(distance,profile?.planetRadius??GLOBE_RADIUS);
-      const ratio=distance>1e-5?curved.horizontal/distance:1;
-      px=ship.x+(x-ship.x)*ratio;
-      pz=ship.z+(z-ship.z)*ratio;
-      py=deck.height-curved.drop;
-     }
-     sprite.position.set(px,py,pz);
-     sprite.material.opacity=opacity;
-     sprite.visible=true;
+     if(opacity<.006){sprite.visible=false;plane.visible=false;continue;}
+     const height=deck.height+((hash(gx,gz,23)-.5)*16);
+     const arc=Math.min(distance/radius,Math.PI);
+     const projectedDistance=(radius+height)*Math.sin(arc);
+     const radialRatio=distance>1e-5?projectedDistance/distance:1;
+     const curvedX=ship.x+(x-ship.x)*radialRatio;
+     const curvedZ=ship.z+(z-ship.z)*radialRatio;
+     const curvedY=height-(radius+height)*(1-Math.cos(arc));
+     // Both representations share exactly the same source formation.
+     // At sea level, translucent sprites face the pilot for an iconic sky.
+     // As the globe appears, those sprites CROSSFADE into tangent planes:
+     // their local normal points away from the planet, never toward camera.
+     flatPosition.set(x-origin.x,height,z-origin.z);
+     surfacePosition.set(curvedX-origin.x,curvedY,curvedZ-origin.z);
+     sprite.position.copy(flatPosition);
+     sprite.material.opacity=opacity*(1-unfold);
+     sprite.visible=sprite.material.opacity>.006;
+     plane.position.copy(flatPosition).lerp(surfacePosition,reveal);
+     surfaceNormal.set(
+      distance>1e-5?(x-ship.x)/distance*Math.sin(arc):0,
+      Math.cos(arc),
+      distance>1e-5?(z-ship.z)/distance*Math.sin(arc):0
+     );
+     surfaceNormal.lerpVectors(up,surfaceNormal,reveal).normalize();
+     plane.quaternion.setFromUnitVectors(planeNormal,surfaceNormal);
+     plane.material.opacity=opacity*unfold;
+     plane.visible=plane.material.opacity>.006;
+     // No new material, texture or geometry is created in the update loop.
      // The near deck is the ONLY reachable cloud deck. Passing through it
      // adds soft local opacity without blue fogging over the entire landscape.
      if(deck.id==="low"&&distance<sprite.scale.x*.37 &&
-       Math.abs(ship.y-py)<sprite.scale.y*.44)
+       Math.abs(ship.y-height)<sprite.scale.y*.44)
       withinReachableCloud=true;
     }
    }
@@ -127,10 +154,11 @@ export function createAtmosphere(scene){
     sprites:count,textures:1,volumetricPasses:0};
   },
   dispose(){
-   for(const {sprites} of clouds)for(const sprite of sprites){
-    scene.remove(sprite);sprite.material.dispose();
+   for(const {sprites,planes} of clouds){
+    for(const sprite of sprites){scene.remove(sprite);sprite.material.dispose();}
+    for(const plane of planes){scene.remove(plane);plane.material.dispose();}
    }
-   texture.dispose();
+   planeGeometry.dispose();texture.dispose();
   }
  };
 }
