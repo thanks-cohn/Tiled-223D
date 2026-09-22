@@ -112,6 +112,11 @@ export function clouds(scene){
  // Mid-atmosphere wisps drift at a different apparent rate from both the
  // horizon decoration and the fixed, fly-through clouds.
  const middle=Array.from({length:6},(_,i)=>makeSprite(.23,42+(i%3)*16,17+(i%2)*8));
+ // Thin, world-fixed cloud wisps are close enough to sweep past during a
+ // low-altitude turbo pass. Same tiny texture; no extra particle system.
+ const flyby=Array.from({length:9},(_,i)=>makeSprite(0,17+(i%3)*8,5+(i%2)*3));
+ const flybyAnchors=[[.26,.57],[.31,.61],[.24,.64],[.35,.66],[.28,.72],
+  [.38,.60],[.20,.59],[.32,.76],[.37,.72]];
  // Exactly four world-anchored cloud formations with three layered sprites each.
  // They do NOT follow the ship; you can actually fly into and through them.
  const reachable=Array.from({length:4},()=>Array.from({length:3},(_,j)=>
@@ -123,7 +128,7 @@ export function clouds(scene){
  const cloudFog=new THREE.FogExp2("#eaf3f7",.033);
  let inside=false;
  return {
-  update(ship,world,time,profile=null){
+  update(ship,world,time,profile=null,speed=0){
    const altitudeFade=profile?.cloudFade ??
      1-THREE.MathUtils.smoothstep(ship.y,210,315);
    // Distinct layers: physical near cloud coordinates stay fixed; middle
@@ -139,12 +144,25 @@ export function clouds(scene){
     sprite.visible=altitudeFade>.001;
    });
    middle.forEach((sprite,i)=>{
-    const angle=i*1.047+time*.0011+travelPhase*.00052;
+    const angle=i*1.047+time*.0011+travelPhase*.0017;
     const radius=255+(i%3)*42;
     sprite.position.set(ship.x+Math.cos(angle)*radius,
       77+(i%3)*19,ship.z+Math.sin(angle)*radius);
     sprite.material.opacity=altitudeFade*.24;
     sprite.visible=altitudeFade>.001;
+   });
+   // True spatial parallax: these do not follow the camera. They pass close
+   // when accelerating; their gentle alpha rises with speed, but they never
+   // obscure islands or become solid obstacles.
+   const flybyOpacity=Math.min(.23,Math.max(0,(speed-18)/750))*
+    (1-THREE.MathUtils.smoothstep(ship.y,85,165));
+   flyby.forEach((sprite,i)=>{
+    const [fx,fz]=flybyAnchors[i],lx=world.width*fx,lz=world.height*fz;
+    const x=lx+Math.round((ship.x-lx)/world.width)*world.width;
+    const z=lz+Math.round((ship.z-lz)/world.height)*world.height;
+    sprite.position.set(x,36+(i%5)*7+Math.sin(time*.34+i)*.9,z);
+    sprite.material.opacity=flybyOpacity;
+    sprite.visible=flybyOpacity>.003 && Math.hypot(x-ship.x,z-ship.z)<130;
    });
    let inAny=false;
    reachable.forEach((layers,i)=>{
@@ -170,7 +188,7 @@ export function clouds(scene){
    return {inside};
   },
   dispose(){
-   for(const sprite of [...distant,...middle,...reachable.flat()]) {
+   for(const sprite of [...distant,...middle,...flyby,...reachable.flat()]) {
     scene.remove(sprite);sprite.material.dispose();
    }
    texture.dispose();
