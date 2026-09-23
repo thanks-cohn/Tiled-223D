@@ -57,9 +57,9 @@ test("world-size changes preserve relative destination position and altitude",()
  assert.equal(moved.z,dest.z-14);
  assert.equal(moved.y,80*32);
  assert.deepEqual(transferScalePosition(moved,big,small),p);
- const open=transferScalePosition({x:250,y:45,z:250},small,big);
+ const open=transferScalePosition({x:250,y:45,z:450},small,big);
  assert.equal(open.x,8000);
- assert.equal(open.z,8000);
+ assert.equal(open.z,14400);
  assert.throws(()=>transferScalePosition({x:NaN,y:0,z:0},small,big),/Invalid/);
 });
 test("collision sweep stops at last safe sample instead of resetting or entering a wall",()=>{
