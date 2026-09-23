@@ -9,7 +9,7 @@ export function nextCameraChoice(choice){
 export function cameraViewProfile(atmosphericAltitude,choice="auto"){
  if(!Number.isFinite(atmosphericAltitude)||!CAMERA_CHOICES.includes(choice))
   throw Error("Invalid camera profile");
- const t=Math.max(0,Math.min(1,(atmosphericAltitude-205)/35));
+ const t=Math.max(0,Math.min(1,(atmosphericAltitude-175)/50));
  const overviewBlend=t*t*(3-2*t);
  return {
   // Auto: forward for low and middle, unchanged overview by high/planetary.
@@ -19,4 +19,12 @@ export function cameraViewProfile(atmosphericAltitude,choice="auto"){
   label:choice==="auto"?(overviewBlend>=.5?"Overview (Auto)":"Forward (Auto)"):
    choice==="forward"?"Forward (Manual)":"Overview (Manual)"
  };
+}
+
+export function planetOverviewFov(baseFov,globeReveal,overviewWeight){
+ if(![baseFov,globeReveal,overviewWeight].every(Number.isFinite))
+  throw Error("Invalid planet framing");
+ const amount=Math.min(1,Math.max(0,globeReveal))*
+  Math.min(1,Math.max(0,overviewWeight));
+ return baseFov+(46-baseFov)*amount;
 }
