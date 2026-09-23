@@ -223,7 +223,7 @@ document.getElementById("import").addEventListener("click",async()=>{
   resetSpawn("map import");mode="world";exitUI.classList.remove("show");
   cameraChoice="auto";syncCameraButton();
   mapUI.refreshWorld();mapUI.close();
-  statusUI.textContent=world.name+" · "+world.width+" × "+world.height+(heights?" · elevated":" · flat (no elevation file)");
+  statusUI.textContent=world.name+" · "+world.width+" × "+world.height+((heights||map.substrateElevation)?" · elevated":" · flat (no elevation file)");
  }catch(err){statusUI.textContent="Import error: "+err.message;}
 });
 addEventListener("keydown",e=>{
