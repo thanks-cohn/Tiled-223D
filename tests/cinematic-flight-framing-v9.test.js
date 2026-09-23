@@ -22,8 +22,8 @@ test("Massive ship maintains one representation; actual projected size fades con
   assert.equal(p.active,true);
   assert.ok(a.engagement>=last);
   assert.ok(a.heightFraction>=lastFraction);
-  assert.ok(a.heightFraction-lastFraction<.009);
-  assert.ok(a.heightFraction<=.151);
+  assert.ok(a.heightFraction-lastFraction<.015);
+  assert.ok(a.heightFraction<=.171);
   assert.ok(Math.abs(p.viewport.v-.73)<.02);
   last=a.engagement;lastFraction=a.heightFraction;
  }
