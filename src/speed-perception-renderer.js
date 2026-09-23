@@ -4,7 +4,7 @@ import {speedVisualProfile,travelPhase} from "./speed-perception.js";
 // A fixed-size, single-draw-call set of subtle, peripheral airflow streaks.
 // They are an optical speed cue, NOT fake clouds/land geometry or a second
 // planet. Reuse exactly one buffer/material and keep the center of view clear.
-const STROKES=32,DEPTH=-3.2;
+const STROKES=32;
 export function makeSpeedPerception(camera){
  const coords=new Float32Array(STROKES*6);
  const geometry=new THREE.BufferGeometry();
@@ -32,8 +32,11 @@ export function makeSpeedPerception(camera){
    material.opacity=feel.opacity;
    // Preserve fixed dimensions in camera space, all 32 lines in peripheral
    // bands. Near the horizon and planet center stays unobstructed.
+   // The high-altitude camera increases its near clip plane; a fixed -3.2
+   // cue distance would disappear from the Massive-world orbital view.
+   const depth=-Math.max(3.2,camera.near+1);
    const fovRadians=camera.fov*Math.PI/180;
-   const halfY=Math.abs(DEPTH)*Math.tan(fovRadians/2);
+   const halfY=Math.abs(depth)*Math.tan(fovRadians/2);
    const halfX=halfY*camera.aspect;
    for(let i=0;i<STROKES;i++){
     const side=i%2===0?-1:1;
@@ -51,8 +54,8 @@ export function makeSpeedPerception(camera){
     const xEnd=xStart+side*halfX*length*.33;
     const yEnd=yStart+Math.sign(y||1)*halfY*length*.27;
     const n=i*6;
-    coords[n]=xStart;coords[n+1]=yStart;coords[n+2]=DEPTH;
-    coords[n+3]=xEnd;coords[n+4]=yEnd;coords[n+5]=DEPTH;
+    coords[n]=xStart;coords[n+1]=yStart;coords[n+2]=depth;
+    coords[n+3]=xEnd;coords[n+4]=yEnd;coords[n+5]=depth;
    }
    geometry.attributes.position.needsUpdate=true;
    return feel;
