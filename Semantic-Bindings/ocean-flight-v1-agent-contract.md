@@ -1,34 +1,77 @@
-# Ocean Flight V1 — START HERE for future agents
+# Ocean Flight V1 — START HERE
 
-**Status as of initial brief, 2026-09-23:** the target four-mood wave-family architecture, altitude-shadow and ocean-specific reversible tuning API are **not yet implemented**. This document is a handoff for Codex to complete and update. Do not infer success just because a proposal, prompt or existing two-pool renderer is present. **Branch:** `feature/cinematic-speed-perception-v9`; do not merge to `main` without the owner's explicit later request.
+**Shipped on 2026-09-23:** modular four-family ocean presentation, continuous four-mood orchestration, a soft vertical-under-ship height footprint, Ocean Studio, bounded diagnostics and authorized reversible preset previews. **Not established:** owner aesthetic acceptance, a 4 GB Windows performance result, or the complete disappearance of the screenshot artifact in every camera. Implementation commit: `08acc1bd3ae94b73f50ed982e1bec3d6f454ac59`.
 
-## The human intent in one paragraph
+## North star and invariants
 
-The creator wants a light browser flight experience that is intrinsically beautiful and exhilarating over open ocean on a 4 GB computer. The current speed feeling is appreciated, but the wave strokes appear as random curled hairs and a localized diamond-shaped rendering region is visible on ascent. Make water read as coherent, appealing crests rather than unrelated squiggles. A light under-ship ocean shadow gradually grows/darkens during ascent and becomes a dark, tasteful height reference at top altitude; remove the original sharp patch artifact at its cause, do not just hide it. Four scenic modes must be visually distinct and smoothly related. Once flight V1 is stable, the creator wants to work on authoring GLB worlds placed into Tiled maps; do **not** conflate that separate future task with this one.
+Low flight is intimate and readable at rest; actual travel supplies parallax and speed. Middle flight is richest. High flight is broad and spacious. Top flight is quiet and monumental. Crests are shallow nested/broken bands, never heading-aligned hairs or a ship-centered patch. The light-blue sky, darker ocean, horizon, four cloud layers, camera policies and peripheral speed effect remain independent.
 
-## Read in this order
+Canonical navigation stays flat: Tiled X → world X, elevation → world Y, Tiled Y → world Z. The visual pipeline subtracts the floating origin, then the shared horizon shader bends sea, terrain, wave vertices and shadow vertices. Wave anchors and the shadow center are authoritative world coordinates; viewport positions are observations. Ocean tuning must never write pilot coordinates, terrain IDs, collision, speed, camera mode, GLB assets, or world geography.
 
-1. `docs/CODEX_CINEMATIC_OCEAN_V1_IMPLEMENTATION.md` — definitive implementation assignment and required deliverables, including future agent tools and this file's completion requirements.
-2. `docs/PROPOSAL_CINEMATIC_OCEAN_ALTITUDE_SHADOW.md` — owner-approved artistic intention and four-altitude compositions.
-3. `Semantic-Bindings/spatial-truth-v1.md` and `docs/CODEX_SPATIAL_TRUTH_DEEP_DEBUG_PROMPT.md` — physical vs rendered vs viewport coordinates, diagnostic states, permissioned preview.
-4. Current `src/main.js`, `src/ocean-crest-field.js`, `src/ocean-speed-cues.js`, `src/ocean-speed-style.js`, `src/horizon.js`, `src/flight-model.js`, `src/atmosphere-model.js`, `src/spatial-development.js`; confirm APIs in live source, not this historical snapshot.
-5. `Bugs/flight-and-scale.md`, current tests and CI history — distinguish actual regression, known issue and unverified screenshot aesthetics.
+## Ordered reading path and ownership
 
-## Current starting architecture (before Codex implements this assignment)
+1. `src/ocean-visual-presets.js`: sole defaults, validation, hard ranges, family/mood IDs and deterministic seed.
+2. `src/ocean-mood-model.js`: pure continuous normalized-altitude weights, family style and shadow curve. Normalized altitude is `atmosphericAltitude / 445` for every world scale.
+3. `src/ocean-wave-field.js`: stable IDs, low-frequency orientation, shallow nested groups and sampled world-space controls.
+4. `src/ocean-wave-renderer.js`: four fixed reusable `LineSegments` buffers/caches, ocean-center masking, shared curvature and counters. It does not create another sea.
+5. `src/ocean-shadow.js` and `src/ocean-shadow-renderer.js`: pure vertical-below footprint state and one 64² radial-alpha mesh. Center-on-land and back-horizon cases are rejected.
+6. `src/ocean-visual-controller.js`: lifecycle, inspection, preview/import/export/rollback and developer map. `src/main.js` supplies physical state once per frame.
+7. `src/spatial-development.js`: existing trusted-click, 15-minute capability boundary; ocean mutation requires `adjust`, compare requires `experiment`, and export requires `inspect`.
+8. `docs/OCEAN_STUDIO_TUNING_GUIDE.md`, `ocean-flight-v1.schema.json`, and `ocean-flight-v1-handoff.json` for exact edits and current verification truth.
 
-- `src/flight-model.js`: authoritative numeric world-scale-normalized `atmosphericAltitude` used for visual bands; flight physics is separate.
-- `src/horizon.js`: single curved ocean and terrain visual shader, with the same deformation uniform contract, separate from flat canonical collision/navigation coordinates.
-- `src/ocean-crest-field.js`: deterministic sampled short curved crests and two fixed geographically anchored near/far lattices; this **does not yet constitute** the four specified wave-family divisions.
-- `src/ocean-speed-cues.js`: two bounded pools of 56 near + 32 far crests (at most two draw calls) with altitude crossfade. This is a *baseline to examine*, not evidence of actual visual success; the owner reports hairy strokes and a visible diamond.
-- `src/speed-perception-renderer.js`, `src/atmosphere-model.js`: existing approved-feeling speed cue and four cloud-depth layers; preserve them.
-- `src/spatial-diagnostics.js` / `src/spatial-development.js`: existing bounded read-only spatial diagnostics, user-authorized development/capture/preview functions. **Ocean-specific family/shadow tuning is NOT present yet.** In-browser global APIs do not give an external agent access to a user's running tab without an explicitly authorized bridge.
+## Four families and moods
 
-## Target visual contract, in compact form
+- `near-crest`: short, bright, three-related-band groups. Dominant LOW; visible at rest.
+- `middle-swell`: medium, softer three-band rhythm. Dominant in MIDDLE and restrained in HIGH.
+- `broad-band`: long two-band features. Supports MIDDLE and dominates HIGH.
+- `planetary-contour`: very long, sparse two-band contours. Dominates TOP with a small broad secondary.
 
-LOW: one close detailed coherent wave family, optional faint distant family; shadow almost absent. MIDDLE: near + intermediate + broad families (richest parallax); light soft footprint. THIRD: broad long beautiful bands + restrained medium secondary, noticeably different from top; larger moderately dark footprint. TOP: predominantly very broad slow-looking wave contours + tiny sparse second subset; darkest tasteful soft footprint as altitude reference. Family placement stays world-anchored; perceived speed follows actual motion and projection. Shadow is a deliberate stylized height indicator, not realistic sunlight. All bands transition continuously in both directions; no abrupt geometry/preset switch. The same pattern must not slide with heading, climb or camera.
+`oceanMoodWeights()` overlaps neighboring LOW/MIDDLE/HIGH/TOP centers through a quintic easing and normalizes their sum. Ascent and descent are reversible. Family grid/anchors do not depend on altitude or heading. Actual ship displacement and projection create the perceived near-fast/far-slow motion; default true-water drift is zero.
 
-## Future machine-readable truth (to be supplied by implementing Codex)
+## Shadow policy and dataflow
 
-After implementation, Codex MUST REPLACE/EXPAND this document with **real API names and stable parameter IDs**, and create `ocean-flight-v1.schema.json` and `ocean-flight-v1-handoff.json` in this directory. The handoff must explicitly say what is shipped, which tests and browser captures ran, the implementation commit, known limitations and the exact owner-approved preset. Keep links and source/code maps updated with every visual change. A new ChatGPT/Codex turn should start from this document then use the preset and runtime spatial APIs to locate a selected offending crest, preview one bounded artistic change, A/B compare the same frame, and rollback or commit explicitly.
+The policy is explicitly stylized `vertical-below`, not a physical sun ray. `pilot {x,y,z}` → ocean intersection `{x,0,z}` → canonical ocean test → smooth altitude radius/alpha → floating-origin center → shared ocean curvature shader → camera projection. Radius runs 2.5–82 world units and alpha .015–.34 by default. One radial alpha texture supplies feathering; water remains visible. The renderer is one footprint mesh, not a second ocean or shadow map. Current masking checks the center rather than multi-sampling the whole shoreline; treat that as a known refinement.
 
-**Never claim that an agent can “see the engine” from source code alone.** Real rendered feedback requires an authorized live browser capture/replay or a user-provided screenshot and corresponding numeric trace. Do not silently invent measurements or claim 4 GB performance from Node tests.
+## Runtime APIs
+
+Read-only, always safe:
+
+```js
+window.tiledSpatial.ocean.getPreset()
+window.tiledSpatial.ocean.getMoodState()
+window.tiledSpatial.ocean.getFamilyState("broad-band")
+window.tiledSpatial.ocean.getFootprintState()
+window.tiledSpatial.ocean.getRenderBudget()
+window.tiledSpatial.ocean.getSelectedCrest("near-crest")
+```
+
+After a real click on **Authorize agent tools**:
+
+```js
+const before = tiledSpatial.ocean.getPreset()
+const p = tiledSpatialDevelopment.oceanPreview(
+  {moods:{middle:{weights:{"middle-swell":.8}}}}, "reduce middle clutter")
+tiledSpatialDevelopment.oceanCompare(before, tiledSpatial.ocean.getPreset())
+tiledSpatialDevelopment.oceanRollback(p.id)
+tiledSpatialDevelopment.oceanResetToDefaults()
+tiledSpatialDevelopment.oceanExportPreset()
+tiledSpatialDevelopment.oceanImportPreset(JSON.parse(localPresetText))
+```
+
+All patches pass the single runtime validator. Unknown root properties and out-of-range values fail. Preview state is memory-only; export is explicit and no local file is silently persisted or uploaded. The small accessible Ocean Studio uses the same authorized methods.
+
+## Diagnostics and change causes
+
+Performance mode evaluates numeric styles and updates fixed buffers but collects no trace/history and performs no per-frame JSON serialization. Debug exposes aggregate mood, footprint and render-budget state through getters. Deep Debug can select one representative family crest: semantic ID, seed, cell, source controls, authoritative anchor/control points, rendered curve points, projection, frame and declared change reason. Shadow state reports physical ship, intersection, world center/radius, alpha, policy and clipping. Existing synchronized captures bind physical/camera/render/projection data to the completed frame; explicit image capture still respects its byte limit.
+
+Interpret changes as follows: unchanged crest ID/anchor plus moved viewport = camera projection or physical travel; unchanged ship X/Z plus altitude/mood change = vertical ascent/family crossfade; changed cell/ID after horizontal movement = bounded lattice recycling; shadow X/Z follows only physical ship X/Z. Shader-deformed occlusion and GPU truth remain observationally limited unless measured.
+
+## Performance boundary
+
+There is one authoritative ocean. V1 adds four possible line draw calls and one soft-shadow draw call, one 64² alpha texture, fixed typed arrays, and bounded deterministic caches. Default layout is 20 + 12 + 9 + 6 = 47 crest groups; inactive families do not draw. The preset advertises hard ceilings of 76 crests, 1,824 vertices, five draw calls and 256 cache entries. Low-end reductions should reduce secondary mood weights first, never erase a mood or change physics. Node tests prove bounds/determinism, not frame rate.
+
+## Reproduction and non-regression checklist
+
+Use the deterministic physical replay/capture procedure in `docs/OCEAN_STUDIO_TUNING_GUIDE.md`. Capture low coast, mid boost, high rapid flight, top overview, hover-ascent, shoreline and descent on Current/Bigger/Massive. Verify: no hard diamond; water structure at rest; fixed anchors during hover; reversible blends; ocean-only shadow; horizon preserved; no far-side bleed; no pilot/camera/world changes from preview; buffers/caches remain bounded. Real browser visual inspection and a 4 GB Windows profile remain required.
+
+**Maintenance invariant:** a change to family definitions, mood thresholds, shadow placement or preset shape must update defaults, runtime validation, `ocean-flight-v1.schema.json`, tests and `ocean-flight-v1-handoff.json` in the same commit. Never describe aesthetic success without a capture and human review.

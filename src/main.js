@@ -15,7 +15,7 @@ import {travelRegion} from "./travel-regions.js";
 import {positionIslandVisual,cinematicShipScale,cameraAscentHeight} from "./visual-anchors.js";
 import {advanceMomentum,createFlybyTracker,resetFlybyTracker,updateFlybys} from "./flight-momentum.js";
 import {sweepHorizontal} from "./horizontal-flight.js";
-import {makeOceanSpeedCues} from "./ocean-speed-cues.js";
+import {createOceanVisualController} from "./ocean-visual-controller.js";
 import {measuredTravelSpeed} from "./speed-perception.js";
 import {makeSpeedPerception} from "./speed-perception-renderer.js";
 import {massiveShipPresentation} from "./massive-ship-presentation.js";
@@ -41,10 +41,11 @@ scene.add(new THREE.HemisphereLight("#fff6dc","#52768a",2.1));
 const horizonState=makeHorizonState();
 const ocean=oceanPlane(horizonState);scene.add(ocean);
 const cloudSystem=clouds(scene);
-const speedCues=makeOceanSpeedCues(scene,horizonState);
 scene.add(camera);
 const speedFeeling=makeSpeedPerception(camera);
 const diagnostics=createSpatialDiagnostics();
+const oceanVisual=createOceanVisualController({scene,horizonState,diagnostics,
+ project:point=>projectionOf(point)});
 const composition=createCompositionTransition();
 const massiveFraming=createMassiveFlightFraming();
 const lookCamera=new THREE.PerspectiveCamera();
@@ -406,8 +407,8 @@ function frame(now){
  const boosting=controls.boost;
  const currentTravel=travelRegion(world,regions,pilot.x,pilot.z,
   pilot.y,boosting);
- speedCues.update(pilot,world,Math.abs(forwardVelocity),yaw,
-  currentTravel.openness,pilot,profile);
+ oceanVisual.update({ship:pilot,world,speed:Math.abs(forwardVelocity),origin:pilot,
+  profile:{...profile,planetRadius:scaleScene.preset.radius},frameId:Math.round(time*1000)});
  // Independently wrap each distinct island to its single nearest appearance.
  // A player can still travel continuously, but cannot see repeated clones.
  for(const terrain of copies)for(const mass of terrain.children){
@@ -622,14 +623,19 @@ const developmentAdapter={
  applyPresentation:(patch)=>Object.assign(presentationTuning,patch),
  restorePresentation:(state)=>Object.assign(presentationTuning,state),
  restoreDefaultPresentation:()=>Object.assign(presentationTuning,defaultPresentation),
- captureImage:()=>renderer.domElement.toDataURL("image/webp",.55)
+ captureImage:()=>renderer.domElement.toDataURL("image/webp",.55),
+ ocean:{getPreset:()=>oceanVisual.getPreset(),preview:(patch,reason)=>oceanVisual.preview(patch,reason),
+  rollback:id=>oceanVisual.rollback(id),resetToDefaults:()=>oceanVisual.resetToDefaults(),
+  importPreset:value=>oceanVisual.importPreset(value),exportPreset:()=>oceanVisual.exportPreset(),
+  compare:(before,after)=>oceanVisual.compare(before,after)}
 };
 development=createSpatialDevelopmentController({diagnostics,adapter:developmentAdapter});
 window.tiledSpatial=Object.freeze({
  getObjectSpatialState:(...a)=>diagnostics.getObjectSpatialState(...a),getViewportPosition:(...a)=>diagnostics.getViewportPosition(...a),
  getCameraState:()=>diagnostics.getCameraState(),getSpatialSnapshot:(...a)=>diagnostics.getSpatialSnapshot(...a),
  getSpatialRelationship:(...a)=>diagnostics.getSpatialRelationship(...a),getCoordinateTransform:(...a)=>diagnostics.getCoordinateTransform(...a),
- explainPositionChange:(...a)=>diagnostics.explainPositionChange(...a),exportJSONL:()=>diagnostics.exportJSONL(),incidentReport:(...a)=>diagnostics.incidentReport(...a)
+ explainPositionChange:(...a)=>diagnostics.explainPositionChange(...a),exportJSONL:()=>diagnostics.exportJSONL(),incidentReport:(...a)=>diagnostics.incidentReport(...a),
+ ocean:Object.freeze({getPreset:()=>oceanVisual.getPreset(),getMoodState:()=>oceanVisual.getMoodState(),getFamilyState:id=>oceanVisual.getFamilyState(id),getFootprintState:()=>oceanVisual.getFootprintState(),getRenderBudget:()=>oceanVisual.getRenderBudget(),getSelectedCrest:id=>oceanVisual.getSelectedCrest(id)})
 });
 window.tiledSpatialDevelopment=development.facade;
 const diagnosticMode=document.getElementById("diagnosticMode"),diagnosticOverlay=document.getElementById("diagnosticOverlay");
@@ -641,5 +647,12 @@ authorizeDevelopment.addEventListener("click",event=>{
  authorizeDevelopment.textContent=result.error?"Authorization requires a real click":"Agent tools: Authorized (15 min)";
  if(!result.error){diagnostics.setMode("deep");diagnosticMode.value="deep";diagnosticOverlay.hidden=false;}
 });
+const oceanStudio=document.getElementById("oceanStudio"),oceanPanel=document.getElementById("oceanPanel"),oceanMood=document.getElementById("oceanMood"),oceanDensity=document.getElementById("oceanDensity"),oceanShadow=document.getElementById("oceanShadow");
+let studioPreview=null;
+oceanStudio.addEventListener("click",()=>{oceanPanel.hidden=!oceanPanel.hidden;if(!oceanPanel.hidden)oceanDensity.focus();});
+document.getElementById("closeOceanStudio").addEventListener("click",()=>{oceanPanel.hidden=true;oceanStudio.focus();});
+document.getElementById("previewOcean").addEventListener("click",()=>{if(!development.facade.status().authorized){setMessage("Authorize agent tools before previewing ocean changes.");return;}if(studioPreview)development.facade.oceanRollback(studioPreview.id);const mood=oceanMood.value,family=mood==="low"?"near-crest":mood==="middle"?"middle-swell":mood==="high"?"broad-band":"planetary-contour";studioPreview=development.facade.oceanPreview({moods:{[mood]:{weights:{[family]:Number(oceanDensity.value)}}},shadow:{enabled:oceanShadow.checked}},`Ocean Studio ${mood}`);setMessage(studioPreview.error?.message||"Ocean preview applied · use A/B or Reset");});
+document.getElementById("compareOcean").addEventListener("click",()=>{if(!studioPreview?.id)return;development.facade.oceanRollback(studioPreview.id);studioPreview=null;setMessage("A/B baseline restored. Preview again to compare.");});
+document.getElementById("resetOcean").addEventListener("click",()=>{const result=development.facade.oceanResetToDefaults();studioPreview=null;setMessage(result.error?.message||"Ocean defaults restored.");});
 setInterval(()=>{if(diagnostics.mode==="performance")return;const state=diagnostics.getObjectSpatialState("ship-visible"),v=state.projection?.visible?.viewport;diagnosticOverlay.textContent=v?`RENDER VIEWPORT u=${v.u.toFixed(3)} v=${v.v.toFixed(3)} · ${state.projection.visible.status}\nPHYSICAL X=${pilot.x.toFixed(1)} Y=${pilot.y.toFixed(1)} Z=${pilot.z.toFixed(1)} · ${ship.parent===camera?"camera-relative presentation":"world representation"}`:"Projection unavailable";},250);
 requestAnimationFrame(frame);

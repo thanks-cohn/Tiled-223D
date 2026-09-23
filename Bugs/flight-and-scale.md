@@ -114,3 +114,15 @@ Reports refer to experimental V7 `feature/scale-profiles-floating-origin-v7`, ca
 - Change: a trusted user click grants expiring scoped access. The built-in 888-frame Massive scenario covers a Forward/Auto/Overview matrix across all four altitude targets, ascent through the former threshold, interrupted toggles and descent. Captures bind physical/camera/render/projection state to one completed frame. Presentation-only candidates are bounded and reversible; physical state can only be restored by an explicit replay checkpoint.
 - Budget: 1,800 frames / 1 MiB replay, 48 captures / 512 KiB metadata, optional individually capped images, FIFO eviction, and no frame-state construction in ordinary Performance flight.
 - Remaining: run the built-in scenario in a real browser at multiple aspect ratios with the custom GLB, compare baseline/candidate captures, and profile the owner’s 4 GB Windows computer. Automated state tests do not establish cinematic quality.
+
+
+## OCEAN-003 — Cinematic Ocean V1 requires owner visual acceptance
+
+- Status: **modular implementation and 87 automated tests pass; browser capture and 4 GB Windows profile unverified**.
+- Root-cause change: the old ship-local two-lattice rectangle was replaced by four fixed geographic family buffers with shallow nested groups. Altitude changes continuous family weights rather than line coordinates. A separate soft radial footprint is centered vertically below the authoritative ship and hidden when its center is not ocean.
+- Remaining risk: this environment supplied no browser automation/capture tool. Confirm that the reported hard diamond is absent, the one-pixel WebGL lines read as waves rather than hairs, shoreline clipping is graceful, and the shadow does not show through the far hemisphere. Center-only shoreline rejection may need multi-sample feathering.
+- Reproduce: follow `docs/OCEAN_STUDIO_TUNING_GUIDE.md` at low/middle/high/top, stationary ascent, boost, camera toggles, shore and descent on every scale. Export paired synchronized captures and numeric state; record actual FPS/draw calls and memory on the target computer.
+
+### OCEAN-003 source audit evidence
+
+The retired renderer selected an `8 × 7` near and `8 × 4` far rectangular lattice around `floor(ship/grid)`, disabled every line outside those pools, and changed opacity across altitude. Under the pitched camera, that finite ship-local rectangular boundary projects as the reported diamond; independent one-curve-per-cell sampling produced the hair-like morphology. The active V1 path no longer imports that renderer: it uses differently sized family neighborhoods, nested sibling bands, density thinning, stable family IDs and a separately feathered circular footprint. This is source-level evidence, not proof of final pixels; the manual capture route remains required.

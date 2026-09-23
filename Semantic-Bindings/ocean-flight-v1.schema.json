@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thanks-cohn.github.io/Tiled-223D/ocean-flight-v1.schema.json",
+  "title": "Tiled-223D cinematic ocean preset V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "seed", "quality", "drift", "families", "moods", "shadow", "budget"],
+  "properties": {
+    "schemaVersion": {"const": "1.0.0"},
+    "id": {"type": "string", "minLength": 1, "maxLength": 80},
+    "seed": {"type": "integer", "description": "Deterministic geographic seed."},
+    "quality": {"enum": ["low", "balanced", "high"]},
+    "drift": {"type": "number", "minimum": 0, "maximum": 0.2, "description": "Optional world-units/second true-water drift; default zero."},
+    "families": {
+      "type": "object", "additionalProperties": false,
+      "required": ["near-crest", "middle-swell", "broad-band", "planetary-contour"],
+      "properties": {
+        "near-crest": {"$ref": "#/$defs/family"}, "middle-swell": {"$ref": "#/$defs/family"},
+        "broad-band": {"$ref": "#/$defs/family"}, "planetary-contour": {"$ref": "#/$defs/family"}
+      }
+    },
+    "moods": {
+      "type": "object", "additionalProperties": false, "required": ["low", "middle", "high", "top"],
+      "properties": {"low": {"$ref": "#/$defs/mood"}, "middle": {"$ref": "#/$defs/mood"}, "high": {"$ref": "#/$defs/mood"}, "top": {"$ref": "#/$defs/mood"}}
+    },
+    "shadow": {"type": "object", "additionalProperties": false, "required": ["enabled", "policy", "minRadius", "maxRadius", "minAlpha", "maxAlpha", "softness", "elongation", "color", "shoreFade", "horizonFade"], "properties": {
+      "enabled": {"type": "boolean"}, "policy": {"const": "vertical-below"},
+      "minRadius": {"type": "number", "minimum": 0, "maximum": 200, "description": "World units."},
+      "maxRadius": {"type": "number", "minimum": 0, "maximum": 1000, "description": "World units; runtime also requires >= minRadius."},
+      "minAlpha": {"type": "number", "minimum": 0, "maximum": 0.5}, "maxAlpha": {"type": "number", "minimum": 0, "maximum": 0.65},
+      "softness": {"type": "number", "minimum": 0.1, "maximum": 0.95}, "elongation": {"type": "number", "minimum": 0.5, "maximum": 3},
+      "color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"}, "shoreFade": {"type": "number", "minimum": 0, "maximum": 100}, "horizonFade": {"type": "number", "minimum": 0, "maximum": 1}
+    }},
+    "budget": {"type": "object", "additionalProperties": false, "required": ["maxCrests", "maxSegmentsPerCrest", "maxVertices", "maxDrawCalls", "cacheEntries", "qualityScale"], "properties": {
+      "maxCrests": {"type": "integer", "minimum": 8, "maximum": 256}, "maxSegmentsPerCrest": {"type": "integer", "minimum": 4, "maximum": 48},
+      "maxVertices": {"type": "integer", "minimum": 96, "maximum": 8192}, "maxDrawCalls": {"type": "integer", "minimum": 1, "maximum": 6},
+      "cacheEntries": {"type": "integer", "minimum": 8, "maximum": 1024}, "qualityScale": {"type": "number", "minimum": 0.25, "maximum": 1}
+    }}
+  },
+  "$defs": {
+    "family": {"type": "object", "additionalProperties": false, "required": ["id", "enabled", "grid", "length", "curvature", "groupSpacing", "fragments", "density", "alpha", "color", "depthFalloff"], "properties": {
+      "id": {"enum": ["near-crest", "middle-swell", "broad-band", "planetary-contour"]}, "enabled": {"type": "boolean"},
+      "grid": {"type": "number", "minimum": 8, "maximum": 1000, "description": "World-space lattice spacing."}, "length": {"type": "number", "minimum": 4, "maximum": 2000, "description": "World-space crest length."},
+      "curvature": {"type": "number", "minimum": 0, "maximum": 0.4}, "groupSpacing": {"type": "number", "minimum": 0.25, "maximum": 100, "description": "World units between nested crests."},
+      "fragments": {"type": "integer", "minimum": 1, "maximum": 4}, "density": {"type": "number", "minimum": 0, "maximum": 1}, "alpha": {"type": "number", "minimum": 0, "maximum": 1},
+      "color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"}, "depthFalloff": {"type": "number", "minimum": 0, "maximum": 1}
+    }},
+    "mood": {"type": "object", "additionalProperties": false, "required": ["center", "width", "weights", "note"], "properties": {
+      "center": {"type": "number", "minimum": 0, "maximum": 1}, "width": {"type": "number", "minimum": 0.05, "maximum": 0.6}, "note": {"type": "string"},
+      "weights": {"type": "object", "additionalProperties": false, "required": ["near-crest", "middle-swell", "broad-band", "planetary-contour"], "properties": {
+        "near-crest": {"type": "number", "minimum": 0, "maximum": 1}, "middle-swell": {"type": "number", "minimum": 0, "maximum": 1}, "broad-band": {"type": "number", "minimum": 0, "maximum": 1}, "planetary-contour": {"type": "number", "minimum": 0, "maximum": 1}
+      }}
+    }}
+  }
+}

@@ -127,6 +127,12 @@ export function createSpatialDevelopmentController({diagnostics,adapter,now=()=>
    return {beforeCaptureId,afterCaptureId,physicalDelta,viewportDelta,causes:causes.length?causes:["unknown"],
     classification:physicalDelta<=1e-6&&viewportDelta>.02?"visual-discontinuity-without-physical-teleport":"continuous-or-physical-change"};
   },
+  oceanPreview(patch,reason){const error=requireScope("adjust");return error||adapter.ocean?.preview(copy(patch),reason)||denied("OCEAN_UNAVAILABLE","Ocean controller is unavailable.");},
+  oceanRollback(id){const error=requireScope("adjust");return error||adapter.ocean?.rollback(id)||denied("OCEAN_UNAVAILABLE","Ocean controller is unavailable.");},
+  oceanResetToDefaults(){const error=requireScope("adjust");return error||adapter.ocean?.resetToDefaults()||denied("OCEAN_UNAVAILABLE","Ocean controller is unavailable.");},
+  oceanImportPreset(value){const error=requireScope("adjust");return error||adapter.ocean?.importPreset(copy(value))||denied("OCEAN_UNAVAILABLE","Ocean controller is unavailable.");},
+  oceanExportPreset(){const error=requireScope("inspect");return error||adapter.ocean?.exportPreset()||denied("OCEAN_UNAVAILABLE","Ocean controller is unavailable.");},
+  oceanCompare(before,after){const error=requireScope("experiment");return error||adapter.ocean?.compare(copy(before),copy(after))||denied("OCEAN_UNAVAILABLE","Ocean controller is unavailable.");},
   exportReproBundle(){const error=requireScope("replay");if(error)return error;return {schemaVersion:DEVELOPMENT_SCHEMA_VERSION,
    exportedAt:now(),status:publicStatus(),captures:copy(captures),events:diagnostics.exportJSONL(),presentation:copy(adapter.readPresentation())};}
  });
