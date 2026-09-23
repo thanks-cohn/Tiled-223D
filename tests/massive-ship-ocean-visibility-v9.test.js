@@ -8,9 +8,11 @@ test("only Massive high-altitude Overview gets a screen-stable visible ship",()=
   assert.equal(massiveShipPresentation({worldId,normalizedAltitude:445,
    overviewWeight:1,cameraNear:40,fieldOfView:46,visualExtent:3.4}).active,false);
  }
- for(const overviewWeight of [0]){
+ // The render parent is stable even in Forward: visibility is continuously
+ // reduced by framing rather than a discrete world-to-camera transfer.
+ for(const overviewWeight of [0,.02,.4,.98,1]){
   assert.equal(massiveShipPresentation({worldId:"massive",normalizedAltitude:445,
-   overviewWeight,cameraNear:40,fieldOfView:46,visualExtent:3.4}).active,false);
+   overviewWeight,cameraNear:40,fieldOfView:46,visualExtent:3.4}).active,true);
  }
  // There is deliberately no altitude handoff: Massive Overview uses one
  // representation from its first blended frame through planetary flight.
