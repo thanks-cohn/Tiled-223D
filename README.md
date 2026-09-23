@@ -1,20 +1,41 @@
-# Tiled-223D — Fly the Two-Island World
+# Tiled-223D — A World That Opens as You Fly
 
-**You do not need Codex.** This repository already has a standalone Three.js browser viewer. Run it locally with the included starter scripts.
+**Start above a small island. Cruise through a dreamlike four-layer sky. Ascend until the horizon curves and the world becomes a planet. Keep flying.**
 
-**Windows:** In GitHub, choose **Code → Download ZIP**, extract the ZIP, then double-click `start-world.bat` inside the extracted folder. The first launch installs the small JavaScript dependencies; later launches reuse them. Node.js LTS must be installed on your computer ([nodejs.org](https://nodejs.org/)). A browser window should open to the flight demo. Keep the terminal window running while you play.
+Tiled-223D is a standalone, browser-based **2D-to-3D spatial world and flight-engine prototype** built with Tiled map data, Three.js, and semantic object identities. Its distinctive experiment is to make the *experience* of an enormous world feel rich while keeping the *amount of work done by the renderer* deliberately small. The world can expand dramatically in navigable coordinate space without turning every coordinate into a separately rendered tile.
 
-**Mac/Linux:** Extract the ZIP, open a terminal in the project folder, and run `sh start-world.sh`.
+### What you can explore today
 
-**Manual launch:** `npm install` followed by `npm run dev -- --open`. Do **not** double-click `index.html` directly: the project uses ES module imports that need the local Vite server.
+- **Three scales, one compact demonstration world:** Current (500 × 500), Bigger (2,500 × 2,500), and Massive (16,000 × 16,000). Detailed island geometry retains its local size; the larger presets spread destinations across sparse ocean rather than allocating a 256-million-cell terrain grid.
+- **From island flight to a curved horizon and planetary overview:** a floating render origin and camera/terrain projection transition the same navigable setting from low-altitude cruising into a broad globe-like view. This is a visual curvature approximation over wrapped world coordinates, **not** a full spherical navigation/physics simulation.
+- **Momentum you can earn and keep:** accelerate with W and Shift, coast, and collect an additive speed reward when flying past island clusters. Open-ocean journeys feel different from near-island traversal.
+- **An atmospheric sense of scale:** four cloud layers reuse a fixed pool of 27 world-anchored formations, with altitude-dependent parallax, varied silhouettes, and bounded recycling. Near clouds pass while higher formations linger as references for distance.
+- **Cinematic speed-perception experiment (V9 branch):** peripheral airflow strokes use actual distance traveled, not a fake velocity animation. A fixed 32-stroke, single-buffer effect gives fast ocean/planetary cruising more visible acceleration while leaving the horizon and planet's center unobstructed. The existing ocean glints and cloud parallax remain the primary spatial cues. V9 visuals still require an on-device aesthetic/FPS review.
+- **An actual semantic starting point:** sample islands, named floating structures, a lightweight in-game map, Tiled JSON + numeric elevation import, and an optional GLB ship override. The 3D scenery is linked to meaningful locations rather than being only a skybox.
 
-**Flight controls:** W/S forward/back, A/D turn, Up/Down ascend/descend, Shift boost, R take off. Import your Tiled map JSON and its separate elevation JSON through the on-screen buttons. The ship defaults to a low-poly sphere; add `public/ship/ship.glb` to replace it.
+### Creator-first direction
 
-The default demo procedurally generates a **500 × 500 mostly-ocean world with two sandy-coast islands**; the committed `maps/test-world.tmx` is a separate smaller editing example. This is an early flight/landscape demo, **not yet a fully verified browser experience on a 4 GB machine or a finished FrameChute integration**. The “You're awake” screen is a standalone canvas placeholder.
+The long-term goal is **make the places you care about; let the rest of the world connect them**. The [world and docking proposal](docs/PROPOSAL_DOCKING_AND_CINEMATICS.md) describes creator-authored islands and rooms, agent-generated broad geography, synchronized small/large maps, optional classic 2D and paper-like 2.5D RPG presentations, and object interactions that can open a linked room or world. The separate [paper-diorama proposal](docs/PROPOSAL_PAPER_DIORAMA.md) describes inexpensive cutout representations derived from real assets. **These authoring tools, RPG modes, portals, and agent terrain-generation workflows are proposals, not shipped features of this demo.**
 
-For ongoing engine tasks see [docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md), but **you can launch and explore without Codex**.
+### Run it
+
+**Windows:** Download and extract the GitHub ZIP, then double-click `start-world.bat` inside the extracted folder. Install [Node.js LTS](https://nodejs.org/) first. The first launch installs JavaScript dependencies; subsequent launches reuse them. Keep the terminal window open while playing.
+
+**macOS / Linux:** Extract the ZIP and run `sh start-world.sh` in the project directory.
+
+**Manual launch:** `npm install` then `npm run dev -- --open`. Do not open `index.html` directly; ES module imports need the local Vite server.
+
+**Flight:** W/S forward/reverse · A/D steer · Up/Down ascend/descend · Shift boost · R take off · V switch Forward/Overview · Shift+V restore Auto camera · M inspect the map. Fly forward is a separate autopilot-like movement toggle, not a camera control. Add `public/ship/ship.glb` to override the low-poly default ship, or import your own Tiled JSON/elevation map through the HUD.
+
+**Current status:** This is experimental software, not an independently benchmarked production game engine. The larger-world camera and intermittent navigation issues are still being validated in real browsers; frame rate and memory on a 4 GB Windows computer have **not** been established by automated tests. See the [bug registry](Bugs/README.md), [semantic agent contracts](Semantic-Bindings/README.md), and [development handoff](docs/CODEX_HANDOFF.md). The Return to SUBSTRATE action currently opens a standalone placeholder, not an integrated desktop.
 
 ---
+
+## Cinematic Speed Perception V9 — experimental branch
+
+The hardest thing about a vast ocean is that **actual motion can look slow when there is nothing nearby to compare it against**. V9 retains true ship momentum and world-anchored clouds/ocean glints, and introduces a restrained, altitude-aware peripheral airflow graphic that responds only to **measured ship displacement**. The effect is subtle for the California-highway low cruise, clearest during active atmospheric acceleration, and less intrusive in the high planetary overview. It never accelerates the ship, moves islands, replaces actual cloud parallax or draws over the center of the world.
+
+The implementation reuses **one fixed set of 32 line segments** with no new texture, shader pass, emitted particle or full-world allocation. It is intentionally an inexpensive artistic cue, not a promise that the effect can be seen or enjoyed at every altitude and device without tuning. [Pure speed/altitude model](src/speed-perception.js) · [reusable renderer](src/speed-perception-renderer.js) · [tests](tests/speed-perception-v9.test.js).
 
 ## V8 camera and flight stability update
 
@@ -22,15 +43,15 @@ For ongoing engine tasks see [docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md), but
 
 **Flight/navigation:** Pressing S overrides automatic forward cruise instead of canceling it out; a near-land collision advances only to the last safe sample, then lets you reverse. Deliberate world-scale changes preserve relative location and earned momentum rather than resetting spawn. The intermittent user-reported surprise reset and the exact high-altitude visual result still require affected-device confirmation. See [camera/navigation agent binding](Semantic-Bindings/camera-navigation-v1.md) and [Bugs/](Bugs/README.md).
 
-## Altitude Parallax Cloud Choreography V8 (this experimental branch)
+## Altitude Parallax Cloud Choreography V8 (merged into main; V9 builds on it)
 
-Four altitude moods now coordinate a **stable world-anchored pool of 27 reusable cloud formations**: peaceful California-highway cruising, active atmospheric flybys, expansive layers above and below, and distant ground-parallel planetary clouds. The renderer reuses four tiny different procedural cloud silhouette textures; size, spacing, opacity and angle vary with a deterministic seed. Low clouds pass and recycle ahead more often; upper clouds stay longer as visual references for speed. Altitude/speed-dependent timers only limit recycling work, never move a visible cloud to fake travel. This is an unmerged experimental child of V7; the original first-person camera, W/S blockage and reported position-reset problems are **tracked, not fixed** in this cloud change.
+Four altitude moods now coordinate a **stable world-anchored pool of 27 reusable cloud formations**: peaceful California-highway cruising, active atmospheric flybys, expansive layers above and below, and distant ground-parallel planetary clouds. The renderer reuses four tiny different procedural cloud silhouette textures; size, spacing, opacity and angle vary with a deterministic seed. Low clouds pass and recycle ahead more often; upper clouds stay longer as visual references for speed. Altitude/speed-dependent timers only limit recycling work, never move a visible cloud to fake travel. V8 was merged into main before the V9 speed-effects experiment. Camera/collision changes are implemented on V8; some reported behaviors still need affected-browser confirmation.
 
 **Agent entry points:** [V8 cloud binding](Semantic-Bindings/cloud-parallax-v1.md), [machine-readable cloud schema](Semantic-Bindings/cloud-parallax-v1.json) and the new [Bugs/ registry](Bugs/README.md) distinguish implemented behavior from outstanding issues. These changes are intended to remain lightweight on a 4 GB computer, but appearance and FPS require actual in-browser validation before merging.
 
 ## Three Planet Scales V7 (previous experimental branch)
 
-Choose **Current (500²)**, **Bigger (2,500² / 25× area)**, or **Massive (16,000² / 1,024× area)** from the flight HUD. The existing island geometry and 500² source map remain unchanged; bigger planets use sparse island coordinates and procedural ocean instead of constructing enormous tile grids. The planet radius and visible curvature respond to the selected profile. A floating render origin keeps the camera and scenery close to zero in GPU X/Z space to reduce high-altitude jitter. From altitude, cloud cards transition to planes **parallel to the curved planetary ground**, not perpetually facing the camera. A bounded 500² overview and fixed cloud/ocean geometry budgets preserve the low-compute design; this does **not** guarantee a particular FPS on a 4 GB computer. See [V7 implementation and limits](docs/SCALE_PROFILES_V7.md), [agent documentation](Semantic-Bindings/scale-profiles-v1.md) and [machine-readable binding](Semantic-Bindings/scale-profiles-v1.json). This is a separate unmerged branch; the earlier antivirus alert is not addressed by planet scaling.
+Choose **Current (500²)**, **Bigger (2,500² / 25× area)**, or **Massive (16,000² / 1,024× area)** from the flight HUD. The existing island geometry and 500² source map remain unchanged; bigger planets use sparse island coordinates and procedural ocean instead of constructing enormous tile grids. The planet radius and visible curvature respond to the selected profile. A floating render origin keeps the camera and scenery close to zero in GPU X/Z space to reduce high-altitude jitter. From altitude, cloud cards transition to planes **parallel to the curved planetary ground**, not perpetually facing the camera. A bounded 500² overview and fixed cloud/ocean geometry budgets preserve the low-compute design; this does **not** guarantee a particular FPS on a 4 GB computer. See [V7 implementation and limits](docs/SCALE_PROFILES_V7.md), [agent documentation](Semantic-Bindings/scale-profiles-v1.md) and [machine-readable binding](Semantic-Bindings/scale-profiles-v1.json). The scale-profile work was merged into main via V8; the earlier antivirus alert is not addressed by planet scaling.
 
 ## Four-Layer Atmosphere V6 (previous branch)
 
