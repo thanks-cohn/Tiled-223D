@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tiled-223d/spatial-event-v1.schema.json",
+  "title": "Tiled-223D spatial diagnostic event",
+  "type": "object",
+  "required": ["schemaVersion", "runId", "frameId", "timestampMs", "eventType", "objectId", "worldId", "viewMode", "coordinateSpace", "causeId"],
+  "properties": {
+    "schemaVersion": {"const": "1.0.0"},
+    "runId": {"type": "string"},
+    "frameId": {"type": "integer", "minimum": 0},
+    "timestampMs": {"type": "number"},
+    "eventType": {"enum": ["camera-mode-requested", "camera-transition-start", "camera-transition-complete", "scale-change", "render-parent-change", "spawn", "teleport-request", "lod-change", "clipping-change", "viewport-entry", "viewport-exit", "unexpected-visual-jump", "projection-change", "crest-recycled"]},
+    "objectId": {"type": ["string", "null"]},
+    "worldId": {"type": ["string", "null"]},
+    "viewMode": {"type": ["string", "null"]},
+    "coordinateSpace": {"type": "string"},
+    "causeId": {"type": "string"},
+    "before": {}, "after": {}, "delta": {}, "projection": {}, "matrices": {}
+  },
+  "additionalProperties": true
+}

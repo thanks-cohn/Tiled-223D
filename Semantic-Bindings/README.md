@@ -1,5 +1,7 @@
 # Semantic-Bindings — agent navigation and source of truth
 
+> **Latest V9 Massive framing / ocean contrast:** Read [massive-overview-and-ocean-speed-v9.md](massive-overview-and-ocean-speed-v9.md). This narrowly fixes disappearing ship presentation only in Massive high-altitude Overview and raises world-anchored sea-streak contrast across all scales/altitudes. Current/Bigger cameras and actual ship navigation must remain untouched. See [Bugs/](../Bugs/flight-and-scale.md) for device verification.
+
 > **V8 camera and navigation fixes:** See [camera-navigation-v1.md](camera-navigation-v1.md) and [camera-navigation-v1.json](camera-navigation-v1.json) for default low/mid Forward camera, optional Overview at every altitude, planet-centered overview framing, world-scale position transfer and near-land collision behavior. The original unexpected spawn report and performance still require browser verification.\n\n> **Latest V8 changes:** Read [cloud-parallax-v1.md](cloud-parallax-v1.md) and [cloud-parallax-v1.json](cloud-parallax-v1.json) for working altitude-dependent seeded cloud choreography. Four reusable 128×64 family textures replace V6's single silhouette, while the 27 logical formation cap remains unchanged. Read [Bugs/](../Bugs/README.md) for confirmed and unverified flight and sky issues. This older README retains historical V6 design context; use the V8 binding and code when they differ.
 
 This directory is an **agent-readable design contract**, not a runtime plugin. Read this file before editing the Tiled-223D world or adding new cloud/weather features.
@@ -59,3 +61,6 @@ Do not replace these with hundreds of transparent full-screen quads, video textu
 ## Acceptance path
 
 Run `npm install && npm test && npm run build`. In a browser, fly at heights 35, 130, 260, and 445, then descend; confirm that high clouds are visible from sea level, cloud groups have different optical movement, no layers pop at transitions, planetary clouds appear near the globe without obscuring the islands, and the low-altitude ocean remains legible. FPS and appearance on 4 GB hardware require direct measurement.
+
+- [Spatial Truth and Deep Diagnostics v1](spatial-truth-v1.md) — coordinate spaces, read-only agent API, bounded trace modes, Massive continuity and curved ocean crests. [JSONL schema](spatial-truth-v1.json).
+- [Authorized Spatial Development Interface v1](spatial-development-v1.md) — trusted-user capability scopes, deterministic replay, synchronized captures, bounded visual previews, experiment comparison and rollback. [Replay schema](spatial-development-v1.json).
