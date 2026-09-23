@@ -66,22 +66,30 @@ test("forward and reverse cannot remain blocked by equality or existing collisio
  assert.equal(objectBlocksEntry(null,a),true);
 });
 
-test("one high-contrast ocean-line buffer follows real movement at low and orbital heights",()=>{
+test("two bounded ocean crest bands show world-anchored detail low and sparse arcs in orbit",()=>{
  const world=sampleWorld(),scene=new THREE.Scene();
  const horizon=makeHorizonState();
  const cues=makeOceanSpeedCues(scene,horizon);
  const lines=scene.getObjectByName("world-anchored-high-contrast-ocean-speed-glints");
+ const far=scene.getObjectByName("world-anchored-expansive-ocean-crests");
+ assert.ok(far);
  assert.ok(lines);
  cues.update({x:240,y:35,z:270},world,0,0,1);
  assert.equal(lines.visible,false);
  cues.update({x:240,y:35,z:270},world,160,0,1);
  assert.equal(lines.visible,true);
  assert.ok(lines.material.opacity>.4&&lines.material.opacity<=.91);
- assert.equal(lines.geometry.getAttribute("position").count,72*6*2);
+ assert.equal(lines.geometry.getAttribute("position").count,56*6*2);
+ assert.equal(far.visible,false);
  cues.update({x:240,y:170,z:270},world,160,0,1,
   {x:240,z:270},{atmosphericAltitude:170,planetRadius:235});
  assert.equal(lines.visible,true);
- assert.deepEqual(cues.getBudget(),{crests:72,segments:432,drawCalls:1,
+ cues.update({x:240,y:445,z:270},world,160,0,1,
+  {x:240,z:270},{atmosphericAltitude:445,planetRadius:235});
+ assert.equal(lines.visible,false);
+ assert.equal(far.visible,true);
+ assert.equal(far.geometry.getAttribute("position").count,32*6*2);
+ assert.deepEqual(cues.getBudget(),{crests:88,segments:528,drawCalls:2,
   textures:0,extraOceanMeshes:0});
  cues.dispose();
  assert.equal(scene.getObjectByName(
