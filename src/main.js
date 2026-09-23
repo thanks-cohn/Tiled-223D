@@ -10,7 +10,7 @@ import {createIslandImpostors,updateIslandImpostor,disposeIslandImpostors} from 
 import {altitudeProfile,damp,LIMITS} from "./flight-model.js";
 import {makeHorizonState,setHorizonPosition,buildOceanGeometry} from "./horizon.js";
 import {makeScaleWorld,SCALE_PRESETS,transferScalePosition} from "./scale-world.js";
-import {cameraViewProfile,nextCameraChoice} from "./camera-modes.js";
+import {cameraViewProfile,nextCameraChoice,planetOverviewFov} from "./camera-modes.js";
 import {travelRegion} from "./travel-regions.js";
 import {positionIslandVisual,cinematicShipScale,cameraAscentHeight} from "./visual-anchors.js";
 import {advanceMomentum,createFlybyTracker,resetFlybyTracker,updateFlybys} from "./flight-momentum.js";
@@ -410,9 +410,8 @@ function frame(now){
  // High altitude: frame the WHOLE planet around the center of the view.
  // A narrower overview lens makes the sphere occupy more of the screen
  // without changing planetary geometry, camera clipping, or ship coordinates.
- const planetFraming=globe*viewMix;
- const goalFov=THREE.MathUtils.lerp(
-  profile.fieldOfView+(boosting?7:0),46,planetFraming);
+ const goalFov=planetOverviewFov(
+  profile.fieldOfView+(boosting?7:0),globe,viewMix);
  const followRate=4.8+15*globe+Math.min(12,Math.abs(forwardVelocity)/80);
  if(!cameraInitialized){camera.position.copy(desired);cameraInitialized=true;}
  else camera.position.lerp(desired,1-Math.exp(-followRate*dt));
