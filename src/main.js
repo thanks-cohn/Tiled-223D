@@ -14,7 +14,7 @@ import {cameraViewProfile,nextCameraChoice,planetOverviewFov} from "./camera-mod
 import {travelRegion} from "./travel-regions.js";
 import {positionIslandVisual,cinematicShipScale,cameraAscentHeight} from "./visual-anchors.js";
 import {advanceMomentum,createFlybyTracker,resetFlybyTracker,updateFlybys} from "./flight-momentum.js";
-import {terrainBlocksEntry,objectBlocksEntry} from "./flight-collision.js";
+import {sweepHorizontal} from "./horizontal-flight.js";
 import {makeOceanSpeedCues} from "./ocean-speed-cues.js";
 
 const view=document.getElementById("view");
@@ -258,39 +258,32 @@ function frame(now){
   const nextZ=pilot.z-Math.cos(yaw)*distance;
   // Even at high-altitude cruise, test the intervening terrain and objects
   // rather than teleporting through an imported tall obstacle.
-  let blocked=null;
+  let move={x:nextX,z:nextZ,blocked:null,sampled:0};
   if(pilot.y<=safeFlightCeiling && Math.abs(distance)>1e-7 &&
     (!world.sparse||scaleScene.pathNearLand(pilot.x,pilot.z,nextX,nextZ))){
-   const startingGround=pointGround(pilot.x,pilot.z);
-   const startingHit=spatialHit(world.objects,pilot.x,pilot.y,
-    pilot.z,.85,world.width,world.height);
-   const steps=Math.max(1,Math.ceil(Math.abs(distance)/.75));
-   for(let step=1;step<=steps;step++){
-    const fraction=step/steps,px=THREE.MathUtils.lerp(pilot.x,nextX,fraction);
-    const pz=THREE.MathUtils.lerp(pilot.z,nextZ,fraction);
-    if(terrainBlocksEntry(startingGround,pointGround(px,pz),pilot.y)){
-     blocked="RIDGE AHEAD · Reverse or ascend to clear the surface";break;
-    }
-    const obstacle=spatialHit(world.objects,px,pilot.y,pz,.85,
-     world.width,world.height);
-    if(objectBlocksEntry(startingHit,obstacle)){
-     blocked="FLOATING ISLAND · "+obstacle.objectId+" · Reverse or ascend";break;
-    }
-   }
+   move=sweepHorizontal({
+    start:{x:pilot.x,z:pilot.z},target:{x:nextX,z:nextZ},altitude:pilot.y,
+    groundAt:pointGround,
+    hitAt:(x,z)=>spatialHit(world.objects,x,pilot.y,z,.85,
+     world.width,world.height)
+   });
   }
-  if(!blocked){
-   pilot.x=nextX;pilot.z=nextZ;
+  // Even on collision, retain all progress up to the LAST safe sample.
+  // A blocked forward thrust is cleared; pressing S immediately reverses
+  // regardless of whether the Fly forward button was previously enabled.
+  const moved=Math.hypot(move.x-pilot.x,move.z-pilot.z)>1e-7;
+  pilot.x=move.x;pilot.z=move.z;
+  if(moved){
    const flyby=updateFlybys(flybys,world,regions,pilot.x,pilot.z,
     pilot.y,forwardVelocity,time);
    if(flyby.reward){
-    // Additive world-speed impulse. No target-speed damping can erase it on
-    // the following frame, even after leaving the cluster for open ocean.
     forwardVelocity+=flyby.reward;
     setMessage("ISLAND SLIPSTREAM "+(flyby.reward>0?"+":"")+
      Math.round(flyby.reward)+" · "+flyby.passed);
    }
-  }else if(Math.abs(distance)>1e-7){
-   forwardVelocity=0;setMessage(blocked);
+  }
+  if(move.blocked && Math.abs(distance)>1e-7){
+   forwardVelocity=0;setMessage(move.blocked);
   }
   const climb=(held.has("ArrowUp")?1:0)-(held.has("ArrowDown")?1:0);
   const climbScale=1+(scaleScene.preset.altitudeScale-1)*
