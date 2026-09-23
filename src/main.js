@@ -18,6 +18,7 @@ import {sweepHorizontal} from "./horizontal-flight.js";
 import {makeOceanSpeedCues} from "./ocean-speed-cues.js";
 import {measuredTravelSpeed} from "./speed-perception.js";
 import {makeSpeedPerception} from "./speed-perception-renderer.js";
+import {massiveShipPresentation} from "./massive-ship-presentation.js";
 
 const view=document.getElementById("view");
 const positionUI=document.getElementById("position"),statusUI=document.getElementById("status");
@@ -36,18 +37,22 @@ scene.add(new THREE.HemisphereLight("#fff6dc","#52768a",2.1));
 const horizonState=makeHorizonState();
 const ocean=oceanPlane(horizonState);scene.add(ocean);
 const cloudSystem=clouds(scene);
-const speedCues=makeOceanSpeedCues(scene);
+const speedCues=makeOceanSpeedCues(scene,horizonState);
 scene.add(camera);
 const speedFeeling=makeSpeedPerception(camera);
 
 const ship=new THREE.Group();
 const sphere=new THREE.Mesh(new THREE.SphereGeometry(.9,9,6),new THREE.MeshLambertMaterial({color:"#fbdf77",flatShading:true}));
 sphere.scale.set(1,.6,1.7);ship.add(sphere);scene.add(ship);
+ship.userData.baseVisualExtent=3.4;
 // Files placed at public/ship/ship.glb are available at /ship/ship.glb.
 // An absent model is deliberately nonfatal: the procedural sphere always works.
 new GLTFLoader().load("/ship/ship.glb",gltf=>{
  ship.remove(sphere);gltf.scene.scale.setScalar(1);
  ship.add(gltf.scene);
+ const dimensions=new THREE.Box3().setFromObject(gltf.scene)
+  .getSize(new THREE.Vector3());
+ ship.userData.baseVisualExtent=Math.max(.1,dimensions.x,dimensions.y,dimensions.z);
 },undefined,()=>{ /* no uploaded model yet: retain the sphere */ });
 
 let sourceWorld=sampleWorld(),copies=[],floatingInstances=[],islandCards=[],yaw=0,
@@ -357,14 +362,8 @@ function frame(now){
  if(Math.abs(camera.near-near)>.08){
   camera.near=near;camera.updateProjectionMatrix();
  }
- ship.position.set(0,pilot.y,0);
- ship.rotation.y=yaw;
- ship.rotation.z=bank;
- ship.rotation.x=pitch;
- // The visual ship stays recognizable even when the camera centers the globe.
- // Physics uses the unscaled semantic ship position and its explicit radius.
- ship.scale.setScalar(cinematicShipScale(profile.globeReveal)*
-  (1+(scaleScene.preset.altitudeScale-1)*profile.globeReveal));
+ // Visual ship presentation is chosen after the camera pose is established.
+ // Pilot coordinates remain authoritative independent of the displayed mesh.
  // Small idle sway is applied only to the default sphere's visual child,
  // never to the ship's authoritative navigation or collision transform.
  sphere.position.y=Math.sin(time*.72)*.09;
@@ -378,7 +377,8 @@ function frame(now){
  const boosting=held.has("ShiftLeft")||held.has("ShiftRight");
  const currentTravel=travelRegion(world,regions,pilot.x,pilot.z,
   pilot.y,boosting);
- speedCues.update(pilot,world,Math.abs(forwardVelocity),yaw,currentTravel.openness,pilot);
+ speedCues.update(pilot,world,Math.abs(forwardVelocity),yaw,
+  currentTravel.openness,pilot,profile);
  // Independently wrap each distinct island to its single nearest appearance.
  // A player can still travel continuously, but cannot see repeated clones.
  for(const terrain of copies)for(const mass of terrain.children){
@@ -462,9 +462,31 @@ function frame(now){
  if(Math.abs(camera.fov-nextFov)>.012){
   camera.fov=nextFov;camera.updateProjectionMatrix();
  }
- // Show the ship only after the camera is outside its close cockpit pose.
- // Never change the authoritative pilot/ship navigation state on view toggle.
- ship.visible=viewMix>.88;
+ // Only Massive Overview needs a separate ship presentation: the original
+ // planet-centered camera otherwise makes the real-position mesh a tiny blip
+ // or sends it above the viewport. Re-parent the SAME ship mesh to the
+ // camera. Physics, pilot coordinates, clouds and land never follow it.
+ const shipView=massiveShipPresentation({
+  worldId:scaleScene.preset.id,
+  normalizedAltitude:profile.atmosphericAltitude,
+  overviewWeight:viewMix,cameraNear:camera.near,
+  fieldOfView:camera.fov,
+  visualExtent:ship.userData.baseVisualExtent
+ });
+ if(shipView.active){
+  if(ship.parent!==camera)camera.add(ship);
+  ship.position.set(shipView.x,shipView.y,shipView.z);
+  ship.rotation.set(pitch,0,bank);
+  ship.scale.setScalar(shipView.scale);
+  ship.visible=true;
+ }else{
+  if(ship.parent!==scene)scene.add(ship);
+  ship.position.set(0,pilot.y,0);
+  ship.rotation.set(pitch,yaw,bank);
+  ship.scale.setScalar(cinematicShipScale(profile.globeReveal)*
+   (1+(scaleScene.preset.altitudeScale-1)*profile.globeReveal));
+  ship.visible=viewMix>.88;
+ }
  cloudSystem.update(pilot,world,time,profile,forwardVelocity,pilot,camera,yaw);
  if(mode==="world")speedFeeling.update({
   actualSpeed:actualTravelSpeed,travelDistance:traveled,
