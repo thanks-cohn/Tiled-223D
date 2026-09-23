@@ -10,7 +10,7 @@ import {createIslandImpostors,updateIslandImpostor,disposeIslandImpostors} from 
 import {altitudeProfile,damp,LIMITS} from "./flight-model.js";
 import {makeHorizonState,setHorizonPosition,buildOceanGeometry} from "./horizon.js";
 import {makeScaleWorld,SCALE_PRESETS,transferScalePosition} from "./scale-world.js";
-import {cameraViewProfile,nextCameraChoice,planetOverviewFov} from "./camera-modes.js";
+import {cameraViewProfile,nextCameraChoice,overviewCameraScale,forwardLookAngle,planetOverviewFov} from "./camera-modes.js";
 import {travelRegion} from "./travel-regions.js";
 import {positionIslandVisual,cinematicShipScale,cameraAscentHeight} from "./visual-anchors.js";
 import {advanceMomentum,createFlybyTracker,resetFlybyTracker,updateFlybys} from "./flight-momentum.js";
@@ -154,16 +154,34 @@ document.getElementById("cruise").addEventListener("click",()=>{
 });
 document.getElementById("reenter").addEventListener("click",enter);
 const cameraButton=document.getElementById("cameraMode");
+const autoCameraButton=document.getElementById("cameraAuto");
+let lastCameraLabel="";
 function syncCameraButton(){
  const view=cameraViewProfile(pilot.y/scaleScene.preset.altitudeScale,cameraChoice);
- cameraButton.textContent="View: "+view.label;
- cameraButton.setAttribute("aria-pressed",String(cameraChoice!=="auto"));
+ const label=view.overviewWeight>=.5?"Overview":"Forward";
+ // On each click View changes the actual rendered mode. Auto is an
+ // independent control, never a third indistinguishable view-button step.
+ if(label!==lastCameraLabel){
+  cameraButton.textContent="View: "+label;
+  lastCameraLabel=label;
+ }
+ cameraButton.setAttribute("aria-pressed",String(label==="Forward"));
+ autoCameraButton.textContent="Auto camera: "+(cameraChoice==="auto"?"On":"Off");
+ autoCameraButton.setAttribute("aria-pressed",String(cameraChoice==="auto"));
 }
 function toggleCamera(){
- cameraChoice=nextCameraChoice(cameraChoice);
+ cameraChoice=nextCameraChoice(cameraChoice,
+  pilot.y/scaleScene.preset.altitudeScale);
+ cameraInitialized=false; // no lingering old camera pose looking at empty sky
+ syncCameraButton();
+}
+function enableAutoCamera(){
+ cameraChoice="auto";
+ cameraInitialized=false;
  syncCameraButton();
 }
 cameraButton.addEventListener("click",toggleCamera);
+autoCameraButton.addEventListener("click",enableAutoCamera);
 syncCameraButton();
 
 const scaleSelector=document.getElementById("worldScale");
@@ -210,7 +228,10 @@ document.getElementById("import").addEventListener("click",async()=>{
 });
 addEventListener("keydown",e=>{
  if(e.code==="KeyV"&&!e.repeat&&mode==="world"&&!mapUI.isOpen()){
-  e.preventDefault();toggleCamera();return;
+  e.preventDefault();
+  if(e.shiftKey)enableAutoCamera();
+  else toggleCamera();
+  return;
  }
  if(e.code==="KeyM"&&!e.repeat&&mode==="world"){
   e.preventDefault();held.clear();mapUI.toggle();return;
@@ -385,12 +406,27 @@ function frame(now){
  // of navigation. Low/mid default to forward; high/top default to the existing
  // overview. Manual Forward/Overview overrides altitude at any level.
  const forwardPosition=new THREE.Vector3(0,pilot.y+1.65,0);
- const forwardFocus=new THREE.Vector3(-dx*130,pilot.y+1.7,-dz*130);
+ const scale=overviewCameraScale(profile.atmosphericAltitude,
+  scaleScene.preset.altitudeScale);
+ // Keep the actual terrain inside the forward viewport as altitude rises:
+ // at Massive scale a perfectly horizontal cockpit ray sees only empty sky
+ // thousands of units above the sea for most of the ascent.
+ const forwardRange=130+scaleScene.preset.radius*.6*
+  THREE.MathUtils.smoothstep(profile.atmosphericAltitude,65,445);
+ const forwardAngle=forwardLookAngle(
+  profile.atmosphericAltitude,globe);
+ const forwardFocus=new THREE.Vector3(
+  -dx*forwardRange,
+  forwardPosition.y-forwardRange*Math.tan(forwardAngle),
+  -dz*forwardRange
+ );
+ // Scale BOTH horizontal follow distance and camera height. The previous
+ // 16k world multiplied ONLY camera Y by 32, creating a near-vertical view
+ // and a large lingering mismatch with the forward camera.
  const overviewPosition=new THREE.Vector3(
-  dx*profile.cameraDistance,
-  pilot.y+cameraAscentHeight(profile.cameraHeight,globe)*
-   scaleScene.preset.altitudeScale,
-  dz*profile.cameraDistance
+  dx*profile.cameraDistance*scale,
+  pilot.y+cameraAscentHeight(profile.cameraHeight,globe)*scale,
+  dz*profile.cameraDistance*scale
  );
  const overviewFocus=new THREE.Vector3(
   THREE.MathUtils.lerp(-dx*(33+70*profile.curvature),0,globe),
@@ -415,8 +451,9 @@ function frame(now){
  if(Math.abs(camera.fov-nextFov)>.012){
   camera.fov=nextFov;camera.updateProjectionMatrix();
  }
- // Hide only the visual ship while viewing through its cockpit.
- ship.visible=viewProfile.forwardWeight<.98;
+ // Show the ship only after the camera is outside its close cockpit pose.
+ // Never change the authoritative pilot/ship navigation state on view toggle.
+ ship.visible=viewMix>.88;
  cloudSystem.update(pilot,world,time,profile,forwardVelocity,pilot,camera,yaw);
  if(mode==="world")positionUI.textContent=
   `X ${wrap(pilot.x,world.width).toFixed(1)} · Z ${wrap(pilot.z,world.height).toFixed(1)} · ALT ${pilot.y.toFixed(1)} · GROUND ${pointGround(pilot.x,pilot.z).height.toFixed(1)} · MOMENTUM ${Math.abs(forwardVelocity).toFixed(0)} · ${currentTravel.mode.toUpperCase()} · ${profile.layer.toUpperCase()}`;
