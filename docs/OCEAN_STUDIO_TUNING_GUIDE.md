@@ -32,3 +32,7 @@ const p = tiledSpatialDevelopment.oceanPreview({shadow:{softness:.92,maxAlpha:.3
 ## Visual and performance gate
 
 Capture identical physical states at LOW cruise, MIDDLE cruise and boost, HIGH, TOP overview, and hover-ascent. Check shoreline, wrap, multiple headings, and the curved far hemisphere. V10 uses at most four reusable ribbon draws plus one shadow draw; inactive families do not draw. The typed-array capacity is reported separately from visible vertices. Node tests establish bounds, not beauty, WebGL correctness, GPU time, or 4 GB Windows suitability. Those remain owner-visible checks until measured.
+
+## Diagnose a circle before tuning
+
+Use [`Semantic-Bindings/shadow-deep-debug-v1.md`](../Semantic-Bindings/shadow-deep-debug-v1.md). Capture the completed frame, inspect candidate bounds and effective radius/alpha, then temporarily isolate only the shadow through the authorized reversible API. A blue disc may be the one base ocean/globe, pooled tonal ribbons, the shadow, or transparent overlap. Do not tune radius from screenshot color alone. Browser/GPU attribution and 4 GB Windows profiling remain manual gates.

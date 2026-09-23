@@ -10,7 +10,8 @@ function fixture(options={}){
  const adapter={readPhysicalState:()=>structuredClone(physical),restorePhysicalState:value=>{physical=structuredClone(value);},
   readPresentation:()=>structuredClone(presentation),applyPresentation:patch=>Object.assign(presentation,patch),restorePresentation:value=>{presentation=structuredClone(value);},
   restoreDefaultPresentation:()=>{presentation={anchorU:.5,anchorV:.73,heightFraction:.15,transitionSeconds:.6,fovBiasDegrees:0};},
-  captureImage:()=>{images.push(1);return "data:image/webp;base64,AA==";}};
+  captureImage:()=>{images.push(1);return "data:image/webp;base64,AA==";},
+  shadow:{capture:({frame:captured})=>({schemaVersion:"1.0.0",frameId:captured.frameId}),history:()=>[{frameId:10}],transition:(a,b)=>({beforeFrameId:a,afterFrameId:b}),explain:value=>({value}),isolate:(_id,value)=>!value}};
  const controller=createSpatialDevelopmentController({diagnostics,adapter,now:()=>time,...options});
  return {controller,facade:controller.facade,events,images,get physical(){return physical;},get presentation(){return presentation;},advance:ms=>time+=ms};
 }
@@ -49,6 +50,13 @@ test("the built-in Massive issue replay crosses ascent, modes, threshold and des
  assert.ok(replay.frames.every((item,index)=>item.index===index&&item.controls.scale==="massive"));
 });
 
+test("shadow artifact replay covers current/bigger/massive, altitude, cameras and headings",()=>{
+ const f=fixture();authorize(f);const replay=f.facade.createShadowArtifactReproduction();
+ assert.deepEqual(new Set(replay.frames.map(x=>x.controls.scale)),new Set(["current","bigger","massive"]));
+ assert.ok(replay.landmarks.some(x=>x.label==="expansive-to-current"));assert.ok(replay.frames.some(x=>x.controls.turn===1&&x.controls.forward===1));
+ assert.ok(replay.frames.every((item,index)=>item.index===index&&item.dt===1/60));
+});
+
 test("captures occur on frame boundaries, remain bounded, and image capture is explicit",()=>{
  const f=fixture({maxCaptures:2,maxCaptureBytes:10000});authorize(f);
  const first=f.facade.requestFrameCapture({reason:"before"});assert.equal(f.facade.listCaptures().length,0);
@@ -82,4 +90,12 @@ test("revocation stops active work, clears authorization, and restores defaults"
  const f=fixture();authorize(f);f.facade.startRecording();f.facade.applyPreview({anchorU:.4});
  const status=f.controller.revoke();assert.equal(status.authorized,false);assert.equal(status.recording,false);assert.equal(f.presentation.anchorU,.5);
  assert.equal(f.facade.exportReproBundle().error.code,"UNAUTHORIZED");
+});
+
+test("shadow APIs use capture/inspect/adjust scopes and completed frame boundaries",()=>{
+ const f=fixture();authorize(f);const request=f.facade.shadowCapture({reason:"circle"});assert.match(request.id,/shadow-capture/);
+ assert.deepEqual(f.controller.onFrame(frame(33))[0],{schemaVersion:"1.0.0",frameId:33});
+ assert.deepEqual(f.facade.shadowHistory(),[{frameId:10}]);assert.deepEqual(f.facade.shadowTransitionReport({beforeFrameId:1,afterFrameId:2}),{beforeFrameId:1,afterFrameId:2});
+ const preview=f.facade.shadowIsolatePreview({entityId:"ship-ocean-shadow",visible:false});assert.match(preview.id,/shadow-preview/);assert.equal(f.facade.shadowRestorePreview(preview.id).ok,true);
+ assert.equal(f.facade.shadowIsolatePreview({entityId:"base-ocean-globe",visible:false}).error.code,"INVALID_SHADOW_PREVIEW");
 });

@@ -23,6 +23,8 @@ import {createCompositionTransition} from "./camera-transition.js";
 import {createMassiveFlightFraming} from "./cinematic-flight-framing.js";
 import {createSpatialDiagnostics,projectPoint} from "./spatial-diagnostics.js";
 import {createSpatialDevelopmentController} from "./spatial-development.js";
+import {createShadowDiagnostics} from "./shadow-diagnostics.js";
+import {curveSurfacePoint,projectBounds} from "./spatial-math.js";
 
 const view=document.getElementById("view");
 const positionUI=document.getElementById("position"),statusUI=document.getElementById("status");
@@ -216,6 +218,7 @@ scaleSelector.addEventListener("change",()=>{
  if(!SCALE_PRESETS[scaleSelector.value])return;
  // Changing map scale is an intentional UI action, not a spawn request.
  const oldScene=scaleScene,nextScene=makeScaleWorld(sourceWorld,scaleSelector.value);
+ scaleSelector.dataset.previousScale=oldScene.preset.id;
  const transferred=transferScalePosition(pilot,oldScene,nextScene);
  scaleScene=nextScene;world=scaleScene.nav;
  pilot.set(transferred.x,transferred.y,transferred.z);
@@ -627,14 +630,30 @@ const developmentAdapter={
  ocean:{getPreset:()=>oceanVisual.getPreset(),preview:(patch,reason)=>oceanVisual.preview(patch,reason),
   rollback:id=>oceanVisual.rollback(id),resetToDefaults:()=>oceanVisual.resetToDefaults(),
   importPreset:value=>oceanVisual.importPreset(value),exportPreset:()=>oceanVisual.exportPreset(),
-  compare:(before,after)=>oceanVisual.compare(before,after)}
+  compare:(before,after)=>oceanVisual.compare(before,after)},
+ shadow:null
 };
+const shadowDiagnostics=createShadowDiagnostics({diagnostics,readFrame:frame=>{
+ const inspected=oceanVisual.inspectShadow(),model=inspected.model,mesh=inspected.mesh;
+ if(!frame||!model||!mesh)return null;
+ camera.updateMatrixWorld();const viewProjection=new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse).elements;
+ const viewport={width:renderer.domElement.clientWidth,height:renderer.domElement.clientHeight,dpr:renderer.getPixelRatio()};
+ const curve={origin:{x:0,z:0},strength:horizonState.strength.value,radius:horizonState.radius.value,flat:horizonState.flat.value,globe:horizonState.globe.value,globeRadius:horizonState.globeRadius.value};
+ const boundary=Array.from({length:16},(_,index)=>{const angle=index*Math.PI/8;return curveSurfacePoint({x:Math.cos(angle)*mesh.effectiveRadiusX,y:.24,z:Math.sin(angle)*mesh.effectiveRadiusZ},curve);});
+ const projected=projectBounds([{x:0,y:.24,z:0},...boundary],viewProjection,viewport),bounds=projected.viewport??null;
+ const area=bounds?Math.max(0,Math.min(1,bounds.maxU)-Math.max(0,bounds.minU))*Math.max(0,Math.min(1,bounds.maxV)-Math.max(0,bounds.minV)):0;
+ const preset=inspected.preset,shadow={...model,postClampRadius:model.postClampRadius,elongation:preset.shadow.elongation,effectiveAlpha:model.alpha,enabled:preset.shadow.enabled,color:preset.shadow.color,moodWeights:inspected.mood?.weights??Object.fromEntries(Object.entries(inspected.mood?.families??{}).map(([id,value])=>[id,value.weight])),sources:{radius:"activePreset.shadow.radius blended by ocean-mood-model",alpha:"activePreset mood shadow alpha × 9-sample ocean coverage",elongation:"activePreset.shadow.elongation",presetId:preset.id,presetSchemaVersion:preset.schemaVersion}};
+ const oceanBounds={minU:0,maxU:1,minV:0,maxV:1};
+ return {runId:diagnostics.stats().runId,frameId:frame.frameId,timestampMs:frame.timestampMs,input:{worldId:world.name,scaleId:scaleScene.preset.id,presetId:preset.id,presetVersion:preset.schemaVersion},physical:{ship:{position:{x:pilot.x,y:pilot.y,z:pilot.z},velocity:{forward:forwardVelocity,vertical:verticalVelocity}},world:{id:world.name,width:world.width,height:world.height,wrapFormula:"((v % size) + size) % size",oceanId:"ocean"},scale:{id:scaleScene.preset.id,previousId:scaleSelector.dataset.previousScale||null,width:scaleScene.preset.width,height:scaleScene.preset.height,planetRadius:scaleScene.preset.radius,altitudeScale:scaleScene.preset.altitudeScale,relativePosition:{u:wrap(pilot.x,world.width)/world.width,v:wrap(pilot.z,world.height)/world.height}},altitude:{physicalY:pilot.y,normalizedAtmospheric:inspected.state?.normalizedAltitude??null,sourceField:"pilot.y / altitudeProfile"}},shadow,presentation:{mesh,duplicateCount:scene.children.filter(child=>child.name==="stylized-ship-ocean-shadow"&&child.uuid!==mesh.meshId).length,floatingOrigin:{x:pilot.x,z:pilot.z},scaleTransform:{physicalToRender:"subtract pilot X/Z; Y unchanged"}},camera:{worldPosition:camera.position.toArray(),quaternion:camera.quaternion.toArray(),targetPolicy:cameraChoice,fovDegrees:camera.fov,aspect:camera.aspect,near:camera.near,far:camera.far,viewMatrix:camera.matrixWorldInverse.toArray(),projectionMatrix:camera.projectionMatrix.toArray()},viewport:{cssWidth:viewport.width,cssHeight:viewport.height,drawingBufferWidth:Math.round(viewport.width*viewport.dpr),drawingBufferHeight:Math.round(viewport.height*viewport.dpr),dpr:viewport.dpr},projection:{chain:["authoritative-world","floating-origin","horizon-deformed-render","camera","clip","NDC","normalized-viewport","CSS-pixels"],ship:frame.projection.physical,shadow:{center:projected.samples[0],boundarySamples:projected.samples.slice(1),viewportBounds:bounds,viewportAreaFraction:area,occlusion:"unknown",cpuHorizonEquivalent:true}},contributors:[{entityId:"base-ocean-globe",semanticType:"canonical-ocean-surface",sourceModule:"src/horizon.js",geometry:{meshId:ocean.uuid,type:ocean.geometry.type,radius:scaleScene.preset.radius,curvedByShader:true},material:{color:`#${ocean.material.color.getHexString()}`,opacity:ocean.material.opacity,transparent:ocean.material.transparent,depthWrite:ocean.material.depthWrite,depthTest:ocean.material.depthTest},viewportBounds:oceanBounds,overlapsShadow:true,pixelAttribution:"unverified"},{entityId:"ship-ocean-shadow",semanticType:"shadow-footprint",sourceModule:"src/ocean-shadow-renderer.js",geometry:{worldRadiusX:mesh.effectiveRadiusX,worldRadiusZ:mesh.effectiveRadiusZ},material:mesh.material,viewportBounds:bounds,overlapsShadow:true,pixelAttribution:"unverified"},...Object.entries(inspected.mood?.families??{}).filter(([,value])=>value.weight>.012).map(([id,value])=>({entityId:`ocean-ribbon-family:${id}`,semanticType:"tonal-ribbon-family",sourceModule:"src/ocean-wave-renderer.js",geometry:{boundedPool:true,worldWidth:value.worldWidth},material:{opacity:value.opacity},viewportBounds:null,overlapsShadow:true,pixelAttribution:"unverified"})),{entityId:"sky-atmosphere",semanticType:"background",sourceModule:"src/main.js + src/atmosphere-renderer.js",viewportBounds:oceanBounds,overlapsShadow:true,pixelAttribution:"unverified"}],observationalLimits:["candidate overlap is not GPU pixel attribution","depth and transparent compositing are unmeasured","horizon boundary is sampled with the CPU equivalent"]};
+}});
+developmentAdapter.shadow={capture:options=>shadowDiagnostics.capture(options),history:options=>shadowDiagnostics.history(options),transition:(a,b)=>shadowDiagnostics.transition(a,b),explain:options=>shadowDiagnostics.explain(options),isolate:(_id,visible)=>oceanVisual.setShadowVisibility(visible)};
 development=createSpatialDevelopmentController({diagnostics,adapter:developmentAdapter});
 window.tiledSpatial=Object.freeze({
  getObjectSpatialState:(...a)=>diagnostics.getObjectSpatialState(...a),getViewportPosition:(...a)=>diagnostics.getViewportPosition(...a),
  getCameraState:()=>diagnostics.getCameraState(),getSpatialSnapshot:(...a)=>diagnostics.getSpatialSnapshot(...a),
  getSpatialRelationship:(...a)=>diagnostics.getSpatialRelationship(...a),getCoordinateTransform:(...a)=>diagnostics.getCoordinateTransform(...a),
  explainPositionChange:(...a)=>diagnostics.explainPositionChange(...a),exportJSONL:()=>diagnostics.exportJSONL(),incidentReport:(...a)=>diagnostics.incidentReport(...a),
+ getShadowDiagnostics:()=>shadowDiagnostics.inspect(),shadow:Object.freeze({inspect:()=>shadowDiagnostics.inspect(),getContributors:options=>shadowDiagnostics.getContributors(options)}),
  ocean:Object.freeze({getPreset:()=>oceanVisual.getPreset(),getMoodState:()=>oceanVisual.getMoodState(),getFamilyState:id=>oceanVisual.getFamilyState(id),getFootprintState:()=>oceanVisual.getFootprintState(),getRenderBudget:()=>oceanVisual.getRenderBudget(),getSelectedCrest:id=>oceanVisual.getSelectedCrest(id)})
 });
 window.tiledSpatialDevelopment=development.facade;

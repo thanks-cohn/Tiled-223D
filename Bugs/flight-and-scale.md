@@ -129,3 +129,9 @@ The retired renderer selected an `8 × 7` near and `8 × 4` far rectangular latt
 ## V10 ocean beauty-pass verification status
 
 The old hair-like `LineSegments` presentation was replaced by fixed-capacity tapered ribbon meshes and distinct altitude compositions. Automated determinism, preset validation, shoreline sampling, physics isolation, test, and production-build checks are tracked with the V10 handoff. Matching LOW/MIDDLE/HIGH/TOP browser captures and a 4 GB Windows FPS/GPU profile are still required; do not close visual artifacts solely from the passing Node suite.
+
+## DIAGNOSTICS-002 — Giant blue/circular formation attribution
+
+- Status: **V10 completed-frame diagnostics implemented; root cause and visual fix intentionally not claimed**.
+- The creator observed a large blue disc near displayed ALT ~374 and an expansive→Current transition. `shadow-deep-debug-v1` now records source shadow math, nine shore samples, actual reusable mesh/material/resources, CPU-equivalent curved boundary projection, camera/viewport state, scale-relative mapping, and separate globe/ribbon/atmosphere candidates.
+- Use the authorized deterministic shadow reproduction and before/after captures. Candidate overlap remains unverified GPU pixel attribution; transparent compositing/depth requires real browser evidence. No radius/default/physics change was made. Owner browser review, Actions, and 4 GB Windows profiling remain pending.
