@@ -31,12 +31,15 @@ test("mood weights are normalized, smooth, reversible, and compositions stay dis
  const top=evaluateOceanMood({normalizedAltitude:1,speed:80,worldScale:1,preset:DEFAULT_OCEAN_PRESET});
  assert.ok(low.families["near-crest"].weight>.9);assert.ok(middle.families["middle-swell"].weight>.8);assert.ok(high.families["broad-band"].weight>.8);assert.ok(top.families["planetary-contour"].weight>.9);
  assert.ok(low.families["near-crest"].opacity>0,"water structure remains visible at rest");
+ assert.ok(top.whiteStrength<.001,"TOP defaults to negligible white contribution through the smooth overlap");
+ assert.ok(high.tonalStrength>.8&&high.families["broad-band"].weight>.8);
+ assert.notDeepEqual(low.families,middle.families);assert.notDeepEqual(high.families,top.families);
 });
 
 test("wave groups are stable geographic shallow nested bands across altitude, heading and wrap",()=>{
  const family=DEFAULT_OCEAN_PRESET.families["middle-swell"],options={worldWidth:500,worldHeight:500,seed:223,worldScale:1};
  const a=sampleWaveGroup(family,-1,4,options),b=sampleWaveGroup(family,-1,4,options);
- assert.deepEqual(a,b);assert.equal(a.bands.length,3);assert.ok(a.bands.every(band=>band.length===13));
+ assert.deepEqual(a,b);assert.equal(a.bands.length,2);assert.ok(a.bands.every(band=>band.length===13));
  assert.equal(waveIdentity(family.id,-1,4,500,500,a.seed),waveIdentity(family.id,499,4,500,500,a.seed));
  const large=sampleWaveGroup(family,-1,4,{...options,worldScale:32});assert.equal(a.id,large.id,"world scale changes presentation scale, not source identity");
 });
@@ -49,4 +52,22 @@ test("shadow grows and darkens continuously, stays under a hovering ship, and cl
 
 test("visual preset patches cannot contain physical pilot or terrain controls",()=>{
  assert.throws(()=>mergeOceanPreset(DEFAULT_OCEAN_PRESET,{pilot:{x:99}}),/Invalid ocean preset/);
+});
+
+
+test("beauty controls validate and geographic ribbon morphology stays bounded",()=>{
+ const family=DEFAULT_OCEAN_PRESET.families["broad-band"];
+ assert.equal(family.mode,"tonal");assert.ok(family.width>family.groupSpacing/4);
+ const group=sampleWaveGroup(family,2,3,{worldWidth:500,worldHeight:500,seed:223,worldScale:1});
+ assert.ok(group.bands.flat().every(point=>point.taper>=0&&point.taper<=1));
+ assert.throws(()=>mergeOceanPreset(DEFAULT_OCEAN_PRESET,{families:{"broad-band":{width:100}}}),/Invalid ocean preset/);
+ const softer=mergeOceanPreset(DEFAULT_OCEAN_PRESET,{shadow:{softness:.95}});
+ assert.equal(softer.shadow.softness,.95);assert.equal(DEFAULT_OCEAN_PRESET.shadow.softness,.84);
+});
+
+test("shadow shoreline sampling fades broad footprints without changing their anchor",()=>{
+ const mood=evaluateOceanMood({normalizedAltitude:1,speed:0,worldScale:1,preset:DEFAULT_OCEAN_PRESET}),ship={x:0,y:445,z:0};
+ const full=oceanShadowState({ship,mood,world:{},isOcean:()=>true,profile:{planetRadius:235,globeReveal:1}});
+ const shore=oceanShadowState({ship,mood,world:{},isOcean:(x)=>x<=0,profile:{planetRadius:235,globeReveal:1}});
+ assert.deepEqual(shore.worldCenter,full.worldCenter);assert.equal(shore.clipping.maskSamples,9);assert.ok(shore.alpha<full.alpha&&shore.alpha>0);
 });

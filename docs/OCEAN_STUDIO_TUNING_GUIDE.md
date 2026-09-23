@@ -1,24 +1,34 @@
-# Ocean Studio tuning guide
+# Ocean Studio tuning guide — beauty pass V10
 
-Ocean Flight V1 is a presentation-only layer. Start at [`Semantic-Bindings/ocean-flight-v1-agent-contract.md`](../Semantic-Bindings/ocean-flight-v1-agent-contract.md). Do not tune flight speed, the canonical water map, or pilot coordinates to improve the picture.
+Ocean presentation is visual-only. Never change flight speed, canonical water, camera behavior, or pilot coordinates to tune it. The only defaults live in `src/ocean-visual-presets.js`; schema `1.1.0` validates the same controls used by Ocean Studio and the authorized API.
 
-## Fast lookup
+## Ocean Beauty Pass — where to change what
 
-- **Top shadow darkness:** preview `{"shadow":{"maxAlpha":0.30}}`; default lives at `DEFAULT_OCEAN_PRESET.shadow.maxAlpha` in `src/ocean-visual-presets.js`.
-- **Middle composition density:** preview `{"moods":{"middle":{"weights":{"middle-swell":0.8,"broad-band":0.45}}}}`.
-- **Wave morphology:** `families.<id>.length`, `curvature`, `groupSpacing`, and `fragments` describe one stable, nested geographic group.
-- **Crest following the camera:** inspect `window.tiledSpatial.ocean.getSelectedCrest("near-crest")`. Its `anchor` must remain fixed while hovering/ascent; a changed ID indicates lattice recycling after real horizontal movement or a preset/world change.
-- **Budget:** inspect `getRenderBudget()`. V1 is capped at four family draw calls plus one shadow draw call and one small shadow alpha texture.
+After a real click on **Authorize agent tools**, every example is reversible with `oceanRollback(result.id)`:
 
-## Safe A/B sequence
+```js
+// TOP less white (zero is the committed default)
+const p = tiledSpatialDevelopment.oceanPreview({moods:{top:{whiteStrength:0}}}, "TOP no white")
+// HIGH broader blue-on-blue
+const p = tiledSpatialDevelopment.oceanPreview({families:{"broad-band":{width:13,color:"#2777a2",alpha:.18}}}, "HIGH broad blue")
+// MIDDLE less cluttered
+const p = tiledSpatialDevelopment.oceanPreview({moods:{middle:{weights:{"near-crest":.42,"middle-swell":.78,"broad-band":.4}}}}, "MIDDLE quiet")
+// LOW more coherent (fewer deterministic gaps, shallower curvature)
+const p = tiledSpatialDevelopment.oceanPreview({families:{"near-crest":{gapRhythm:.05,curvature:.04,length:48}}}, "LOW coherent")
+// Softer/darker height cue
+const p = tiledSpatialDevelopment.oceanPreview({shadow:{softness:.92,maxAlpha:.32,color:"#061f38"}}, "soft shadow")
+```
 
-1. Select **Deep Debug**, click **Authorize agent tools**, and stop horizontal movement.
-2. Record `const before = tiledSpatial.ocean.getPreset()` and request a synchronized image capture.
-3. Run `const p = tiledSpatialDevelopment.oceanPreview({shadow:{maxAlpha:.30}}, "top-shadow-A")`.
-4. Capture the same replay frame and inspect the footprint, family weights, world anchor, projected coordinates, draw calls, and vertices.
-5. Compare with `oceanCompare(before, tiledSpatial.ocean.getPreset())`.
-6. Undo with `oceanRollback(p.id)`. Exporting a preset does not persist it into source; a creator must deliberately commit the validated JSON/default change.
+`mode` is `crest` or `tonal`. `width` is ribbon half-width in world units; `softness`, `taper`, `gapRhythm`, and `glint` are normalized. `whiteStrength` gates crest brightness by mood, while `tonalStrength` gates broad water-body structure. `grid`, `length`, `density`, and mood weights control near/mid/far spacing and visibility. Quality and hard allocation limits remain under `quality` and `budget`.
 
-## Manual visual route
+## Inspection and safe A/B
 
-Current at low coast → hover → Shift cruise → climb through normalized 0.34 and 0.68 → top → toggle Forward/Overview/Auto → descend → repeat on Bigger and Massive. Look specifically for a hard local diamond, short hook-like hairs, wave movement during stationary ascent, land/far-side bleed, shadow popping, and loss of the sky/ocean horizon. Record actual FPS/draw calls; do not infer 4 GB performance from tests.
+1. Select Deep Debug, authorize tools, and stop horizontal travel.
+2. Save `before = tiledSpatial.ocean.getPreset()` and request a synchronized capture.
+3. Apply one bounded preview, capture the same replay frame, and inspect `getMoodState()`, `getSelectedCrest(id)`, and `getRenderBudget()`.
+4. The selected group reports mode, geographic anchor, sampled points, world bounds, active style, projected center, and source controls. Its ID/anchor must not change during stationary ascent.
+5. Compare with `oceanCompare(before, tiledSpatial.ocean.getPreset())`; undo with `oceanRollback(id)`.
+
+## Visual and performance gate
+
+Capture identical physical states at LOW cruise, MIDDLE cruise and boost, HIGH, TOP overview, and hover-ascent. Check shoreline, wrap, multiple headings, and the curved far hemisphere. V10 uses at most four reusable ribbon draws plus one shadow draw; inactive families do not draw. The typed-array capacity is reported separately from visible vertices. Node tests establish bounds, not beauty, WebGL correctness, GPU time, or 4 GB Windows suitability. Those remain owner-visible checks until measured.

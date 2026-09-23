@@ -1,16 +1,51 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "verificationDate": "2026-09-23",
-  "branchRequested": "feature/cinematic-speed-perception-v9",
-  "workspaceBranch": "work",
-  "implementationCommit": "08acc1bd3ae94b73f50ed982e1bec3d6f454ac59",
-  "status": {"architecture": "implemented", "fourMoods": "implemented", "fourWaveFamilies": "implemented", "heightShadow": "implemented", "oceanStudio": "implemented", "authorizedAgentAPI": "implemented", "browserAestheticAcceptance": "proposed-owner-review-required"},
-  "entryPoints": ["src/ocean-visual-controller.js", "src/ocean-visual-presets.js", "src/ocean-mood-model.js", "src/ocean-wave-field.js", "src/ocean-wave-renderer.js", "src/ocean-shadow.js", "src/ocean-shadow-renderer.js", "src/main.js"],
+  "branchRequested": "feature/ocean-beauty-pass-v10",
+  "baseBranch": "feature/cinematic-speed-perception-v9",
+  "implementationCommit": "6f9045c",
+  "status": {
+    "ribbonMorphology": "implemented",
+    "distinctFourMoods": "implemented",
+    "topWhiteDefault": "negligible",
+    "shoreSampledShadow": "implemented",
+    "oceanStudioControls": "implemented",
+    "browserAestheticAcceptance": "owner-review-required"
+  },
+  "entryPoints": [
+    "src/ocean-visual-presets.js",
+    "src/ocean-mood-model.js",
+    "src/ocean-wave-field.js",
+    "src/ocean-wave-renderer.js",
+    "src/ocean-shadow.js",
+    "src/ocean-shadow-renderer.js",
+    "src/ocean-visual-controller.js",
+    "src/main.js"
+  ],
   "readOnlyAPI": "window.tiledSpatial.ocean",
-  "authorizedAPI": "window.tiledSpatialDevelopment.oceanPreview/oceanRollback/oceanResetToDefaults/oceanImportPreset/oceanExportPreset/oceanCompare",
-  "defaultPreset": {"id": "cinematic-ocean-v1", "version": "1.0.0"},
-  "verified": {"npmTest": "88 passed", "npmBuild": "passed with Vite chunk-size warning", "browserCapture": false, "windows4GBProfile": false, "githubActions": "not run; no Actions URL available from local workspace"},
-  "remainingDefects": ["No browser automation/capture tool was available in this environment, so morphology and the former diamond seam need owner-visible review.", "The shadow rejects a footprint whose center is land; gradual multi-sample shoreline feathering remains a visual refinement.", "WebGL line width remains platform-defined at one pixel; bounded ribbons may improve premium appearance after measurement.", "The workspace exposed branch 'work' rather than the requested named feature branch; no main branch was modified."],
-  "openAestheticQuestions": ["Are near crest alpha and nested spacing sufficiently wave-like at the owner's display scale?", "Is top shadow alpha 0.34 dark enough without becoming a stamp?", "Does the top planetary family need fewer but wider ribbons after visual review?"],
-  "safeNextEdit": "Preview a bounded preset patch through the authorized API, capture the same replay frame before/after, rollback, then update preset, schema, tests, and this handoff together. Never move pilot/world coordinates to tune visuals."
+  "authorizedAPI": "window.tiledSpatialDevelopment.ocean*",
+  "defaultPreset": {
+    "id": "ocean-beauty-v10",
+    "version": "1.1.0"
+  },
+  "renderTradeoff": {
+    "drawCalls": "up to 4 ribbons + 1 shadow; inactive families zero",
+    "fixedCapacityVertices": 13536,
+    "advertisedVisibleVertexBudget": 8192,
+    "texture": "one 64x64 shadow alpha map",
+    "extraOceanMeshes": 0,
+    "fullscreenPasses": 0
+  },
+  "verified": {
+    "npmTest": "90 passed",
+    "npmBuild": "passed with existing Vite chunk-size warning",
+    "browserCapture": "LOW was rendered and inspected in real headless Chromium at 1440x900; the generated PNG is intentionally excluded from the Git patch to avoid binary-file application errors. Aesthetics still require owner review.",
+    "windows4GBProfile": false
+  },
+  "remainingDefects": [
+    "Owner must judge matching-state aesthetics in a real WebGL browser.",
+    "A 4 GB Windows GPU/CPU profile is not available in this environment.",
+    "Family softness is validated metadata used in composition/inspection; no costly edge-feather shader is claimed."
+  ],
+  "safeNextEdit": "Use the authorized reversible calls in docs/OCEAN_STUDIO_TUNING_GUIDE.md, capture the same replay state before/after, then update preset/schema/tests/handoff together."
 }

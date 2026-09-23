@@ -126,3 +126,6 @@ Reports refer to experimental V7 `feature/scale-profiles-floating-origin-v7`, ca
 ### OCEAN-003 source audit evidence
 
 The retired renderer selected an `8 × 7` near and `8 × 4` far rectangular lattice around `floor(ship/grid)`, disabled every line outside those pools, and changed opacity across altitude. Under the pitched camera, that finite ship-local rectangular boundary projects as the reported diamond; independent one-curve-per-cell sampling produced the hair-like morphology. The active V1 path no longer imports that renderer: it uses differently sized family neighborhoods, nested sibling bands, density thinning, stable family IDs and a separately feathered circular footprint. This is source-level evidence, not proof of final pixels; the manual capture route remains required.
+## V10 ocean beauty-pass verification status
+
+The old hair-like `LineSegments` presentation was replaced by fixed-capacity tapered ribbon meshes and distinct altitude compositions. Automated determinism, preset validation, shoreline sampling, physics isolation, test, and production-build checks are tracked with the V10 handoff. Matching LOW/MIDDLE/HIGH/TOP browser captures and a 4 GB Windows FPS/GPU profile are still required; do not close visual artifacts solely from the passing Node suite.
