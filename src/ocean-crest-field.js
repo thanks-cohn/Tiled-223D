@@ -25,3 +25,18 @@ export function oceanAltitudeProfile(altitude,speed,worldScale=1){
   grid:(24+190*t*t)*worldScale**.25,lod:t>.76?2:t>.35?1:0,
   opacity:speed<=.01?0:Math.min(.82,.28+Math.log1p(Math.abs(speed))/10),visible:speed>.01};
 }
+
+// Two fixed, world-anchored crest lattices. Crucially, altitude ONLY changes
+// their crossfade; it NEVER rescales their source coordinates or rotates them
+// with the ship/camera. This eliminates the old ascent-driven sea-line crawl.
+export function oceanCrestLayers(atmosphericAltitude,planetScale=1){
+ if(![atmosphericAltitude,planetScale].every(Number.isFinite)||
+  atmosphericAltitude<0||planetScale<=0)
+  throw Error("Invalid layered ocean profile");
+ const x=Math.min(1,Math.max(0,(atmosphericAltitude-155)/210));
+ const distant=x*x*(3-2*x);
+ return {
+  near:{grid:26*Math.pow(planetScale,.10),seed:223,lod:0,weight:1-distant},
+  far:{grid:88*Math.pow(planetScale,.75),seed:827,lod:0,weight:distant}
+ };
+}
