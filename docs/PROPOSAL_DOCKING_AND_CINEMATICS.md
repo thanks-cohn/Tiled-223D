@@ -149,3 +149,100 @@ Large mass does not imply uniform land: broad grassland, sandy areas, rock field
 ```
 
 **Acceptance criterion:** A creator authors two or three detailed islands and landmarks, authorizes a large surrounding region for agent generation, then inspects a varied continent with recognizable coastlines, grass/sand/rock, a river and a lake. The bounded overview and flight renderer agree on each material boundary and destination coordinate; entering an authored local area recovers its original unscaled terrain and docking geometry. The Massive world must remain navigable without a giant tile array or runtime LLM calls, and the agent must not modify protected work without permission.
+
+## Addendum — One placed asset, optional 2D/2.5D RPG views and semantic portals
+
+Status: **future proposal — not implemented in the current standalone viewer.** Extends the earlier creator-authored-location/agent-generated-expanses addendum and the surface-docking / local-RPG transition design. **Do not conflate the optional RPG presentation with the original flight world's actual 3D geometry, coordinates, or collision.** The creator drops an asset once and can derive the appearances required by either RPG presentation.
+
+### Stage 0 — Upload and orient the creator's 3D flying asset
+
+Provide a small **Flying Asset Setup** stage before assigning a model to a controllable ship, mount, aircraft, or other flying object:
+
+1. Upload/import an authorized 3D asset (e.g. GLB); show it on a simple compass stage with visible **N / S / E / W** world-axis markers, a ground plane, and a highlighted forward arrow. The creator rotates/repositions/scales the asset to align its *actual nose/front* with the engine's documented canonical forward direction. Existing flight code uses `-Z` for yaw 0; show this as **North**, `+Z` as **South**, `+X` East and `-X` West in the authoring stage. Clarify whether a model's built-in glTF axes differ; save an explicit corrective local transform rather than secretly rewriting its source vertices.
+2. Let the creator declare/preview **front, back, left, right, up, down** and the ship's pivot, silhouette, nose and optional animation bones or clips. Show front/left/rear/right previews and exercise yaw, bank, pitch, climb, descent and movement animation bindings on the staged model. If a source clip is unavailable, use a documented idle/rigid-transform fallback; never pretend missing rigged animations exist.
+3. Store a canonical `forwardAxis` / `northAlignment`, corrective `modelRotation`, `scale`, `pivotOffset`, optional animation clip mapping and physics/collision parameters **separately from its visual representation**. Directional captures for RPG sprites and flight visuals must use the *corrected orientation*, so turning north/east/south/west, directional shadows, triggers, and transition animations all agree with world coordinates.
+4. Validate a short authoring test (forward heading indicator, four cardinal turns, bank left/right, takeoff/landing or hover, overhead and side preview) before publishing. Allow the creator to revisit alignment without changing the ship's authoritative world position or recapturing unrelated assets.
+
+Illustrative **future-only** asset binding:
+
+```json
+{
+  "assetId": "creator_airship",
+  "source": "assets/creator-airship.glb",
+  "flyingAssetSetup": {
+    "worldNorth": "-Z",
+    "worldEast": "+X",
+    "sourceForwardAxis": "+X",
+    "correctiveYawDegrees": 90,
+    "pivotOffset": [0, 0, 0],
+    "uniformScale": 1,
+    "animationClips": {
+      "idle": "Idle",
+      "forward": "Cruise",
+      "turnLeft": "BankLeft",
+      "turnRight": "BankRight",
+      "climb": "Ascent",
+      "descend": "Descent"
+    }
+  }
+}
+```
+
+Clip names and rotation values above are illustrative only. The authoring stage must preview and validate the actual imported file, and should not assume a particular mesh axis, animation name, or available skeleton.
+
+### Stage 1 — Place an asset once and automatically capture RPG appearances
+
+A creator drops any 3D object at a chosen world coordinate, with a stable semantic object ID and local-map transform. The engine captures the asset **once on import/placement or when the asset/style/camera changes**, using an isolated transparent render target with alpha, not an expensive background-removal service on every frame. Cache the resultant image and an optional clean white padded outline. Preserve the original 3D source, parent, world anchor, collision and any openings, irrespective of which 2D image is displayed.
+
+Provide **two separate optional render modes**, alongside retaining the original 3D experience:
+
+- **Classic flat Tiled RPG (2D):** capture a top-down or creator-chosen view; put its transparent cutout **flat on the ground/map layer at the same mapped X/Z coordinates** where the 3D asset was placed. Use normal Tiled-style terrain/material layers for grass, sand, rivers, roads and water. Order/occlude by the configured 2D layers, not by the 3D object's arbitrary visual height. A flat object can occupy more than one tile; preserve its projected footprint and entrance/interact position.
+- **Paper 2.5D RPG:** capture a viewpoint matched to the selected fixed/angled RPG camera; prop the transparent toon cutout **upright on a cheap flat plane**, anchored at its actual contact point, with a soft inexpensive ground shadow and an **optional white padding/sticker outline**. The object is a *propped-up image*, not a newly generated detailed 3D model. Grass, rivers, sand, dirt, roads and other terrain remain **perspective-correct ground-conforming material/contour surfaces**, not upright cards. Perspective-correctness for a single capture is limited to its capture camera; offer directional captures and view selection later if the RPG camera can rotate.
+
+Both modes derive from the same location and semantic data. Switching mode must not relocate, duplicate, resize arbitrarily or recreate the physical 3D object. Captured textures and shadows are cached, pooled, and generated outside the ordinary frame loop; avoid full-scene alpha readbacks or a new material per tile.
+
+### Stage 2 — Right-click a placed object to assign interactions
+
+A creator right-clicks a placed asset or its generated RPG sprite/card to open **Object → Interaction**. The interaction is attached to the **semantic object identity** and designated contact/proximity/entrance region, not to pixels in its sprite. Provide an ordinary no-code dropdown and an optional advanced **Liquid reaction**. Proposed presets include:
+
+- **Make Space / Open 3D Space:** attach a validated local asset/scene reference (e.g. `spaces/house/interior.glb`), named destination `spaceId`, entry spawn/portal ID, and explicit return location at the original doorway. Optional transition visual/audio can be a lightweight fade by default. Enter the referenced 3D room when the player walks to the object's intended doorway and activates it (or on creator-selected proximity/contact); preserve the exact exterior semantic position for the return trip.
+- **Open RPG Map / Make Room:** load a linked local Tiled scene at its named entrance; stay in classic 2D or 2.5D according to the creator's selected presentation.
+- **Other predefined actions:** dialogue, collect/use item, play animation, activate a door, change a world-state flag, or teleport to an explicitly permitted location. Decorative / no interaction is valid.
+- **Liquid reaction (advanced):** bind authorized `onApproach`, `onInteract`, `onEnter`, `onExit` or `onCollision` hooks through a documented, isolated, permissioned event/API surface. Expose only the selected semantic object and approved world actions. **Do not give a world asset unrestricted filesystem, browser, network, desktop, or agent privileges merely because the character approaches it.** Require explicit grants for any host-level effects; invalid/unavailable Liquid logic must leave the default interaction safe and not strand the player.
+
+In the editor, show trigger type (**press interact**, **approach**, **contact**), interaction footprint/door anchor, linked reference picker, missing-reference warnings, and a preview of enter/exit. A default exit/escape route should remain available if an interior or custom transition fails.
+
+### Illustrative future-only object binding
+
+```json
+{
+  "id": "home_001",
+  "parent": "village_west",
+  "worldAt": [120, 0, 85],
+  "source3d": "assets/home.glb",
+  "rpgAppearance": {
+    "classic2d": {"kind": "flat-ground-cutout", "capture": "top-down", "whiteOutline": true},
+    "paper25d": {"kind": "upright-cutout", "capture": "rpg-camera", "shadow": "cheap-ground", "whiteOutline": true}
+  },
+  "interaction": {
+    "trigger": "interact",
+    "region": "front_door",
+    "action": "open_space",
+    "destination": {
+      "spaceId": "home_interior",
+      "asset": "spaces/home/interior.glb",
+      "spawn": "front_entrance"
+    },
+    "returnTo": {"objectId": "home_001", "anchor": "front_door"},
+    "liquid": null
+  }
+}
+```
+
+### Relationship to the nested-world desktop
+
+The same location/interaction interface should be extensible beyond a house: a cave under an island may open an expanded world, and leaving a planet may hand the user into a distinct SUBSTRATE spatial desktop with its own coordinates, windows and floating models. These are **explicit named, permissioned transitions** that preserve origin, destination and return state, not an automatic permission escalation. An agent can inspect or propose bindings through the semantic JSON graph, but only perform operations within the creator's authorized scope.
+
+### MVP acceptance
+
+Import and orient one creator ship using N/S/E/W controls so forward movement and turning match its nose. Place one 3D house and one tree; generate and cache two appearances for each (flat Tiled sprite and upright 2.5D cutout with optional outline/shadow). Switch RPG modes without changing underlying object IDs or location. Right-click the house, select **Make Space**, link a tiny 3D room, approach/interact at the configured doorway, enter and return to the same exterior anchor. A second object can trigger a no-code dialogue; optional Liquid is exposed as a declared extension rather than silently executed. Do all of this without runtime AI image generation or loading unrelated rooms/planet-sized terrain grids.
