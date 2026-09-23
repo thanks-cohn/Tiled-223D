@@ -3,7 +3,7 @@
 // weight; world-space pilot position/flight physics remain authoritative.
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export function createMassiveFlightFraming({
- anchorU=.5,anchorV=.71,heightFraction=.17,rate=4.8
+ anchorU=.5,anchorV=.73,heightFraction=.15,rate=4.8
 }={}){
  if(![anchorU,anchorV,heightFraction,rate].every(Number.isFinite)||
   anchorU<0||anchorU>1||anchorV<0||anchorV>1||
