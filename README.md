@@ -31,7 +31,15 @@ The long-term goal is **make the places you care about; let the rest of the worl
 
 ---
 
-## Cinematic Speed Perception V9 — experimental branch
+## V9 · Cinematic speed, clear ocean travel and Massive ship framing
+
+**New for Massive Overview:** The pilot's original world coordinate remains authoritative, but the existing ship model uses a camera-local lower-center presentation when the 16,000-world high-altitude overview would otherwise make it disappear or shrink to a dot. This uses the same ship model and does not change Forward view, Current/Bigger worlds, velocity, collision or the planet. Return to ordinary views restores the usual world-relative ship. The transition and aesthetic result need an actual browser check.
+
+**Brighter ocean speed markings across all modes:** A fixed buffer of 72 seeded mint-white surface lines now contrasts clearly with the deep-blue sea; speed controls their opacity and length rather than a timer faking travel. The marks remain active above low altitude and use the same curved-surface projection as the ocean, while terrain is excluded. One draw call, no extra ocean mesh or textures.
+
+[Agent implementation contract](Semantic-Bindings/massive-overview-and-ocean-speed-v9.md) · [reported bugs and validation checklist](Bugs/flight-and-scale.md)
+
+### Cinematic Speed Perception V9 — experimental branch
 
 The hardest thing about a vast ocean is that **actual motion can look slow when there is nothing nearby to compare it against**. V9 retains true ship momentum and world-anchored clouds/ocean glints, and introduces a restrained, altitude-aware peripheral airflow graphic that responds only to **measured ship displacement**. The effect is subtle for the California-highway low cruise, clearest during active atmospheric acceleration, and less intrusive in the high planetary overview. It never accelerates the ship, moves islands, replaces actual cloud parallax or draws over the center of the world.
 
