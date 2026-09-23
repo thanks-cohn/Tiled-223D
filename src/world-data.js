@@ -38,11 +38,14 @@ export function cell(w,x,z){
 export function fromTiled(map,elev=null){
  if(map?.orientation!=="orthogonal")throw Error("Use an orthogonal Tiled JSON map.");
  const w=world(map.width,map.height);
+ const unprocessed=map.layers?.find(l=>l.type==="tilelayer"&&l.name==="Additions");
+ if(unprocessed?.data?.some(v=>v!==0))throw Error("This map contains unprocessed Additions. Run generate-low-world.bat before importing it.");
  const ground=map.layers?.find(l=>l.type==="tilelayer"&&l.name==="Ground");
  if(!ground||!Array.isArray(ground.data)||ground.data.length!==w.ground.length)throw Error("Ground layer missing or invalid.");
  ground.data.forEach((v,i)=>{const id=(v>>>0)&0x1fffffff;if(!Number.isInteger(v)||id<1||id>6)throw Error("Unsupported ground tile at "+i);w.ground[i]=id;});
  const trees=map.layers.find(l=>l.type==="tilelayer"&&l.name==="Structures");
  if(trees){if(!Array.isArray(trees.data)||trees.data.length!==w.ground.length)throw Error("Invalid Structures layer.");trees.data.forEach((v,i)=>{if(((v>>>0)&0x1fffffff)===7)w.trees.push({x:i%w.width,z:Math.floor(i/w.width)});});}
+ if(!elev && map.substrateElevation) elev=map.substrateElevation;
  if(elev){
   const vals=Array.isArray(elev.values?.[0])?elev.values.flat():elev.values;
   if(elev.width!==w.width||elev.height!==w.height||!Array.isArray(vals)||vals.length!==w.heights.length)throw Error("Elevation grid does not match map.");
