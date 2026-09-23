@@ -6,6 +6,7 @@ import {protectedRegions,travelRegion,EXPANSE} from "../src/travel-regions.js";
 import {advanceMomentum,createFlybyTracker,resetFlybyTracker,updateFlybys,flybyImpulse} from "../src/flight-momentum.js";
 import {terrainBlocksEntry,objectBlocksEntry} from "../src/flight-collision.js";
 import {makeOceanSpeedCues} from "../src/ocean-speed-cues.js";
+import {makeHorizonState} from "../src/horizon.js";
 
 test("ocean requires about twice the V4 acceleration effort but does not strip speed",()=>{
  const w=sampleWorld(),regions=protectedRegions(w);
@@ -65,19 +66,24 @@ test("forward and reverse cannot remain blocked by equality or existing collisio
  assert.equal(objectBlocksEntry(null,a),true);
 });
 
-test("one cheap set of ocean lines follows actual speed and never draws on land",()=>{
+test("one high-contrast ocean-line buffer follows real movement at low and orbital heights",()=>{
  const world=sampleWorld(),scene=new THREE.Scene();
- const cues=makeOceanSpeedCues(scene);
- const lines=scene.getObjectByName("world-anchored-ocean-speed-glints");
+ const horizon=makeHorizonState();
+ const cues=makeOceanSpeedCues(scene,horizon);
+ const lines=scene.getObjectByName("world-anchored-high-contrast-ocean-speed-glints");
  assert.ok(lines);
  cues.update({x:240,y:35,z:270},world,0,0,1);
  assert.equal(lines.visible,false);
  cues.update({x:240,y:35,z:270},world,160,0,1);
  assert.equal(lines.visible,true);
- assert.ok(lines.material.opacity>0&&lines.material.opacity<=.29);
- assert.equal(lines.geometry.getAttribute("position").count,108);
- cues.update({x:240,y:170,z:270},world,160,0,1);
- assert.equal(lines.visible,false);
+ assert.ok(lines.material.opacity>.4&&lines.material.opacity<=.91);
+ assert.equal(lines.geometry.getAttribute("position").count,144);
+ cues.update({x:240,y:170,z:270},world,160,0,1,
+  {x:240,z:270},{atmosphericAltitude:170,planetRadius:235});
+ assert.equal(lines.visible,true);
+ assert.deepEqual(cues.getBudget(),{strokes:72,drawCalls:1,
+  textures:0,extraOceanMeshes:0});
  cues.dispose();
- assert.equal(scene.getObjectByName("world-anchored-ocean-speed-glints"),undefined);
+ assert.equal(scene.getObjectByName(
+  "world-anchored-high-contrast-ocean-speed-glints"),undefined);
 });
