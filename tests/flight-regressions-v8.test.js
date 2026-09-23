@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {sampleWorld} from "../src/world-data.js";
 import {makeScaleWorld,SCALE_PRESETS,transferScalePosition} from "../src/scale-world.js";
-import {cameraViewProfile,nextCameraChoice,planetOverviewFov} from "../src/camera-modes.js";
+import {cameraViewProfile,nextCameraChoice,overviewCameraScale,forwardLookAngle,planetOverviewFov} from "../src/camera-modes.js";
 import {sweepHorizontal} from "../src/horizontal-flight.js";
 import {advanceMomentum} from "../src/flight-momentum.js";
 import {ID} from "../src/world-data.js";
@@ -19,10 +19,51 @@ test("low/mid auto default forward; high/top overview; every altitude permits ma
  }
  assert.equal(cameraViewProfile(35,"overview").forwardWeight,0);
  assert.equal(cameraViewProfile(445,"forward").overviewWeight,0);
- assert.equal(nextCameraChoice("auto"),"forward");
- assert.equal(nextCameraChoice("forward"),"overview");
- assert.equal(nextCameraChoice("overview"),"auto");
+ // Each button press switches the ACTUAL view, never stalls on Auto.
+ assert.equal(nextCameraChoice("auto",35),"overview");
+ assert.equal(nextCameraChoice("auto",445),"forward");
+ assert.equal(nextCameraChoice("forward",445),"overview");
+ assert.equal(nextCameraChoice("overview",35),"forward");
+ assert.equal(nextCameraChoice(nextCameraChoice("auto",35),35),"forward");
+ assert.equal(nextCameraChoice(nextCameraChoice("auto",445),445),"overview");
  assert.throws(()=>cameraViewProfile(NaN),/Invalid/);
+});
+test("Massive shares the same camera perspective as Current and Bigger",()=>{
+ const worldScales=[1,5,32];
+ for(const normalizedAltitude of [34,130,175,200,225,330,445]){
+  const localScale=overviewCameraScale(normalizedAltitude,1);
+  assert.equal(localScale,1);
+  const ratios=worldScales.map(scale=>
+   overviewCameraScale(normalizedAltitude,scale)/scale);
+  if(normalizedAltitude>=445)
+   for(const ratio of ratios)assert.ok(Math.abs(ratio-1)<1e-10);
+  // Important: X/Z following distance and Y elevation must use the SAME
+  // world-scale factor; no 32× vertical-only camera on the Massive planet.
+  for(const scale of worldScales){
+   const factor=overviewCameraScale(normalizedAltitude,scale);
+   assert.equal((14*factor)/(7*factor),2);
+   const result=cameraViewProfile(normalizedAltitude,"auto");
+   assert.ok(result.overviewWeight>=0&&result.overviewWeight<=1);
+   assert.equal(result.forwardWeight+result.overviewWeight,1);
+  }
+ }
+ assert.equal(overviewCameraScale(34,32),1);
+ assert.equal(overviewCameraScale(445,32),32);
+ assert.equal(overviewCameraScale(445,5),5);
+ assert.throws(()=>overviewCameraScale(35,0),/Invalid/);
+});
+test("forward flight never points the camera above the horizon while climbing",()=>{
+ for(const height of [0,34,65,110,145,175,200,225,285,445,2000]){
+  const globe=Math.max(0,Math.min(1,(height-235)/210));
+  const angle=forwardLookAngle(height,globe);
+  assert.ok(angle>0&&angle<Math.PI/2);
+  const horizontal=130+7520*.6*Math.max(0,Math.min(1,height/445));
+  const upDisplacement=-horizontal*Math.tan(angle);
+  assert.ok(upDisplacement<0);
+ }
+ assert.ok(forwardLookAngle(190) > forwardLookAngle(34));
+ assert.ok(forwardLookAngle(445,1)>forwardLookAngle(190));
+ assert.throws(()=>forwardLookAngle(NaN),/Invalid/);
 });
 test("planet overview fills more of frame than V7 without changing forward-view lens",()=>{
  assert.equal(planetOverviewFov(76,0,1),76);
