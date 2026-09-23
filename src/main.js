@@ -49,10 +49,13 @@ ship.userData.baseVisualExtent=3.4;
 // An absent model is deliberately nonfatal: the procedural sphere always works.
 new GLTFLoader().load("/ship/ship.glb",gltf=>{
  ship.remove(sphere);gltf.scene.scale.setScalar(1);
- ship.add(gltf.scene);
+ // Measure the unparented asset before it inherits the world-scale ship
+ // transform or the Massive camera presentation. Otherwise loading a GLB
+ // mid-flight could accidentally make its displayed angular size microscopic.
  const dimensions=new THREE.Box3().setFromObject(gltf.scene)
   .getSize(new THREE.Vector3());
  ship.userData.baseVisualExtent=Math.max(.1,dimensions.x,dimensions.y,dimensions.z);
+ ship.add(gltf.scene);
 },undefined,()=>{ /* no uploaded model yet: retain the sphere */ });
 
 let sourceWorld=sampleWorld(),copies=[],floatingInstances=[],islandCards=[],yaw=0,
