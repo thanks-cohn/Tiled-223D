@@ -2,7 +2,7 @@
 
 **Status:** Implementation request, not a completed feature or visual acceptance.  
 **Repository:** `thanks-cohn/Tiled-223D`  
-**Continue existing PR #12 head branch:** `codex/implement-cinematic-ocean-feature-enhancements` (target: `feature/cinematic-speed-perception-v9`). Work on the existing PR; do not create another branch or merge into V9/`main` without the creator's explicit approval.
+**New Codex job branch:** `feature/ocean-beauty-pass-v10`, created from V9 **after PR #12 was merged**. The previous PR #12 is complete; do not continue on its old `codex/implement-cinematic-ocean-feature-enhancements` branch. Use this existing V10 branch and open a NEW pull request targeting `feature/cinematic-speed-perception-v9` once implementation and checks are ready. Do not merge the new PR or modify `main` unless the creator explicitly asks.
 
 ## Creator's intent
 
@@ -14,7 +14,7 @@ The upper two altitude moods may have **no white wave lines at all**. Broad, sub
 
 1. `Semantic-Bindings/ocean-flight-v1-agent-contract.md`, `Semantic-Bindings/ocean-flight-v1-handoff.json`, `Semantic-Bindings/ocean-flight-v1.schema.json`, `docs/OCEAN_STUDIO_TUNING_GUIDE.md`, `docs/CODEX_CINEMATIC_OCEAN_V1_IMPLEMENTATION.md`, `docs/PROPOSAL_CINEMATIC_OCEAN_ALTITUDE_SHADOW.md`.
 2. `src/ocean-visual-presets.js`, `src/ocean-mood-model.js`, `src/ocean-wave-field.js`, `src/ocean-wave-renderer.js`, `src/ocean-shadow.js`, `src/ocean-shadow-renderer.js`, `src/ocean-visual-controller.js`, `src/horizon.js`, `src/main.js`, `src/spatial-development.js`, existing tests, Bugs and the present PR diff.
-3. Inspect the current real renderer, avoid stale descriptions and verify PR #12's state/target before coding. The four-family system, Ocean Studio and in-browser inspection are *architecture*, not proof of beauty or of successful runtime capture. Keep current flight physics, camera modes, ship GLB behavior, cloud parallax, successful peripheral speed cues and mathematical spatial truth unchanged.
+3. Inspect the current real renderer, avoid stale descriptions and verify the new V10 branch contains the merged PR #12 baseline before coding. The four-family system, Ocean Studio and in-browser inspection are *architecture*, not proof of beauty or of successful runtime capture. Keep current flight physics, camera modes, ship GLB behavior, cloud parallax, successful peripheral speed cues and mathematical spatial truth unchanged.
 
 ## 1. Diagnose the actual visual failure
 
@@ -61,4 +61,4 @@ Add tests for default top-level white intensity being zero/negligible, distinct 
 
 Update in the **same implementation change**: `Semantic-Bindings/ocean-flight-v1-agent-contract.md`, `Semantic-Bindings/ocean-flight-v1.schema.json`, `Semantic-Bindings/ocean-flight-v1-handoff.json`, `docs/OCEAN_STUDIO_TUNING_GUIDE.md`, affected Bugs/README and relevant tests. Add a short **“Ocean Beauty Pass — where to change what”** map: example real API calls to make TOP less white, HIGH more broad blue-on-blue, MIDDLE less cluttered, LOW more coherent, and shadow softer/darker. Document which visual changes are implemented and which remain speculative. Link this brief from the agent handoff. Preserve a truthful commit/test/capture/4 GB status; do not mark visual success from a test count.
 
-**Deliverable:** working ocean art-direction refinements and a future-agent-friendly way to tune them, not only this document or an extra family-count flag. Keep edits on the current PR #12 head branch; leave `main` and the V9 base branch unchanged until the owner approves integration.
+**Deliverable:** working ocean art-direction refinements and a future-agent-friendly way to tune them, not only this document or an extra family-count flag. Commit implementation exclusively to `feature/ocean-beauty-pass-v10`; create a new PR targeting V9 for review. Leave `main` and the V9 base branch unchanged until the owner explicitly approves integration.
