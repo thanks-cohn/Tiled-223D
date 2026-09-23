@@ -1,5 +1,7 @@
 # Tiled-223D — Fly the Two-Island World
 
+**Seven-stage world creation roadmap:** [ÆXIS → AERIS → TOPOS → SEKAI → ASTRA → ARCADIA → ANIMA](Stages/README.md).
+
 ## NEW: Insert a 50 × 50 low island into your 500 × 500 Tiled world
 
 The first offline **Sketch-to-World / Low to the ground** test is documented in [the step-by-step guide](docs/LOW_GROUND_INSERTION.md). Use the [50 × 50 test town-site](maps/low-town-50x50.json), paste its Ground tiles onto a separate **Additions** layer in your editable 500 × 500 map, export ordinary Tiled JSON, then drag that JSON onto **generate-low-world.bat**. Keep/supply your original elevation JSON to preserve old heights. This produces a single **generated/low-world.json** containing the combined map and generated numeric heights. Launch **start-world.bat** and import that single JSON through **Import Tiled JSON → Load map**; no separate elevation file is needed for generated output.
