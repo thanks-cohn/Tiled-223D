@@ -1,16 +1,31 @@
-// Massive-world overview presentation only. The ship's authoritative pilot
-// stays at its real world coordinates; this returns a CAMERA-LOCAL visual
-// transform so the same ship mesh stays legible while the globe is centered.
+// Presentation coordinates are expressed as FRACTIONS OF THE RENDER VIEWPORT:
+// (0,0)=top-left, (1,1)=bottom-right. The pilot remains in physical world
+// coordinates for movement, collision, landing, semantic bindings and map UI.
+// The same ship visual is camera-local throughout Massive Overview; NEVER
+// switch representations at an altitude threshold (the V9 teleport bug).
+export const MASSIVE_SHIP_ANCHOR=Object.freeze({
+ u:.5,v:.73,heightFraction:.15
+});
 export function massiveShipPresentation({worldId,normalizedAltitude,
- overviewWeight,cameraNear,fieldOfView,visualExtent}){
- if(![normalizedAltitude,overviewWeight,cameraNear,fieldOfView,visualExtent]
-  .every(Number.isFinite)||cameraNear<=0||fieldOfView<=0||
-  fieldOfView>=150||visualExtent<=0)throw Error("Invalid ship presentation");
- const active=worldId==="massive"&&normalizedAltitude>=185&&
-  overviewWeight>.98;
+ overviewWeight,cameraNear,fieldOfView,visualExtent,aspect=16/9}){
+ if(![normalizedAltitude,overviewWeight,cameraNear,fieldOfView,visualExtent,aspect]
+  .every(Number.isFinite)||normalizedAltitude<0||cameraNear<=0||
+  fieldOfView<=0||fieldOfView>=150||visualExtent<=0||aspect<=0)
+  throw Error("Invalid ship presentation");
+ // IMPORTANT: No altitude cutoff. The old >=185 test changed the ship parent
+ // mid-ascent; its projected position instantly jumped from above the viewport
+ // to lower center. Anchor from the FIRST frame Overview is selected.
+ const active=worldId==="massive"&&overviewWeight>.02;
  if(!active)return {active:false};
+ const {u,v,heightFraction}=MASSIVE_SHIP_ANCHOR;
  const depth=Math.max(6,cameraNear*3.2);
  const halfHeight=depth*Math.tan(fieldOfView*Math.PI/360);
- return {active:true,x:0,y:-halfHeight*.43,z:-depth,
-  scale:(halfHeight*.30)/visualExtent};
+ const halfWidth=halfHeight*aspect;
+ return {active:true,
+  x:(u-.5)*2*halfWidth,
+  y:(.5-v)*2*halfHeight,
+  z:-depth,
+  scale:(2*halfHeight*heightFraction)/visualExtent,
+  viewport:{u,v,heightFraction}
+ };
 }
