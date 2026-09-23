@@ -16,6 +16,8 @@ import {positionIslandVisual,cinematicShipScale,cameraAscentHeight} from "./visu
 import {advanceMomentum,createFlybyTracker,resetFlybyTracker,updateFlybys} from "./flight-momentum.js";
 import {sweepHorizontal} from "./horizontal-flight.js";
 import {makeOceanSpeedCues} from "./ocean-speed-cues.js";
+import {measuredTravelSpeed} from "./speed-perception.js";
+import {makeSpeedPerception} from "./speed-perception-renderer.js";
 
 const view=document.getElementById("view");
 const positionUI=document.getElementById("position"),statusUI=document.getElementById("status");
@@ -35,6 +37,8 @@ const horizonState=makeHorizonState();
 const ocean=oceanPlane(horizonState);scene.add(ocean);
 const cloudSystem=clouds(scene);
 const speedCues=makeOceanSpeedCues(scene);
+scene.add(camera);
+const speedFeeling=makeSpeedPerception(camera);
 
 const ship=new THREE.Group();
 const sphere=new THREE.Mesh(new THREE.SphereGeometry(.9,9,6),new THREE.MeshLambertMaterial({color:"#fbdf77",flatShading:true}));
@@ -253,8 +257,9 @@ function frame(now){
  const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;
  // Map is a paused, inexpensive 2D inspection mode; do not run flight,
  // redraw the 3D scene or move the ship while the overlay is open.
- if(mapUI.isOpen())return;
+ if(mapUI.isOpen()){speedFeeling.hide();return;}
  time+=dt;
+ const startingFlightPosition={x:pilot.x,z:pilot.z};
  if(mode==="world"){
   const profile=altitudeProfile(pilot.y,scaleScene.preset.altitudeScale);
   const turn=(held.has("KeyA")?1:0)-(held.has("KeyD")?1:0);
@@ -340,6 +345,12 @@ function frame(now){
   }
   // Continue free flight above the globe. Wake/Return button is always available.
  }
+ // Drive visuals from actual displacement, not attempted thrust or camera
+ // movement. Collision and hovering must not fake speed.
+ const traveled=mode==="world"?Math.hypot(
+  pilot.x-startingFlightPosition.x,pilot.z-startingFlightPosition.z):0;
+ const actualTravelSpeed=mode==="world"?measuredTravelSpeed(
+  startingFlightPosition,pilot,dt):0;
  const profile=altitudeProfile(pilot.y,scaleScene.preset.altitudeScale);
  const near=0.5+Math.min(40,profile.globeReveal*
   Math.sqrt(scaleScene.preset.radius)*.25);
@@ -455,6 +466,12 @@ function frame(now){
  // Never change the authoritative pilot/ship navigation state on view toggle.
  ship.visible=viewMix>.88;
  cloudSystem.update(pilot,world,time,profile,forwardVelocity,pilot,camera,yaw);
+ if(mode==="world")speedFeeling.update({
+  actualSpeed:actualTravelSpeed,travelDistance:traveled,
+  normalizedAltitude:profile.atmosphericAltitude,
+  boosting:boosting,overviewWeight:viewMix,dt
+ });
+ else speedFeeling.hide();
  if(mode==="world")positionUI.textContent=
   `X ${wrap(pilot.x,world.width).toFixed(1)} · Z ${wrap(pilot.z,world.height).toFixed(1)} · ALT ${pilot.y.toFixed(1)} · GROUND ${pointGround(pilot.x,pilot.z).height.toFixed(1)} · MOMENTUM ${Math.abs(forwardVelocity).toFixed(0)} · ${currentTravel.mode.toUpperCase()} · ${profile.layer.toUpperCase()}`;
  renderer.render(scene,camera);
