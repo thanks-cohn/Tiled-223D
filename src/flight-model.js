@@ -14,23 +14,26 @@ export function damp(current,target,rate,dt) {
   throw Error("Invalid damping parameter");
  return current+(target-current)*(1-Math.exp(-rate*dt));
 }
-export function altitudeProfile(altitude) {
- if(!Number.isFinite(altitude))throw Error("Invalid altitude");
- const cruise=smoothstep(65,285,altitude);
- const curvature=smoothstep(105,265,altitude);
- const space=smoothstep(225,445,altitude);
- const globeReveal=smoothstep(235,445,altitude);
+export function altitudeProfile(altitude,scale=1) {
+ if(!Number.isFinite(altitude)||!Number.isFinite(scale)||scale<=0)
+  throw Error("Invalid altitude");
+ const atmosphericAltitude=altitude/scale;
+ const cruise=smoothstep(65,285,atmosphericAltitude);
+ const curvature=smoothstep(105,265,atmosphericAltitude);
+ const space=smoothstep(225,445,atmosphericAltitude);
+ const globeReveal=smoothstep(235,445,atmosphericAltitude);
  const travelMultiplier=1+2.8*cruise+1.2*space;
  return {
-  layer:altitude<110?"overworld":altitude<285?"atmosphere":"near-space",
-  cruise,curvature,space,globeReveal,travelMultiplier,
-  cloudFade:1-smoothstep(210,315,altitude),
+  layer:atmosphericAltitude<110?"overworld":atmosphericAltitude<285?"atmosphere":"near-space",
+  cruise,curvature,space,globeReveal,travelMultiplier,atmosphericAltitude,
+  planetRadius:235*scale,
+  cloudFade:1-smoothstep(210,315,atmosphericAltitude),
   cameraDistance:13+12*cruise+5*space,
   cameraHeight:6+8*cruise+12*space,
   // Look toward the distant horizon instead of straight at the ocean.
   lookDown:2+6*curvature+10*space,
   fieldOfView:69+5*cruise+2*space,
-  skyFade:smoothstep(185,455,altitude)
+  skyFade:smoothstep(185,455,atmosphericAltitude)
  };
 }
 // Distinguish faster TRAVEL at altitude from the apparent motion of terrain:

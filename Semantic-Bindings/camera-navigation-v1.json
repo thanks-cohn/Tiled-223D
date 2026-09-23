@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "kind": "semantic-flight-camera-navigation",
+  "status": "experimental-device-unverified",
+  "branch": "feature/altitude-parallax-cloud-choreography-v8",
+  "source": {
+    "viewModel": "src/camera-modes.js",
+    "viewUI": "index.html",
+    "worldIntegration": "src/main.js",
+    "scaleTransfer": "src/scale-world.js",
+    "horizontalCollision": "src/horizontal-flight.js",
+    "regressionTests": "tests/flight-regressions-v8.test.js",
+    "bugRegistry": "Bugs/flight-and-scale.md"
+  },
+  "camera": {
+    "modes": [
+      "auto",
+      "forward",
+      "overview"
+    ],
+    "default": "auto",
+    "autoAltitudeBehavior": {
+      "low": "forward",
+      "middle": "forward",
+      "high": "overview",
+      "planetary": "overview",
+      "transitionStartNormalizedAltitude": 175,
+      "transitionEndNormalizedAltitude": 225
+    },
+    "manualOverride": "View button or V switches immediately to the OPPOSITE visible Forward/Overview mode; separate Auto camera button or Shift+V restores altitude-based switching",
+    "navigationSideEffects": "none",
+    "planetOverview": {
+      "aim": "planet center",
+      "fullyRevealedFovDegrees": 46,
+      "extraMeshes": 0,
+      "lowAltitudeFovUnchanged": true
+    },
+    "massiveCameraFix": {
+      "worldScale": 32,
+      "worldCameraRule": "Overview X/Z following distance and Y follow height scale EQUALLY with altitude, fully reaching 32x by normalized altitude 225",
+      "forward": "look toward terrain during ascent instead of pitching up or staring horizontally into sky",
+      "overview": "lower aim toward planet before full globe reveal, using normalized altitude",
+      "viewTransition": "reset outdated follow-camera pose when explicitly toggling modes",
+      "addedMeshes": 0
+    }
+  },
+  "movement": {
+    "autocruise": "Fly forward button controls thrust only",
+    "manualReverse": "S overrides automatic forward cruise",
+    "collision": "bounded low-altitude near-land sweep stopping at last safe sample",
+    "maxCollisionSamplesPerFrame": 5000,
+    "teleportsOnCollision": false
+  },
+  "position": {
+    "explicitSpawnReasons": [
+      "initialization",
+      "map import"
+    ],
+    "scaleChange": "preserve offset relative to nearest destination or proportional open-ocean coordinates; do not respawn",
+    "userReportedUnexpectedReset": "under investigation until physical browser reproduction",
+    "renderOrigin": "pilot-centered floating X/Z"
+  },
+  "performance": {
+    "addedTerrainMeshes": 0,
+    "addedOceanMeshes": 0,
+    "addedCloudFormations": 0,
+    "visualFPSOn4GBDevice": "unverified"
+  },
+  "guardrails": [
+    "third and fourth altitude retain overview by default; use centered, surface-facing camera aim while climbing, including on Massive world",
+    "manual forward allowed even at highest altitude",
+    "camera changes must never change pilot coordinates/heading/momentum",
+    "do not call resetSpawn on world-scale change or collision",
+    "do not claim unexpected spontaneous reset fixed without runtime evidence"
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "kind": "semantic-cloud-parallax-binding",
+  "id": "tiled-223d.cloud-parallax-v1",
+  "status": "experimental",
+  "branch": "feature/altitude-parallax-cloud-choreography-v8",
+  "designIntent": "Maximize DIFFERENTIAL apparent speed of world-anchored clouds so each altitude has its own cinematic motion character, without repeating identical cloud rings or scaling workload with planet size.",
+  "sources": {
+    "model": "src/cloud-choreography.js",
+    "renderer": "src/atmosphere-renderer.js",
+    "flightCallsite": "src/main.js",
+    "test": "tests/cloud-choreography.test.js",
+    "agentExplanation": "Semantic-Bindings/cloud-parallax-v1.md",
+    "bugRegistry": "Bugs/README.md"
+  },
+  "altitudeMoods": [
+    {
+      "id": "cinematic-hover",
+      "intent": "low California-highway cruise",
+      "near": "small cloud flybys and ocean cues",
+      "slowReference": "upper horizon clouds"
+    },
+    {
+      "id": "active-flight",
+      "intent": "strong sense of acceleration",
+      "near": "low and middle formations move rapidly",
+      "slowReference": "distant upper sky persists"
+    },
+    {
+      "id": "expansive-ascent",
+      "intent": "speed in a vast space above and below",
+      "near": "multiple layers near flight path",
+      "slowReference": "larger remote atmospheric fields"
+    },
+    {
+      "id": "planetary",
+      "intent": "planet-dominant movement at enormous scale",
+      "near": "surface cloud formations and terrain boundaries",
+      "slowReference": "curved planetary horizon"
+    }
+  ],
+  "layers": [
+    "low",
+    "middle",
+    "high",
+    "planetary"
+  ],
+  "cloudFamilies": [
+    "cumulus",
+    "wisps",
+    "cloud-bank",
+    "broken"
+  ],
+  "clouds": {
+    "logicalFormations": 27,
+    "textureCount": 4,
+    "textureSize": [
+      128,
+      64
+    ],
+    "sharedPlaneGeometries": 1,
+    "volumetricPasses": 0,
+    "assignment": "world-anchored until passed or out of relevant range; assigned using deterministic coordinate hash",
+    "scheduler": "altitude-and-speed dependent checks; bounded by layer; skip intermediate regions at extreme speed",
+    "maxChangesPerEligibleCheck": {
+      "low": 3,
+      "middle": 2,
+      "high": 1,
+      "planetary": 1
+    },
+    "renderOrigin": "pilot global X/Z subtracted from each drawn cloud; no camera-relative scripted fake movement",
+    "highAltitude": "crossfade sprite into ground-parallel curved-surface cloud plane"
+  },
+  "outOfScope": [
+    "V7 first-person camera regression",
+    "near-land W/S blockage",
+    "unexpected pilot reset",
+    "sun/moon/weather lighting",
+    "true volumetric clouds",
+    "verified 4 GB hardware FPS",
+    "antivirus warning remediation"
+  ],
+  "guardrails": [
+    "keep existing cloud object pool bounded",
+    "never randomly teleport a cloud while it remains usefully visible",
+    "do not modify navigation coordinates or ship physics to imitate cloud speed",
+    "preserve tangent-plane normal relative to curved surface at high altitude",
+    "do not state that unverified flight bugs are fixed"
+  ]
+}

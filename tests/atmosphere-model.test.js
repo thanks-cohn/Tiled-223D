@@ -13,7 +13,7 @@ test("four semantic cloud decks and four cinematic altitude moods are explicit",
   "cinematic-hover","active-flight","expansive-ascent","planetary"
  ]);
  assert.equal(CLOUD_RENDER_BUDGET.sprites,27);
- assert.equal(CLOUD_RENDER_BUDGET.sharedTextures,1);
+ assert.equal(CLOUD_RENDER_BUDGET.sharedTextures,4);
  assert.equal(CLOUD_RENDER_BUDGET.volumetricPasses,0);
  assert.ok(CLOUD_LAYERS.every(layer=>layer.count>0&&layer.height>=0));
 });

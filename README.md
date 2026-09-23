@@ -16,7 +16,23 @@ For ongoing engine tasks see [docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md), but
 
 ---
 
-## Four-Layer Atmosphere V6 (this experimental branch)
+## V8 camera and flight stability update
+
+**Camera:** The `View` button (or `V`) immediately toggles the **actual** Forward/Overview view; use the separate `Auto camera` button (or Shift+V) to return to automatic low/middle Forward and high/planetary Overview. `Fly forward` controls movement only. The Massive (16,000) world now uses the same proportions for the camera's horizontal distance and vertical follow height as the smaller worlds, and both camera views aim toward the world as altitude rises rather than becoming stuck looking into empty sky. The overview continues to frame more of the planet centrally without adding another globe mesh. These changes need visual confirmation on the affected browser.
+
+**Flight/navigation:** Pressing S overrides automatic forward cruise instead of canceling it out; a near-land collision advances only to the last safe sample, then lets you reverse. Deliberate world-scale changes preserve relative location and earned momentum rather than resetting spawn. The intermittent user-reported surprise reset and the exact high-altitude visual result still require affected-device confirmation. See [camera/navigation agent binding](Semantic-Bindings/camera-navigation-v1.md) and [Bugs/](Bugs/README.md).
+
+## Altitude Parallax Cloud Choreography V8 (this experimental branch)
+
+Four altitude moods now coordinate a **stable world-anchored pool of 27 reusable cloud formations**: peaceful California-highway cruising, active atmospheric flybys, expansive layers above and below, and distant ground-parallel planetary clouds. The renderer reuses four tiny different procedural cloud silhouette textures; size, spacing, opacity and angle vary with a deterministic seed. Low clouds pass and recycle ahead more often; upper clouds stay longer as visual references for speed. Altitude/speed-dependent timers only limit recycling work, never move a visible cloud to fake travel. This is an unmerged experimental child of V7; the original first-person camera, W/S blockage and reported position-reset problems are **tracked, not fixed** in this cloud change.
+
+**Agent entry points:** [V8 cloud binding](Semantic-Bindings/cloud-parallax-v1.md), [machine-readable cloud schema](Semantic-Bindings/cloud-parallax-v1.json) and the new [Bugs/ registry](Bugs/README.md) distinguish implemented behavior from outstanding issues. These changes are intended to remain lightweight on a 4 GB computer, but appearance and FPS require actual in-browser validation before merging.
+
+## Three Planet Scales V7 (previous experimental branch)
+
+Choose **Current (500²)**, **Bigger (2,500² / 25× area)**, or **Massive (16,000² / 1,024× area)** from the flight HUD. The existing island geometry and 500² source map remain unchanged; bigger planets use sparse island coordinates and procedural ocean instead of constructing enormous tile grids. The planet radius and visible curvature respond to the selected profile. A floating render origin keeps the camera and scenery close to zero in GPU X/Z space to reduce high-altitude jitter. From altitude, cloud cards transition to planes **parallel to the curved planetary ground**, not perpetually facing the camera. A bounded 500² overview and fixed cloud/ocean geometry budgets preserve the low-compute design; this does **not** guarantee a particular FPS on a 4 GB computer. See [V7 implementation and limits](docs/SCALE_PROFILES_V7.md), [agent documentation](Semantic-Bindings/scale-profiles-v1.md) and [machine-readable binding](Semantic-Bindings/scale-profiles-v1.json). This is a separate unmerged branch; the earlier antivirus alert is not addressed by planet scaling.
+
+## Four-Layer Atmosphere V6 (previous branch)
 
 This branch adds **four deliberately different cloud decks and four smoothly blending altitude moods**: low reachable clouds that sweep past during fast low-altitude travel, middle clouds that establish depth, majestic slow high clouds visible even near sea level, and sparse cloud cards projected over the globe from above. The lowest flight remains calm and cinematic, active ascent emphasizes parallax, higher flight emphasizes scale, and the planetary view shifts to broad cloud formations. The 27-sprite pool shares one tiny generated alpha texture, uses no volumetric simulation, and does not change V5 flight momentum, island geometry, the opaque globe, collision, or the 500 × 500 map.
 

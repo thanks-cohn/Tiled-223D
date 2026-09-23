@@ -83,8 +83,9 @@ export function protectedRegions(world){
 export function travelRegion(world,regions,x,z,altitude,boost=false){
  if(![x,z,altitude].every(Number.isFinite))throw Error("Invalid flight coordinates");
  if(!Number.isFinite(world.width)||!Number.isFinite(world.height))throw Error("Invalid world");
- const tile=world.ground[Math.floor(wrap(z,world.height))*world.width+
-  Math.floor(wrap(x,world.width))];
+ const tile=typeof world.groundAt==="function"?world.groundAt(x,z):
+  world.ground[Math.floor(wrap(z,world.height))*world.width+
+   Math.floor(wrap(x,world.width))];
  let closest=Infinity,inside=null;
  for(const region of regions){
   const distance=Math.hypot(distanceWrapped(x,region.x,world.width),
@@ -92,8 +93,9 @@ export function travelRegion(world,regions,x,z,altitude,boost=false){
   if(distance<closest){closest=distance;inside=region.id;}
  }
  const locallyProtected=1-smooth(0,EXPANSE.boundaryBlend,closest);
+ const atmosphericAltitude=altitude/(world.altitudeScale||1);
  const altitudeRecovery=smooth(EXPANSE.altitudeRecoveryStart,
-  EXPANSE.altitudeRecoveryEnd,altitude);
+  EXPANSE.altitudeRecoveryEnd,atmosphericAltitude);
  // Only ocean is enabled in V4. Land/sand expansion can be opted into by
  // semantic terrain class later without changing this spatial schema.
  const openOcean=tile===ID.ocean;
