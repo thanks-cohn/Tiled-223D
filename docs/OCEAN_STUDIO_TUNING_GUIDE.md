@@ -15,8 +15,8 @@ const p = tiledSpatialDevelopment.oceanPreview({families:{"broad-band":{width:13
 const p = tiledSpatialDevelopment.oceanPreview({moods:{middle:{weights:{"near-crest":.42,"middle-swell":.78,"broad-band":.4}}}}, "MIDDLE quiet")
 // LOW more coherent (fewer deterministic gaps, shallower curvature)
 const p = tiledSpatialDevelopment.oceanPreview({families:{"near-crest":{gapRhythm:.05,curvature:.04,length:48}}}, "LOW coherent")
-// Softer/darker height cue
-const p = tiledSpatialDevelopment.oceanPreview({shadow:{softness:.92,maxAlpha:.32,color:"#061f38"}}, "soft shadow")
+// The under-ship height shadow is deliberately OFF in the V10 creator experience.
+// Ocean Studio tunes only the water families; do not re-enable the shadow here.
 ```
 
 `mode` is `crest` or `tonal`. `width` is ribbon half-width in world units; `softness`, `taper`, `gapRhythm`, and `glint` are normalized. `whiteStrength` gates crest brightness by mood, while `tonalStrength` gates broad water-body structure. `grid`, `length`, `density`, and mood weights control near/mid/far spacing and visibility. Quality and hard allocation limits remain under `quality` and `budget`.
@@ -31,8 +31,12 @@ const p = tiledSpatialDevelopment.oceanPreview({shadow:{softness:.92,maxAlpha:.3
 
 ## Visual and performance gate
 
-Capture identical physical states at LOW cruise, MIDDLE cruise and boost, HIGH, TOP overview, and hover-ascent. Check shoreline, wrap, multiple headings, and the curved far hemisphere. V10 uses at most four reusable ribbon draws plus one shadow draw; inactive families do not draw. The typed-array capacity is reported separately from visible vertices. Node tests establish bounds, not beauty, WebGL correctness, GPU time, or 4 GB Windows suitability. Those remain owner-visible checks until measured.
+Capture identical physical states at LOW cruise, MIDDLE cruise and boost, HIGH, TOP overview, and hover-ascent. Check shoreline, wrap, multiple headings, and the curved far hemisphere. V10 draws at most four reusable ribbon families by default. The retired height-shadow mesh is hidden, so it adds no shadow draw call; inactive wave families do not draw. The typed-array capacity is reported separately from visible vertices. Node tests establish bounds, not beauty, WebGL correctness, GPU time, or 4 GB Windows suitability. Those remain owner-visible checks until measured.
 
 ## Diagnose a circle before tuning
 
 Use [`Semantic-Bindings/shadow-deep-debug-v1.md`](../Semantic-Bindings/shadow-deep-debug-v1.md). Capture the completed frame, inspect candidate bounds and effective radius/alpha, then temporarily isolate only the shadow through the authorized reversible API. A blue disc may be the one base ocean/globe, pooled tonal ribbons, the shadow, or transparent overlap. Do not tune radius from screenshot color alone. Browser/GPU attribution and 4 GB Windows profiling remain manual gates.
+
+## Creator decision: no visible under-ship shadow
+
+The height shadow has been disabled by default in `src/ocean-visual-presets.js` and its Ocean Studio checkbox removed. Normal flight, altitude changes and world-size switches do not re-enable it. The reusable mesh, mathematical model, and authorized Deep Debug source→mesh→screen inspection remain available for explicit engineering tests only; importing a custom preset or an authorized developer preview can re-enable the legacy visual deliberately. This does not remove the base ocean/globe, the independent tonal wave families, or the floating-island shadows. If a circular ocean artifact persists with the default disabled, investigate base-globe geometry and other contributors rather than assuming it comes from the under-ship height shadow.
