@@ -9,7 +9,8 @@ import {createWorldMap} from "./world-map.js";
 import {createIslandImpostors,updateIslandImpostor,disposeIslandImpostors} from "./island-impostors.js";
 import {altitudeProfile,damp,LIMITS} from "./flight-model.js";
 import {makeHorizonState,setHorizonPosition,buildOceanGeometry} from "./horizon.js";
-import {makeScaleWorld,SCALE_PRESETS} from "./scale-world.js";
+import {makeScaleWorld,SCALE_PRESETS,transferScalePosition} from "./scale-world.js";
+import {cameraViewProfile,nextCameraChoice} from "./camera-modes.js";
 import {travelRegion} from "./travel-regions.js";
 import {positionIslandVisual,cinematicShipScale,cameraAscentHeight} from "./visual-anchors.js";
 import {advanceMomentum,createFlybyTracker,resetFlybyTracker,updateFlybys} from "./flight-momentum.js";
@@ -51,7 +52,7 @@ sourceWorld.objects=islandData.objects;
 let scaleScene=makeScaleWorld(sourceWorld,"current"),world=scaleScene.nav;
 let regions=world.regions;
 const pilot=new THREE.Vector3();
-let cameraInitialized=false;
+let cameraInitialized=false,cameraChoice="auto";
 const flybys=createFlybyTracker();
 let atmosphereWarned=false,cruise=false,forwardVelocity=0,verticalVelocity=0,bank=0,pitch=0;
 let safeFlightCeiling=0;
@@ -108,7 +109,9 @@ function makeTerrain(){
  // so a long view distance never exposes 9 repeated maps at once.
  scene.add(base);copies.push(base);
 }
-function resetSpawn(){
+function resetSpawn(reason="initialization"){
+ // Never reset spawn inside the flight loop or a camera/LOD transition.
+ console.info("[Tiled-223D] explicit spawn:",reason);
  const p=world.spawns[0]||{x:world.width/2,z:world.height/2};
  // Begin the two-island flight offshore, facing the near coast. Starting over
  // a tall ridge made W/S feel broken because movement was blocked at spawn.
@@ -122,7 +125,7 @@ function resetSpawn(){
  document.getElementById("cruise").textContent="Fly forward: Off";
  atmosphereWarned=false;setMessage(offshore?"Press W or Fly forward to approach the island. A/D turns.":"");
 }
-makeTerrain();resetSpawn();
+makeTerrain();resetSpawn("initialization");
 
 function worldExit(){
  if(mode!=="world")return;
@@ -150,15 +153,34 @@ document.getElementById("cruise").addEventListener("click",()=>{
  document.getElementById("cruise").textContent="Fly forward: "+(cruise?"On":"Off");
 });
 document.getElementById("reenter").addEventListener("click",enter);
+const cameraButton=document.getElementById("cameraMode");
+function syncCameraButton(){
+ const view=cameraViewProfile(pilot.y/scaleScene.preset.altitudeScale,cameraChoice);
+ cameraButton.textContent="View: "+view.label;
+ cameraButton.setAttribute("aria-pressed",String(cameraChoice!=="auto"));
+}
+function toggleCamera(){
+ cameraChoice=nextCameraChoice(cameraChoice);
+ syncCameraButton();
+}
+cameraButton.addEventListener("click",toggleCamera);
+syncCameraButton();
 
 const scaleSelector=document.getElementById("worldScale");
 scaleSelector.addEventListener("change",()=>{
  if(!SCALE_PRESETS[scaleSelector.value])return;
- scaleScene=makeScaleWorld(sourceWorld,scaleSelector.value);
- world=scaleScene.nav;makeTerrain();resetSpawn();
- mapUI.refreshWorld();
+ // Changing map scale is an intentional UI action, not a spawn request.
+ const oldScene=scaleScene,nextScene=makeScaleWorld(sourceWorld,scaleSelector.value);
+ const transferred=transferScalePosition(pilot,oldScene,nextScene);
+ scaleScene=nextScene;world=scaleScene.nav;
+ pilot.set(transferred.x,transferred.y,transferred.z);
+ scaleSelector.blur();held.clear();makeTerrain();
+ ship.position.set(0,pilot.y,0);
+ cameraInitialized=false;
+ resetFlybyTracker(flybys,world,world.regions,pilot.x,pilot.z);
+ mapUI.refreshWorld();syncCameraButton();
  statusUI.textContent=world.name+" · "+world.width+" × "+world.height+
-  " · sparse ocean · fixed terrain budget";
+  " · location preserved · sparse ocean · fixed terrain budget";
 });
 
 document.getElementById("quality").addEventListener("click",()=>{
@@ -180,12 +202,16 @@ document.getElementById("import").addEventListener("click",async()=>{
   document.getElementById("worldScale").value="current";
   document.getElementById("worldScale").disabled=true;
   makeTerrain();
-  resetSpawn();mode="world";exitUI.classList.remove("show");
+  resetSpawn("map import");mode="world";exitUI.classList.remove("show");
+  cameraChoice="auto";syncCameraButton();
   mapUI.refreshWorld();mapUI.close();
   statusUI.textContent=world.name+" · "+world.width+" × "+world.height+(heights?" · elevated":" · flat (no elevation file)");
  }catch(err){statusUI.textContent="Import error: "+err.message;}
 });
 addEventListener("keydown",e=>{
+ if(e.code==="KeyV"&&!e.repeat&&mode==="world"&&!mapUI.isOpen()){
+  e.preventDefault();toggleCamera();return;
+ }
  if(e.code==="KeyM"&&!e.repeat&&mode==="world"){
   e.preventDefault();held.clear();mapUI.toggle();return;
  }
@@ -216,7 +242,9 @@ function frame(now){
   // without turning the planet into a jittering texture beneath the camera.
   yaw+=turn*(1.38-.35*profile.cruise)*dt;
   bank=damp(bank,-turn*.22,4,dt);
-  const forward=((held.has("KeyW")||cruise)?1:0)-(held.has("KeyS")?1:0);
+  // Manual reverse MUST override auto-cruise. Previously S + cruise=0,
+  // making W/S seem locked when the forward button was enabled.
+  const forward=held.has("KeyS")?-1:(held.has("KeyW")||cruise)?1:0;
   // Ocean now slows how quickly NEW momentum is earned, never hard-clamps
   // speed that the player accumulated near an island or from a flyby.
   const travel=travelRegion(world,regions,pilot.x,pilot.z,pilot.y,boost);
