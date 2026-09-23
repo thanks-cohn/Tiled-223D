@@ -7,14 +7,14 @@
 - Low and middle atmospheric altitude: default **Forward**, a close look ahead from the ship that makes low cruising and parallax compelling.
 - Third expansive and fourth planetary altitude: **preserve the previously existing external/planetary composition**, except for a deliberate lens/framing adjustment so MORE of the planet appears CENTERED.
 - User can select either Forward or Overview at **ANY altitude**. The HUD now has a separate `View` control and `V` key; `Fly forward` remains a movement/autocruise switch and must never control the camera.
-- `Auto` chooses Forward below the third layer and transitions to Overview from normalized altitude 175–225, with Overview fully selected by 225. On descent, Auto returns to Forward. `Forward` and `Overview` manual overrides last until changed (sequence Auto → Forward → Overview → Auto).
+- `Auto` chooses Forward below the third layer and transitions to Overview from normalized altitude 175–225, with Overview fully selected by 225. On descent, Auto returns to Forward. Clicking **View** (or pressing **V**) immediately toggles the ACTUALLY VISIBLE Forward/Overview camera; it never cycles through an indistinguishable Auto step. Clicking **Auto camera** (or pressing **Shift+V**) deliberately restores altitude-controlled switching.
 - Manual camera changes must NEVER update global X/Z/Y, yaw, momentum, world scale, collision state, map import, or cloud world anchors.
 
 ## Implementation source of truth
 
 | Module | Why / non-negotiable contract |
 | --- | --- |
-| `src/camera-modes.js` | Pure view-choice and altitude blending model. `planetOverviewFov()` narrows the overview FOV toward 46° at full globe reveal. Forward FOV and manual Forward remain intact. |
+| `src/camera-modes.js` | Pure view-choice/altitude blending model. `nextCameraChoice()` flips the active view immediately; `overviewCameraScale()` scales horizontal AND vertical offsets equally (fully scale-matched by high altitude, including 16,000 world). `forwardLookAngle()` aims below the horizon while climbing; `overviewFocusHeight()` gradually aims toward the planet instead of empty sky. `planetOverviewFov()` narrows the external lens toward 46° at full globe reveal. |
 | `src/main.js` | Renders cockpit close to pilot and looks along actual yaw in Forward. Interpolates to existing overview camera and globe-center target in external mode, without translating pilot. Hides ONLY ship visuals for full Forward. UI controls and `V` key are separate from autocruise. |
 | `src/scale-world.js` | `transferScalePosition()` preserves local semantic destination offset or open-ocean relative position when switching Current/Bigger/Massive. `nearestLandInstance()` returns the terrain's ONE relocation offset plus integer world-wrap period: `nearest()` already returns ONLY period displacement, so never subtract destination center again. |
 | `src/horizontal-flight.js` | Bounded near-land collision sweep moves to last safe position on obstruction. Returns obstruction reason, does not trigger spawn or overwrite coordinates elsewhere. Preserve altitude/object collision checks and permit immediate manual reverse. |
@@ -34,7 +34,7 @@ One local 500×500 terrain map, one ocean mesh, 27 pooled cloud formations, and 
 
 ## Browser acceptance checklist
 
-1. Start Current/Bigger/Massive. Sea-level and mid-level view must default Forward; click `View` or press `V` to toggle and maintain manual selection. At altitude above normalized 225 Auto should show the prior overview; manual Forward must remain available. Descend and confirm Auto returns Forward.
+1. Start Current/Bigger/Massive. Sea-level and mid-level view must default Forward; the FIRST View click at low altitude must visibly switch to Overview, and the next must switch back to Forward. At high altitude the first click from automatic Overview must switch to Forward. Restore Auto with the separate Auto camera button or Shift+V. Climb continuously with Up in Massive and confirm both Forward and Overview keep the world visible, neither gets stuck aimed skyward, and the camera does not retain an outdated position after switching.
 2. Boost low over open ocean with Fly forward On, then press S. Ship must actually reverse; W should resume forward. Inspect heading, altitude and stored global coordinates across all view changes.
 3. Approach both island coastlines and floating-island faces at speed. Collision may stop thrust but should not reset ship to spawn or trap reverse/Up. Verify the HUD stays in the correct geographical area.
 4. Change planet scale deliberately near one island and at open ocean; location should transfer proportionally/local-to-destination, not teleport to the initial spawn. Imported Tiled maps still deliberately set their own spawn.
