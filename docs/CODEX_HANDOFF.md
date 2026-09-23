@@ -28,7 +28,13 @@ Use a **finite semantic map** independent of renderer objects:
 - Terrain must physically affect approach/landing. Evaluate collision against actual height at the relevant footprint, not against viewport pixels. Water is not automatically a solid runway. Disallow tunneling through high ridges with bounded/time-stepped checks or swept sampling where appropriate.
 - Near warning altitude emit a one-shot world-atmosphere warning; above exit altitude emit `substrate:world-exit` with world ID and wrapped position, fade to a plain “You're awake” placeholder; `substrate:world-enter` on reentry. Store/restore world state; keep exit cutscene replaceable. Do not put the scene into a stale input/rendering state after exiting.
 
-## Codex implementation order (small commits with tests)
+## Codex implementation order (small commits with tests)## Low-ground insertion test (2026-09-23)
+
+The first limited world assembly path now includes `maps/low-town-50x50.json` (a Tiled terrain-site asset), `scripts/create-starter-map.mjs` (exports the procedural 500 × 500 demo and its elevation companion), `scripts/assemble-low-world.mjs` and `generate-low-world.bat` (recognize nonempty `Additions` tiles in a Tiled JSON map, generate a low connected beach skirt and numeric elevations, preserve supplied old heights, and output `generated/low-world.json`). The viewer's `fromTiled()` now reads that file's embedded `substrateElevation` when no explicit elevation file was provided and refuses a raw map with still-unprocessed `Additions`. The initial terrain-v1 IDs and ordinary uncompressed orthogonal tile-layer arrays remain an explicit limitation. See [the user workflow](LOW_GROUND_INSERTION.md) and [regression tests](../tests/assemble-low-world.test.js).
+
+The generator is seeded and offline; a new run gets a new variation, whereas saving the chosen output or using `--seed` preserves repeatability. User-authored maps must never be overwritten, and the missing-original-elevations warning is meaningful: 2D terrain imagery cannot recover prior authored numeric altitude. This first test does **not** implement the proposed arbitrary GLB town/plane, floating disk, mountain joining, or general graphical world editor. Follow these incremental contracts before expanding the feature.
+
+
 
 1. **Audit and run**: inspect current files; run `npm install`, `npm test`, `npm run build`, and a browser smoke test if available. Write down real failures. Verify low-end quality setting and correct horizon on screenshots if browser access exists.
 2. **World math + tests**: expose pure helpers for wrapping, height sampling, finite-height validation, land/water and landing validation; write Node tests for negatives, boundary crossing, high ridges, ocean landing rejection, and 500 × 500 bounds. Do not let rendering consume the only authoritative copy of data.
