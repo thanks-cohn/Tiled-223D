@@ -84,7 +84,12 @@ export function buildOceanGeometry(planetRadius=GLOBE_RADIUS){
  // One opaque radial sea becomes an actual spherical shell as altitude rises.
  // Unlike a second transparent globe, this is still the ONLY sea mesh and it
  // never paints a blue layer over islands or doubles full-screen overdraw.
- const sectors=120,rings=54,extent=Math.max(925,Math.PI*planetRadius*1.02);
+ // The globe mapping stops at arc PI. Vertices beyond PI*R are folded onto
+ // the antipode, but their leftover planar displacement survives during the
+ // flat-to-globe blend and draws an extra overlapping circular skirt.
+ // End the radial mesh at its actual antipode: the 500-world still retains a
+ // 738-unit radius sea at low altitude (larger worlds scale with their R).
+ const sectors=120,rings=54,extent=Math.PI*planetRadius;
  const verts=[0,0,0],index=[];
  for(let ring=1;ring<=rings;ring++){
   // Dense local ocean rings; distant rings span the whole projected sphere.
