@@ -529,13 +529,30 @@ function frame(now){
   composition:shipFraming||compositionState
  });
  if(shipView.active){
-  if(ship.parent!==camera)camera.add(ship);
+  if(ship.parent!==camera){
+   const beforeParent=ship.parent===scene?"scene":"other";
+   camera.add(ship);
+   diagnostics.record("render-parent-change",{objectId:"ship-visible",
+    worldId:world.name,coordinateSpace:"render-parent",
+    before:{parentId:beforeParent},after:{parentId:"camera"},
+    causeId:"world-scale:massive-presentation"});
+  }
   ship.position.set(shipView.x,shipView.y,shipView.z);
   ship.rotation.set(pitch,0,bank);
   ship.scale.setScalar(shipView.scale);
   ship.visible=shipView.visible;
+  ship.userData.projectedHeightFraction=shipView.viewport.heightFraction;
+  ship.userData.screenAnchor=shipView.viewport;
  }else{
-  if(ship.parent!==scene)scene.add(ship);
+  if(ship.parent!==scene){
+   scene.add(ship);
+   diagnostics.record("render-parent-change",{objectId:"ship-visible",
+    worldId:world.name,coordinateSpace:"render-parent",
+    before:{parentId:"camera"},after:{parentId:"scene"},
+    causeId:"world-scale:non-massive-presentation"});
+  }
+  ship.userData.projectedHeightFraction=null;
+  ship.userData.screenAnchor=null;
   ship.position.set(0,pilot.y,0);
   ship.rotation.set(pitch,yaw,bank);
   ship.scale.setScalar(cinematicShipScale(profile.globeReveal)*
@@ -573,7 +590,7 @@ diagnostics.register("pilot",()=>({id:"pilot",worldId:world.name,
  projection:{physical:projectionOf({x:0,y:pilot.y,z:0})}}));
 diagnostics.register("ship-visible",()=>{const p=new THREE.Vector3();ship.getWorldPosition(p);return {id:"ship-visible",worldId:world.name,
  authoritative:{space:"global-world-units",position:{x:pilot.x,y:pilot.y,z:pilot.z}},
- render:{space:"scene-world-units",position:{x:p.x,y:p.y,z:p.z},parentId:ship.parent===camera?"camera":"scene",matrix:ship.matrixWorld.toArray()},
+ render:{space:"scene-world-units",position:{x:p.x,y:p.y,z:p.z},parentId:ship.parent===camera?"camera":"scene",matrix:ship.matrixWorld.toArray(),visible:ship.visible,projectedHeightFraction:ship.userData.projectedHeightFraction??null,screenAnchor:ship.userData.screenAnchor??null},
  projection:{physical:projectionOf({x:0,y:pilot.y,z:0}),visible:projectionOf(p)},
  presentationPolicy:ship.parent===camera?"massive-camera-relative-continuous-composition":"physical-floating-origin",transition:composition.state(),framing:massiveFraming.state()};});
 diagnostics.register("camera",()=>({id:"camera",worldId:world.name,authoritative:null,
