@@ -16,6 +16,12 @@ For ongoing engine tasks see [docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md), but
 
 ---
 
+## V8 camera and flight stability update
+
+**Camera:** The independent `View` button (or `V`) cycles Auto → Forward → Overview → Auto. Auto defaults to a forward-facing cockpit for low/middle flight and keeps the previous third/fourth-altitude overview. Manual selection works at any height; the `Fly forward` button remains a movement toggle, not a view switch. From high altitude the overview gradually uses a narrower lens aimed at the planet center so more of the globe is visible. Planet geometry and clouds are not enlarged.
+
+**Flight/navigation:** Pressing S overrides automatic forward cruise instead of canceling it out; a near-land collision advances only to the last safe sample, then lets you reverse. Deliberate world-scale changes preserve relative location and earned momentum rather than resetting spawn. The intermittent user-reported surprise reset and the exact high-altitude visual result still require affected-device confirmation. See [camera/navigation agent binding](Semantic-Bindings/camera-navigation-v1.md) and [Bugs/](Bugs/README.md).
+
 ## Altitude Parallax Cloud Choreography V8 (this experimental branch)
 
 Four altitude moods now coordinate a **stable world-anchored pool of 27 reusable cloud formations**: peaceful California-highway cruising, active atmospheric flybys, expansive layers above and below, and distant ground-parallel planetary clouds. The renderer reuses four tiny different procedural cloud silhouette textures; size, spacing, opacity and angle vary with a deterministic seed. Low clouds pass and recycle ahead more often; upper clouds stay longer as visual references for speed. Altitude/speed-dependent timers only limit recycling work, never move a visible cloud to fake travel. This is an unmerged experimental child of V7; the original first-person camera, W/S blockage and reported position-reset problems are **tracked, not fixed** in this cloud change.
