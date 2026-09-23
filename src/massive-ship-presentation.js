@@ -16,8 +16,12 @@ export function massiveShipPresentation({worldId,normalizedAltitude,
  // IMPORTANT: No altitude cutoff. The old >=185 test changed the ship parent
  // mid-ascent; its projected position instantly jumped from above the viewport
  // to lower center. Anchor from the FIRST frame Overview is selected.
- // Keep the representation attached to the camera for the ENTIRE Massive\n // world. Forward is hidden by zero apparent size, not by re-parenting.\n const active=worldId==="massive";
- if(!active)return {active:false};\n if(![composition.u,composition.v,composition.heightFraction].every(Number.isFinite)||\n  composition.heightFraction<0)throw Error("Invalid composition");
+ // Keep the representation attached to the camera for the ENTIRE Massive
+ // world. Forward is hidden by zero apparent size, not by re-parenting.
+ const active=worldId==="massive";
+ if(!active)return {active:false};
+ if(![composition.u,composition.v,composition.heightFraction].every(Number.isFinite)||
+  composition.heightFraction<0)throw Error("Invalid composition");
  const {u,v,heightFraction}=composition;
  const depth=Math.max(6,cameraNear*3.2);
  const halfHeight=depth*Math.tan(fieldOfView*Math.PI/360);
