@@ -27,13 +27,21 @@
       "transitionStartNormalizedAltitude": 175,
       "transitionEndNormalizedAltitude": 225
     },
-    "manualOverride": "forward or overview at any altitude; cycle View button / V",
+    "manualOverride": "View button or V switches immediately to the OPPOSITE visible Forward/Overview mode; separate Auto camera button or Shift+V restores altitude-based switching",
     "navigationSideEffects": "none",
     "planetOverview": {
       "aim": "planet center",
       "fullyRevealedFovDegrees": 46,
       "extraMeshes": 0,
       "lowAltitudeFovUnchanged": true
+    },
+    "massiveCameraFix": {
+      "worldScale": 32,
+      "worldCameraRule": "Overview X/Z following distance and Y follow height scale EQUALLY with altitude, fully reaching 32x by normalized altitude 225",
+      "forward": "look toward terrain during ascent instead of pitching up or staring horizontally into sky",
+      "overview": "lower aim toward planet before full globe reveal, using normalized altitude",
+      "viewTransition": "reset outdated follow-camera pose when explicitly toggling modes",
+      "addedMeshes": 0
     }
   },
   "movement": {
@@ -59,7 +67,7 @@
     "visualFPSOn4GBDevice": "unverified"
   },
   "guardrails": [
-    "third and fourth altitude preserve existing overview composition except requested centered planet lens",
+    "third and fourth altitude retain overview by default; use centered, surface-facing camera aim while climbing, including on Massive world",
     "manual forward allowed even at highest altitude",
     "camera changes must never change pilot coordinates/heading/momentum",
     "do not call resetSpawn on world-scale change or collision",
