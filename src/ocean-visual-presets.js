@@ -17,7 +17,7 @@ export const DEFAULT_OCEAN_PRESET=Object.freeze({
   high:{center:.68,width:.32,whiteStrength:.03,tonalStrength:.92,weights:{"near-crest":.02,"middle-swell":.42,"broad-band":1,"planetary-contour":.16},note:"Generous blue-on-blue bands with a quiet counter-rhythm."},
   top:{center:1,width:.30,whiteStrength:0,tonalStrength:.75,weights:{"near-crest":0,"middle-swell":.01,"broad-band":.13,"planetary-contour":1},note:"A few broad planetary tonal contours; no white strokes."}
  }),
- shadow:Object.freeze({enabled:true,policy:"vertical-below",minRadius:2.5,maxRadius:92,minAlpha:.008,maxAlpha:.28,softness:.84,elongation:1.28,color:"#082743",shoreFade:12,horizonFade:.16}),
+ shadow:Object.freeze({enabled:false,policy:"vertical-below",minRadius:2.5,maxRadius:92,minAlpha:.008,maxAlpha:.28,softness:.84,elongation:1.28,color:"#082743",shoreFade:12,horizonFade:.16}),
  budget:Object.freeze({maxCrests:76,maxSegmentsPerCrest:48,maxVertices:8192,maxDrawCalls:5,cacheEntries:256,qualityScale:.7})
 });
 
