@@ -107,12 +107,12 @@ export function makeScaleWorld(local,id="current"){
  return {preset:scale,nav,groundAt,pathNearLand,
   placementOf:(id)=>placements.find(x=>x.id===id),
   nearestLandInstance:(pilot,placement)=>({
-   // Terrain vertices are still in ORIGINAL 500² local coordinates. Apply
-   // the relocation once, then add only an integer wrap-period copy offset.
-   // The previous formula added placement.offsetX/Z AND the relocated
-   // center a second time, teleporting land visually toward the player.
-   x:placement.offsetX+nearest(pilot.x,placement.x,scale.width)-placement.x,
-   z:placement.offsetZ+nearest(pilot.z,placement.z,scale.height)-placement.z
+   // nearest() is ONLY an integer wrap-period offset (zero near the
+   // canonical island), not the island's absolute coordinate. The source
+   // terrain vertices already contain placement.localX/Z, so translate by
+   // the semantic relocation exactly once plus the nearest wrap period.
+   x:placement.offsetX+nearest(pilot.x,placement.x,scale.width),
+   z:placement.offsetZ+nearest(pilot.z,placement.z,scale.height)
   })
  };
 }
