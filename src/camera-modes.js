@@ -32,7 +32,7 @@ export function overviewCameraScale(atmosphericAltitude,altitudeScale){
  // At sea level all worlds keep the same local close-follow presentation;
  // at planetary altitude all worlds have identical camera geometry relative
  // to planetary radius. Scaling only Y caused the 16k viewport to malfunction.
- const t=Math.max(0,Math.min(1,(atmosphericAltitude-75)/320));
+ const t=Math.max(0,Math.min(1,(atmosphericAltitude-75)/150));
  const ease=t*t*(3-2*t);
  return 1+(altitudeScale-1)*ease;
 }
@@ -46,6 +46,19 @@ export function forwardLookAngle(atmosphericAltitude,globeReveal=0){
  // the expanding world while ascending; in orbit keep the globe in frame
  // even if the pilot manually chooses Forward. NEVER look upward.
  return .045+.39*ease+.85*globe;
+}
+export function overviewFocusHeight(pilotAltitude,atmosphericAltitude,planetRadius,globeReveal,lookDown){
+ if(![pilotAltitude,atmosphericAltitude,planetRadius,globeReveal,lookDown]
+  .every(Number.isFinite)||planetRadius<=0)throw Error("Invalid overview focus");
+ // Aiming almost horizontally from thousands of units above the 16k ocean
+ // previously left the entire viewport in the sky until full globe reveal.
+ // Start lowering the aim towards the actual curved surface BEFORE the
+ // sphere transition, using normalized altitude consistently on all worlds.
+ const t=Math.max(0,Math.min(1,(atmosphericAltitude-125)/110));
+ const groundAim=t*t*(3-2*t);
+ const globe=Math.max(0,Math.min(1,globeReveal));
+ return (pilotAltitude-lookDown)*(1-groundAim)-
+  planetRadius*globe*groundAim;
 }
 export function planetOverviewFov(baseFov,globeReveal,overviewWeight){
  if(![baseFov,globeReveal,overviewWeight].every(Number.isFinite))
