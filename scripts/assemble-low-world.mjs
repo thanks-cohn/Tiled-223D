@@ -94,13 +94,24 @@ export function assembleLowWorld(map, existingElevation = null, {seed = 1} = {})
         const j=idx(nx,ny,w);
         if(!marked[j]&&LAND.has(base[j])&&sourceHeights){inherited+=sourceHeights[j];count++;}
       }
-      const low=overlay[p]===3 ? 1.5+noise(x,y,seed)*1.2 : 3+noise(x,y,seed)*3;
+      const regional=(noise(Math.floor(x/9),Math.floor(y/9),seed)+noise(Math.floor((x+4)/9),Math.floor((y+4)/9),seed+4))*.5;
+      const low=overlay[p]===3 ? 1.5+regional*1.2 : 3+regional*2.3+noise(x,y,seed)*.4;
       heights[p]=count?Math.max(1,inherited/count + (low-3)*.3):low;
-    } else if(base[p]===4 && d>=1 && d<=4) {
-      // Preserve existing non-ocean terrain and all original elevations.
-      const chance=[0,1,.92,.68,.2][d];
-      const broad=Math.sin(x*.19+seed*.37)*.12+Math.cos(y*.23-seed*.21)*.12;
-      if(noise(x,y,seed+17) < chance+broad){output[p]=3;heights[p]=Math.max(.35,2.5-d*.52)+noise(x,y,seed+23)*.24;}
+    }
+  }
+  // Grow the shoreline outward in distance order: random variation cannot
+  // produce disconnected sand dots in otherwise empty ocean.
+  for(let d=1;d<=4;d++)for(const p of queue){
+    if(distance[p]!==d || base[p]!==4)continue;
+    const x=p%w,y=Math.floor(p/w);
+    const near=[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>{
+      const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=w||ny>=h)return false;
+      const j=idx(nx,ny,w);return distance[j]===d-1 && LAND.has(output[j]);
+    });
+    const chance=[0,1,.96,.69,.2][d];
+    const broad=Math.sin(x*.19+seed*.37)*.1+Math.cos(y*.23-seed*.21)*.1;
+    if(near && noise(x,y,seed+17)<chance+broad){
+      output[p]=3;heights[p]=Math.max(.35,2.5-d*.52)+noise(x,y,seed+23)*.24;
     }
   }
   const outputMap={...map,layers:map.layers.filter(l=>l!==additions).map(l=>
