@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {sampleWorld} from "../src/world-data.js";
 import {makeScaleWorld,SCALE_PRESETS,transferScalePosition} from "../src/scale-world.js";
-import {cameraViewProfile,nextCameraChoice,overviewCameraScale,forwardLookAngle,planetOverviewFov} from "../src/camera-modes.js";
+import {cameraViewProfile,nextCameraChoice,overviewCameraScale,forwardLookAngle,overviewFocusHeight,planetOverviewFov} from "../src/camera-modes.js";
 import {sweepHorizontal} from "../src/horizontal-flight.js";
 import {advanceMomentum} from "../src/flight-momentum.js";
 import {ID} from "../src/world-data.js";
@@ -48,6 +48,7 @@ test("Massive shares the same camera perspective as Current and Bigger",()=>{
   }
  }
  assert.equal(overviewCameraScale(34,32),1);
+ assert.equal(overviewCameraScale(225,32),32);
  assert.equal(overviewCameraScale(445,32),32);
  assert.equal(overviewCameraScale(445,5),5);
  assert.throws(()=>overviewCameraScale(35,0),/Invalid/);
@@ -64,6 +65,20 @@ test("forward flight never points the camera above the horizon while climbing",(
  assert.ok(forwardLookAngle(190) > forwardLookAngle(34));
  assert.ok(forwardLookAngle(445,1)>forwardLookAngle(190));
  assert.throws(()=>forwardLookAngle(NaN),/Invalid/);
+});
+test("Massive overview points at surface during ascent instead of empty sky",()=>{
+ for(const planetScale of [1,5,32]){
+  const radius=235*planetScale;
+  const low=overviewFocusHeight(34,34,radius,0,2);
+  const mid=overviewFocusHeight(160*planetScale,160,radius,0,5);
+  const high=overviewFocusHeight(225*planetScale,225,radius,0,8);
+  const orbit=overviewFocusHeight(445*planetScale,445,radius,1,10);
+  assert.equal(low,32);
+  assert.ok(mid<160*planetScale-5);
+  assert.ok(high<225*planetScale*.1);
+  assert.equal(orbit,-radius);
+ }
+ assert.throws(()=>overviewFocusHeight(500,225,0,0,8),/Invalid/);
 });
 test("planet overview fills more of frame than V7 without changing forward-view lens",()=>{
  assert.equal(planetOverviewFov(76,0,1),76);
