@@ -91,3 +91,61 @@ Only load the local world being visited; stop unnecessary overworld rendering wh
 - An optional MP4 can play before entry without preventing entry if missing/unplayable; player may skip.
 - Advanced scene3d and Liquid types can be declared in data, but must explicitly report unsupported until their safe runtimes are implemented; no silent execution of arbitrary text.
 - The demo keeps an independent standalone launch and exposes a small future host integration surface.
+
+## Addendum — Creator-authored islands, agent-generated expansive geography
+
+Status: **future proposal, not currently implemented**. Applies to the world-scale architecture above docking/local-world transitions. A creator should be able to spend their time detailing **islands and their offshoots** (houses, towns, caves, labs, docking areas, short nearby coasts), then optionally grant an agent **scoped authority to generate the surrounding large-world terrain**. The Massive world should not demand that creators manually paint 16,000 × 16,000 individual terrain cells.
+
+### Creation workflow and authorship boundary
+
+1. The creator places their authored islands and selected local 500 × 500 (or smaller) maps at named **global-world coordinates** and describes the desired surrounding setting, e.g. "connect this island to a green coastline, add a western desert, place rocky highlands and two rivers, keep the village unchanged."
+2. An authorized agent produces a **proposed geographical plan** for the otherwise expansive area: continent/coastline shapes, broad elevations, regions of grass, sand, dirt, rock, river/lake/ocean, transitions and named landmarks. Generate simple, conceivable terrain first; high-detail sculpting is optional and local.
+3. Creator-authored zones are **locked by default**. The agent can edit only its explicitly delegated geographic regions and approved material types. Where generated land approaches an island, generate a transitional border respecting the island's actual shoreline, elevation, water level, entrances, docking clearances and authored structure IDs. If constraints conflict, report the issue and ask the creator instead of silently altering their map.
+4. Show the creator a **small synchronized overview** and a few representative local previews of the proposed continent before committing. The creator can regenerate an area, constrain it further or approve it, with deterministic seeds/versioned changes supporting reproducible results and undo. Agent generation is an **authoring operation**, not a network/LLM dependency during ordinary gameplay.
+
+### Two maps, one geographical source of truth
+
+The proposed Massive world has a single authoritative geographical representation: global coordinates, compact landmass footprints/polygons, material-region boundaries, coarse elevation functions or sampled patches, river polylines and references to detailed authored local maps. The two maps are **derived views**, not separately painted competing sources:
+
+- **Planetary overview (e.g. 500 × 500 pixels):** a downsampled, low-cost visual index of the entire world. For a 16,000 × 16,000 coordinate extent, `overviewX = worldX / 16000 * 500` and `overviewZ = worldZ / 16000 * 500` (with the correct wrap/viewport transform). A 32-world-unit-per-pixel representation can communicate continents and prominent rivers, but cannot preserve narrow streams, fine beaches or every individual building.
+- **Large navigable world:** uses the same global geography to answer `materialAt(worldX,worldZ)`, `heightAt(worldX,worldZ)` and semantic feature queries; renders only a bounded neighborhood and the appropriate speed/distance/altitude LOD. An overview pixel references world coordinates, **not** a huge stored list of child tile IDs.
+- **Local detailed map:** an attached creator-authored Tiled/elevation/structure map with its own local coordinates, plus a deterministic local-to-world transform, protected footprint and versioned asset references. As the player approaches it, this source takes precedence over generated ground in its protected footprint. It must not be stretched 32× to represent a continent.
+
+Large mass does not imply uniform land: broad grassland, sandy areas, rock fields, dirt, lakes, rivers and oceans can be compact *semantic material masks/regions* with optional fine regional detail. A river may be stored as a width-bearing polyline: the 500-pixel overview draws its generalized course, while a local render samples its real course/shoreline at higher precision. Preserve consistent world IDs, material/elevation values, and access permissions so the agent, minimap, flight physics and close-up renderer refer to the SAME feature.
+
+### Runtime and low-memory constraints
+
+- Never allocate a 16,000² material/elevation grid or load all regional 500² maps to cruise over the Massive world. Keep the existing small overview budget and a bounded cache of nearby regional chunks; stream/precompute lazily only when approaching a relevant area.
+- At low speed near authored locations, use detailed terrain and collision; over broad generated expanses use low-cost material variation and simplified land shapes. As speed/altitude grows, prioritize regional color tiles, coastlines, large landmarks and sky parallax without erasing authoritative collision or geographical identity. Avoid abrupt level-of-detail switches with hysteresis/fades.
+- The generation agent may create detailed output *offline or ahead of time*. Flight should query cached/compiled terrain data and must not block waiting for an agent response. At extreme velocity skip intermediate chunks rather than loading every region crossed.
+- Offer creator-controlled limits for generated area, asset count, height complexity and target memory/LOD budget. A 4 GB client should not need more rendered geometry just because a world has more semantic land.
+- A failed/missing regional asset falls back to a simplified version of the same feature rather than teleporting the ship, silently turning authored land to ocean, or resetting its location.
+
+### Illustrative future schema (not parsed by the current engine)
+
+```json
+{
+  "worldId": "massive_world",
+  "extent": [16000, 16000],
+  "geography": "regions/massive_world/geo.json",
+  "overview": {"size": [500, 500], "derivedFrom": "geography"},
+  "authoredLocations": [
+    {
+      "id": "home_island",
+      "worldAt": [4480, 0, 4960],
+      "localMap": "locations/home_island/map.json",
+      "protected": true,
+      "agentEditable": false
+    }
+  ],
+  "agentGeneration": {
+    "enabled": true,
+    "editableRegionIds": ["western_continent_expanses"],
+    "allowedMaterials": ["grass", "dirt", "sand", "rock", "river", "lake", "ocean"],
+    "seed": 39281,
+    "requiresCreatorApproval": true
+  }
+}
+```
+
+**Acceptance criterion:** A creator authors two or three detailed islands and landmarks, authorizes a large surrounding region for agent generation, then inspects a varied continent with recognizable coastlines, grass/sand/rock, a river and a lake. The bounded overview and flight renderer agree on each material boundary and destination coordinate; entering an authored local area recovers its original unscaled terrain and docking geometry. The Massive world must remain navigable without a giant tile array or runtime LLM calls, and the agent must not modify protected work without permission.
