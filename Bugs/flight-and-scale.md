@@ -87,3 +87,25 @@ Reports refer to experimental V7 `feature/scale-profiles-floating-origin-v7`, ca
 - User report: In each world-scale/mode, fast open-ocean movement should be easy to perceive via graphic strokes that contrast with the ocean color. Previous cyan marks capped at alpha .29 and faded to ZERO above low altitude.
 - V9 approach: A single pool of 72 mint-white ocean-surface line segments (one draw call and no textures) uses speed-responsive opacity up to .91 and altitude/planet-scale-dependent spacing/length. It never fades merely because of altitude. Its LineBasicMaterial shares the **same shader-based horizon/planetary curvature** as the one sea mesh and stays anchored to actual ocean coordinates, not scrolling according to a timer. Zero movement hides lines. Land cells still receive no glints. Periphery-only atmospheric speed graphics remain a separate V9 effect.
 - Verification: Forward/Overview at low/mid/high/top in Current, Bigger and Massive. Confirm visible lines on dark blue water at meaningful speed, not on terrain or through the back of the planet, and no visual Z-fighting with the curved sea; test calm hover and slow cruise, Shift boost and returning to island shore. Keep one draw call and bounded 72 lines; if lines are too faint from orbit, tune contrast/sampling, not add a new ocean mesh.
+
+## CAMERA-007 — Massive ascent and view changes discontinuously relocate displayed ship
+
+- Status: **root cause corrected in math/state paths and regression tested; browser cinematic quality and 4 GB device validation pending**.
+- Root cause audit: `toggleCamera()` and `enableAutoCamera()` set `cameraInitialized=false`, so the next frame copied a new camera endpoint rather than continuing from the rendered pose. `massiveShipPresentation()` separately activated by a view threshold, reparented the mesh, and wrote a fixed camera-local transform. The pilot never teleported; the camera and displayed representation changed discontinuously.
+- Change: mode requests retain the current camera pose, Massive composition owns explicit current/start/target state, retargeting begins at the current interpolated state, and no altitude gate changes representation. Physical and displayed projections are separately queryable. Current/Bigger and Forward target math are unchanged.
+- Remaining: real browser replay (ascent, repeated Forward/Overview/Auto, descent), custom GLB bounds, unusual aspect ratios, and subjective composition remain unverified.
+
+## VISUAL-002 — Straight heading-aligned ocean lines resemble a camera conveyor
+
+- Status: **bounded curved world-field implemented and deterministic tests pass; visual/FPS validation pending**.
+- Root cause audit: the former 72 two-point segments were regenerated around a ship-centered patch and their axes came directly from ship heading. Even with world-seeded centers, turns rotated every line and two endpoints reduced curvature to a chord.
+- Change: stable wrapped crest identities generate low-frequency geographic orientation, bent sampled controls and six segments per crest. A fixed 72-crest buffer remains one draw call. Hover has no speed emphasis; heading is not an input to geometry.
+- Remaining: shore-edge aesthetics, far-hemisphere depth behavior, aliasing, and measured GPU cost on the owner's device require browser inspection.
+
+## DIAGNOSTICS-001 — Agents could inspect but could not reproduce or safely test a correction
+
+- Status: **bounded development interface and regression coverage implemented; browser automation and target-device replay pending**.
+- Previous limitation: Spatial Truth exposed read-only current state and JSONL events, but had no authorization boundary, deterministic control replay, synchronized before/after frame capture, safe adjustment whitelist, experiment comparison, or rollback. An agent still had to infer the Massive discontinuity from unrelated samples.
+- Change: a trusted user click grants expiring scoped access. The built-in 888-frame Massive scenario covers a Forward/Auto/Overview matrix across all four altitude targets, ascent through the former threshold, interrupted toggles and descent. Captures bind physical/camera/render/projection state to one completed frame. Presentation-only candidates are bounded and reversible; physical state can only be restored by an explicit replay checkpoint.
+- Budget: 1,800 frames / 1 MiB replay, 48 captures / 512 KiB metadata, optional individually capped images, FIFO eviction, and no frame-state construction in ordinary Performance flight.
+- Remaining: run the built-in scenario in a real browser at multiple aspect ratios with the custom GLB, compare baseline/candidate captures, and profile the owner’s 4 GB Windows computer. Automated state tests do not establish cinematic quality.

@@ -7,7 +7,8 @@ export const MASSIVE_SHIP_ANCHOR=Object.freeze({
  u:.5,v:.73,heightFraction:.15
 });
 export function massiveShipPresentation({worldId,normalizedAltitude,
- overviewWeight,cameraNear,fieldOfView,visualExtent,aspect=16/9}){
+ overviewWeight,cameraNear,fieldOfView,visualExtent,aspect=16/9,
+ composition=MASSIVE_SHIP_ANCHOR}){
  if(![normalizedAltitude,overviewWeight,cameraNear,fieldOfView,visualExtent,aspect]
   .every(Number.isFinite)||normalizedAltitude<0||cameraNear<=0||
   fieldOfView<=0||fieldOfView>=150||visualExtent<=0||aspect<=0)
@@ -17,7 +18,7 @@ export function massiveShipPresentation({worldId,normalizedAltitude,
  // to lower center. Anchor from the FIRST frame Overview is selected.
  const active=worldId==="massive"&&overviewWeight>.02;
  if(!active)return {active:false};
- const {u,v,heightFraction}=MASSIVE_SHIP_ANCHOR;
+ const {u,v,heightFraction}=composition;
  const depth=Math.max(6,cameraNear*3.2);
  const halfHeight=depth*Math.tan(fieldOfView*Math.PI/360);
  const halfWidth=halfHeight*aspect;

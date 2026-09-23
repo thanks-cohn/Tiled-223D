@@ -77,11 +77,11 @@ test("one high-contrast ocean-line buffer follows real movement at low and orbit
  cues.update({x:240,y:35,z:270},world,160,0,1);
  assert.equal(lines.visible,true);
  assert.ok(lines.material.opacity>.4&&lines.material.opacity<=.91);
- assert.equal(lines.geometry.getAttribute("position").count,144);
+ assert.equal(lines.geometry.getAttribute("position").count,72*6*2);
  cues.update({x:240,y:170,z:270},world,160,0,1,
   {x:240,z:270},{atmosphericAltitude:170,planetRadius:235});
  assert.equal(lines.visible,true);
- assert.deepEqual(cues.getBudget(),{strokes:72,drawCalls:1,
+ assert.deepEqual(cues.getBudget(),{crests:72,segments:432,drawCalls:1,
   textures:0,extraOceanMeshes:0});
  cues.dispose();
  assert.equal(scene.getObjectByName(
