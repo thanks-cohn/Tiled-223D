@@ -31,6 +31,12 @@ The long-term goal is **make the places you care about; let the rest of the worl
 
 ---
 
+## Spatial diagnostics
+
+The HUD diagnostics selector defaults to **Performance**, which records no trace history. Debug adds a low-rate coordinate overlay; Deep Debug enables bounded snapshots and local JSONL export. The read-only `window.tiledSpatial` API distinguishes authoritative pilot coordinates from the physical projection and actual displayed ship projection. Its coordinate contract, limits, event schema and incident workflow are documented in [Spatial Truth v1](Semantic-Bindings/spatial-truth-v1.md). No trace is uploaded.
+
+Ocean speed marks are now deterministic, world-anchored curved crests rather than heading-aligned straight lines. The pool remains bounded at 72 crests in one draw call; six segments per crest preserve a curve through the shared ocean deformation. Browser appearance and 4 GB device performance remain explicitly unverified.
+
 ## V9 · Cinematic speed, clear ocean travel and Massive ship framing
 
 **New for Massive Overview:** The pilot's original world coordinate remains authoritative, but the existing ship model uses a camera-local lower-center presentation when the 16,000-world high-altitude overview would otherwise make it disappear or shrink to a dot. This uses the same ship model and does not change Forward view, Current/Bigger worlds, velocity, collision or the planet. Return to ordinary views restores the usual world-relative ship. The transition and aesthetic result need an actual browser check.

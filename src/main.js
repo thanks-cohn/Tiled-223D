@@ -19,6 +19,8 @@ import {makeOceanSpeedCues} from "./ocean-speed-cues.js";
 import {measuredTravelSpeed} from "./speed-perception.js";
 import {makeSpeedPerception} from "./speed-perception-renderer.js";
 import {massiveShipPresentation} from "./massive-ship-presentation.js";
+import {createCompositionTransition} from "./camera-transition.js";
+import {createSpatialDiagnostics,projectPoint} from "./spatial-diagnostics.js";
 
 const view=document.getElementById("view");
 const positionUI=document.getElementById("position"),statusUI=document.getElementById("status");
@@ -40,6 +42,8 @@ const cloudSystem=clouds(scene);
 const speedCues=makeOceanSpeedCues(scene,horizonState);
 scene.add(camera);
 const speedFeeling=makeSpeedPerception(camera);
+const diagnostics=createSpatialDiagnostics();
+const composition=createCompositionTransition();
 
 const ship=new THREE.Group();
 const sphere=new THREE.Mesh(new THREE.SphereGeometry(.9,9,6),new THREE.MeshLambertMaterial({color:"#fbdf77",flatShading:true}));
@@ -65,6 +69,7 @@ let scaleScene=makeScaleWorld(sourceWorld,"current"),world=scaleScene.nav;
 let regions=world.regions;
 const pilot=new THREE.Vector3();
 let cameraInitialized=false,cameraChoice="auto";
+let previousViewMix=0;
 const flybys=createFlybyTracker();
 let atmosphereWarned=false,cruise=false,forwardVelocity=0,verticalVelocity=0,bank=0,pitch=0;
 let safeFlightCeiling=0;
@@ -184,12 +189,14 @@ function syncCameraButton(){
 function toggleCamera(){
  cameraChoice=nextCameraChoice(cameraChoice,
   pilot.y/scaleScene.preset.altitudeScale);
- cameraInitialized=false; // no lingering old camera pose looking at empty sky
+ diagnostics.record("camera-mode-requested",{objectId:"camera",worldId:world.name,
+  coordinateSpace:"view",causeId:"ui:camera-toggle"});
  syncCameraButton();
 }
 function enableAutoCamera(){
  cameraChoice="auto";
- cameraInitialized=false;
+ diagnostics.record("camera-mode-requested",{objectId:"camera",worldId:world.name,
+  coordinateSpace:"view",causeId:"ui:auto-camera"});
  syncCameraButton();
 }
 cameraButton.addEventListener("click",toggleCamera);
@@ -263,6 +270,7 @@ addEventListener("resize",()=>{camera.aspect=innerWidth/innerHeight;camera.updat
 function frame(now){
  requestAnimationFrame(frame);
  const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;
+ diagnostics.nextFrame();
  // Map is a paused, inexpensive 2D inspection mode; do not run flight,
  // redraw the 3D scene or move the ship while the overlay is open.
  if(mapUI.isOpen()){speedFeeling.hide();return;}
@@ -416,6 +424,14 @@ function frame(now){
  syncCameraButton();
  const globe=profile.globeReveal;
  const viewMix=viewProfile.overviewWeight;
+ if(scaleScene.preset.id==="massive"&&Math.abs(viewMix-previousViewMix)>.001){
+  composition.retarget({u:.5,v:.73,heightFraction:.15},.6);
+  diagnostics.record("camera-transition-start",{objectId:"ship-visible",worldId:world.name,
+   viewMode:cameraChoice,coordinateSpace:"viewport-normalized-top-left",
+   before:{overviewWeight:previousViewMix},after:{overviewWeight:viewMix},causeId:"camera-view-profile"});
+ }
+ previousViewMix=viewMix;
+ const compositionState=composition.update(dt);
  // The forward cockpit and existing external/planetary camera are independent
  // of navigation. Low/mid default to forward; high/top default to the existing
  // overview. Manual Forward/Overview overrides altitude at any level.
@@ -474,7 +490,8 @@ function frame(now){
   normalizedAltitude:profile.atmosphericAltitude,
   overviewWeight:viewMix,cameraNear:camera.near,
   fieldOfView:camera.fov,
-  visualExtent:ship.userData.baseVisualExtent
+  visualExtent:ship.userData.baseVisualExtent,aspect:camera.aspect,
+  composition:compositionState
  });
  if(shipView.active){
   if(ship.parent!==camera)camera.add(ship);
@@ -501,4 +518,34 @@ function frame(now){
   `X ${wrap(pilot.x,world.width).toFixed(1)} · Z ${wrap(pilot.z,world.height).toFixed(1)} · ALT ${pilot.y.toFixed(1)} · GROUND ${pointGround(pilot.x,pilot.z).height.toFixed(1)} · MOMENTUM ${Math.abs(forwardVelocity).toFixed(0)} · ${currentTravel.mode.toUpperCase()} · ${profile.layer.toUpperCase()}`;
  renderer.render(scene,camera);
 }
+const projectionOf=point=>{
+ camera.updateMatrixWorld();
+ const matrix=new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);
+ return projectPoint(point,matrix.elements,{width:renderer.domElement.clientWidth,
+  height:renderer.domElement.clientHeight,dpr:renderer.getPixelRatio()});
+};
+diagnostics.register("pilot",()=>({id:"pilot",worldId:world.name,
+ authoritative:{space:"global-world-units",position:{x:pilot.x,y:pilot.y,z:pilot.z},
+  velocity:{forward:forwardVelocity,vertical:verticalVelocity},orientation:{yaw,pitch,bank}},
+ render:{space:"floating-origin-render-units",position:{x:0,y:pilot.y,z:0},parentId:"scene"},
+ projection:{physical:projectionOf({x:0,y:pilot.y,z:0})}}));
+diagnostics.register("ship-visible",()=>{const p=new THREE.Vector3();ship.getWorldPosition(p);return {id:"ship-visible",worldId:world.name,
+ authoritative:{space:"global-world-units",position:{x:pilot.x,y:pilot.y,z:pilot.z}},
+ render:{space:"scene-world-units",position:{x:p.x,y:p.y,z:p.z},parentId:ship.parent===camera?"camera":"scene",matrix:ship.matrixWorld.toArray()},
+ projection:{physical:projectionOf({x:0,y:pilot.y,z:0}),visible:projectionOf(p)},
+ presentationPolicy:ship.parent===camera?"massive-camera-relative-continuous-composition":"physical-floating-origin",transition:composition.state()};});
+diagnostics.register("camera",()=>({id:"camera",worldId:world.name,authoritative:null,
+ render:{space:"floating-origin-render-units",position:{x:camera.position.x,y:camera.position.y,z:camera.position.z},matrix:camera.matrixWorld.toArray()},
+ camera:{fovDegrees:camera.fov,near:camera.near,far:camera.far,aspect:camera.aspect,viewMode:cameraChoice,projectionMatrix:camera.projectionMatrix.toArray()},
+ observationalLimits:["depth occlusion unknown without GPU readback","shader-deformed surface inverse is non-unique"]}));
+window.tiledSpatial=Object.freeze({
+ getObjectSpatialState:(...a)=>diagnostics.getObjectSpatialState(...a),getViewportPosition:(...a)=>diagnostics.getViewportPosition(...a),
+ getCameraState:()=>diagnostics.getCameraState(),getSpatialSnapshot:(...a)=>diagnostics.getSpatialSnapshot(...a),
+ getSpatialRelationship:(...a)=>diagnostics.getSpatialRelationship(...a),getCoordinateTransform:(...a)=>diagnostics.getCoordinateTransform(...a),
+ explainPositionChange:(...a)=>diagnostics.explainPositionChange(...a),exportJSONL:()=>diagnostics.exportJSONL(),incidentReport:(...a)=>diagnostics.incidentReport(...a)
+});
+const diagnosticMode=document.getElementById("diagnosticMode"),diagnosticOverlay=document.getElementById("diagnosticOverlay");
+diagnosticMode.addEventListener("change",()=>{diagnostics.setMode(diagnosticMode.value);diagnosticOverlay.hidden=diagnosticMode.value==="performance";});
+document.getElementById("exportDiagnostics").addEventListener("click",()=>{const blob=new Blob([diagnostics.exportJSONL()],{type:"application/x-ndjson"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="tiled-spatial-trace.jsonl";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),0);});
+setInterval(()=>{if(diagnostics.mode==="performance")return;const state=diagnostics.getObjectSpatialState("ship-visible"),v=state.projection?.visible?.viewport;diagnosticOverlay.textContent=v?`RENDER VIEWPORT u=${v.u.toFixed(3)} v=${v.v.toFixed(3)} · ${state.projection.visible.status}\nPHYSICAL X=${pilot.x.toFixed(1)} Y=${pilot.y.toFixed(1)} Z=${pilot.z.toFixed(1)} · ${ship.parent===camera?"camera-relative presentation":"world representation"}`:"Projection unavailable";},250);
 requestAnimationFrame(frame);

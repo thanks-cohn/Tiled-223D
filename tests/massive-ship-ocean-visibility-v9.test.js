@@ -8,12 +8,14 @@ test("only Massive high-altitude Overview gets a screen-stable visible ship",()=
   assert.equal(massiveShipPresentation({worldId,normalizedAltitude:445,
    overviewWeight:1,cameraNear:40,fieldOfView:46,visualExtent:3.4}).active,false);
  }
- for(const overviewWeight of [0,.4,.98]){
+ for(const overviewWeight of [0]){
   assert.equal(massiveShipPresentation({worldId:"massive",normalizedAltitude:445,
    overviewWeight,cameraNear:40,fieldOfView:46,visualExtent:3.4}).active,false);
  }
+ // There is deliberately no altitude handoff: Massive Overview uses one
+ // representation from its first blended frame through planetary flight.
  assert.equal(massiveShipPresentation({worldId:"massive",normalizedAltitude:130,
-  overviewWeight:1,cameraNear:1,fieldOfView:72,visualExtent:3.4}).active,false);
+  overviewWeight:1,cameraNear:1,fieldOfView:72,visualExtent:3.4}).active,true);
  for(const altitude of [185,225,300,445,1200]){
   const position=massiveShipPresentation({worldId:"massive",
    normalizedAltitude:altitude,overviewWeight:1,
@@ -25,7 +27,7 @@ test("only Massive high-altitude Overview gets a screen-stable visible ship",()=
   const halfHeight=-position.z*Math.tan(46*Math.PI/360);
   // Occupies the same angular size and lower-centre viewing region,
   // independently of planet size and full-altitude distance to terrain.
-  assert.ok(Math.abs(position.y/halfHeight+.43)<1e-10);
+  assert.ok(Math.abs(position.y/halfHeight+.46)<1e-10);
   assert.ok(Math.abs(position.scale*3.4/halfHeight-.30)<1e-10);
  }
  assert.throws(()=>massiveShipPresentation({worldId:"massive",

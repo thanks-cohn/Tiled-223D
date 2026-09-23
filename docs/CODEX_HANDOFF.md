@@ -52,3 +52,7 @@ Use a **finite semantic map** independent of renderer objects:
 ## Safe changes / non-goals
 
 Do not overwrite source maps to regenerate examples; keep user maps and assets distinct from generated previews. Do not upload private content or require cloud services for this prototype. A sky dome is a camera-relative VISUAL, not a real atmospheric collider. No fake promise that 500 × 500 textures/physics can all be rendered free: profile chunk size, GPU memory, JS heap, and 4 GB device headroom. For the first implementation, correctness and recognizable atmosphere matter more than effects counts.
+
+## Spatial Truth / V9 diagnostics addition
+
+The viewer now exposes a bounded read-only `window.tiledSpatial` registry. Performance mode is default and retains no event history; Debug and Deep Debug are explicit local opt-ins. Coordinate/projection rules and the JSONL schema live in `Semantic-Bindings/spatial-truth-v1.md` and `.json`. Massive camera requests no longer reset camera initialization, and Massive ship composition has a retargetable time-based state. Ocean marks are deterministic geographic curved crests in one bounded draw call. Automated math/build validation is not a substitute for the outstanding browser replay and 4 GB Windows profiling documented in `Bugs/flight-and-scale.md`.
