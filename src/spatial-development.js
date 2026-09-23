@@ -11,7 +11,8 @@ export function createSpatialDevelopmentController({diagnostics,adapter,now=()=>
  maxReplayFrames=1800,maxReplayBytes=1_048_576,maxCaptures=48,maxCaptureBytes=524_288}={}){
  if(!diagnostics||!adapter||![maxReplayFrames,maxReplayBytes,maxCaptures,maxCaptureBytes].every(Number.isFinite))
   throw Error("Invalid spatial development controller");
- let grant=null,recording=null,replay=null,pending=[],captureBytes=0,captureSequence=0;
+ let grant=null,recording=null,replay=null,pending=[],captureBytes=0,captureSequence=0,shadowPreviewSequence=0;
+ const shadowPreviews=[];
  const captures=[],experiments=new Map(),adjustments=[];
  const allowed=scope=>grant&&grant.expiresAt>now()&&grant.scopes.has(scope);
  const requireScope=scope=>allowed(scope)?null:denied(grant?"SCOPE_DENIED":"UNAUTHORIZED",
@@ -72,6 +73,15 @@ export function createSpatialDevelopmentController({diagnostics,adapter,now=()=>
    return {schemaVersion:DEVELOPMENT_SCHEMA_VERSION,name:"massive-overview-ascent-toggle-descent",
     fixedStepSeconds:1/60,checkpoint,verificationMatrix,frames};
   },
+  createShadowArtifactReproduction(){const error=requireScope("replay");if(error)return error;
+   const frames=[],landmarks=[];const push=(count,controls,label)=>{if(label)landmarks.push({label,frameIndex:frames.length,scale:controls.scale,camera:controls.camera});for(let i=0;i<count;i++)frames.push({index:frames.length,dt:1/60,controls:{turn:0,forward:0,climb:0,boost:false,...controls}});};
+   push(30,{scale:"current",camera:"forward"},"current-low-hover");
+   push(180,{scale:"current",camera:"auto",climb:1},"current-ascent-through-displayed-alt-374");
+   push(18,{scale:"current",camera:"overview"},"current-high-overview");push(18,{scale:"current",camera:"forward"},"current-high-forward");
+   push(30,{scale:"bigger",camera:"overview"},"current-to-bigger");push(30,{scale:"massive",camera:"overview"},"bigger-to-massive");push(30,{scale:"bigger",camera:"auto"},"massive-to-bigger");push(30,{scale:"current",camera:"auto"},"expansive-to-current");
+   push(60,{scale:"current",camera:"forward",forward:1},"horizontal-multiple-heading-a");push(45,{scale:"current",camera:"forward",forward:1,turn:1},"horizontal-multiple-heading-b");
+   const checkpoint=copy(adapter.readPhysicalState());return {schemaVersion:DEVELOPMENT_SCHEMA_VERSION,name:"shadow-circle-altitude-scale-camera-shore",fixedStepSeconds:1/60,checkpoint,landmarks,notes:["Capture landmark frames only after their completed render boundary.","Move the checkpoint near a shoreline before loading to exercise the nine-sample mask."],frames};
+  },
   startRecording(metadata={}){const error=requireScope("replay");if(error)return error;
    recording={metadata:copy(metadata),checkpoint:copy(adapter.readPhysicalState()),frames:[],bytes:0,startedAt:now()};
    return {ok:true,checkpoint:copy(recording.checkpoint)};},
@@ -86,6 +96,12 @@ export function createSpatialDevelopmentController({diagnostics,adapter,now=()=>
   requestFrameCapture({reason="agent-request",includeImage=false,maxImageBytes=131072}={}){const error=requireScope("capture");if(error)return error;
    if(!Number.isFinite(maxImageBytes)||maxImageBytes<0||maxImageBytes>262144)return denied("INVALID_CAPTURE_LIMIT","Invalid image byte limit.");
    const request={id:`capture-${Math.round(now())}-${++captureSequence}`,reason:String(reason).slice(0,120),includeImage,maxImageBytes};pending.push(request);return copy(request);},
+  shadowCapture({reason="shadow-investigation"}={}){const error=requireScope("capture");if(error)return error;if(!adapter.shadow)return denied("SHADOW_DIAGNOSTICS_UNAVAILABLE","Shadow diagnostics are unavailable.");const request={id:`shadow-capture-${Math.round(now())}-${++captureSequence}`,reason:String(reason).slice(0,120),shadow:true};pending.push(request);return copy(request);},
+  shadowHistory(options){const error=requireScope("inspect");return error||adapter.shadow?.history(options)||denied("SHADOW_DIAGNOSTICS_UNAVAILABLE","Shadow diagnostics are unavailable.");},
+  shadowTransitionReport({beforeFrameId,afterFrameId}={}){const error=requireScope("inspect");return error||adapter.shadow?.transition(beforeFrameId,afterFrameId)||denied("SHADOW_DIAGNOSTICS_UNAVAILABLE","Shadow diagnostics are unavailable.");},
+  shadowExplain(options){const error=requireScope("inspect");return error||adapter.shadow?.explain(options)||denied("SHADOW_DIAGNOSTICS_UNAVAILABLE","Shadow diagnostics are unavailable.");},
+  shadowIsolatePreview({entityId,visible}={}){const error=requireScope("adjust");if(error)return error;if(entityId!=="ship-ocean-shadow"||typeof visible!=="boolean"||!adapter.shadow?.isolate)return denied("INVALID_SHADOW_PREVIEW","Only the shadow visibility may be changed by this display-only preview.");const before=adapter.shadow.isolate(entityId,visible),item={id:`shadow-preview-${++shadowPreviewSequence}`,entityId,visible,before};shadowPreviews.push(item);return copy(item);},
+  shadowRestorePreview(id){const error=requireScope("adjust");if(error)return error;const index=shadowPreviews.findIndex(x=>x.id===id);if(index<0)return denied("UNKNOWN_SHADOW_PREVIEW","Shadow preview does not exist.");for(let i=shadowPreviews.length-1;i>=index;i--)adapter.shadow.isolate(shadowPreviews[i].entityId,shadowPreviews[i].before);shadowPreviews.splice(index);return {ok:true};},
   listCaptures(){const error=requireScope("capture");return error||copy(captures);},
   applyPreview(patch,label="agent-preview"){const error=requireScope("adjust");if(error)return error;
    const valid=patch&&Object.keys(patch).length&&Object.keys(patch).every(key=>["anchorU","anchorV","heightFraction","transitionSeconds","fovBiasDegrees"].includes(key))&&
@@ -144,14 +160,14 @@ export function createSpatialDevelopmentController({diagnostics,adapter,now=()=>
     return denied("INVALID_GRANT","Invalid scopes or lifetime.");
    grant={scopes:new Set(scopes),expiresAt:now()+ttlMs};return publicStatus();
   },
-  revoke(){grant=null;recording=null;replay=null;pending=[];adapter.restoreDefaultPresentation?.("development-access-revoked");return publicStatus();},
+  revoke(){grant=null;recording=null;replay=null;pending=[];for(let i=shadowPreviews.length-1;i>=0;i--)adapter.shadow?.isolate(shadowPreviews[i].entityId,shadowPreviews[i].before);shadowPreviews.length=0;adapter.restoreDefaultPresentation?.("development-access-revoked");return publicStatus();},
   needsFrameData(){return Boolean(recording||pending.length);},
   controlsForFrame(liveControls){if(!replay)return liveControls;const frame=replay.bundle.frames[replay.cursor++];if(!frame){replay=null;return liveControls;}adapter.applyReplayContext?.(frame.controls);return copy(frame.controls);},
   timestep(liveDt){return replay?replay.bundle.frames[replay.cursor]?.dt??liveDt:liveDt;},
   onFrame(frame){
    if(recording){const item={index:recording.frames.length,dt:frame.dt,controls:copy(frame.controls)};const size=byteLength(item);
     if(recording.frames.length<maxReplayFrames&&recording.bytes+size<=maxReplayBytes){recording.frames.push(item);recording.bytes+=size;}else diagnostics.record("replay-budget-reached",{objectId:"pilot",causeId:"bounded-memory-policy"});}
-   const requests=pending.splice(0);return requests.map(request=>capture(request,frame));
+   const requests=pending.splice(0);return requests.map(request=>request.shadow?adapter.shadow.capture({reason:request.reason,frame}):capture(request,frame));
   }
  };
 }

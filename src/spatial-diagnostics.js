@@ -26,7 +26,7 @@ export function createSpatialDiagnostics({mode="performance",maxRecords=256,maxB
   explainPositionChange(id,frameA,frameB){return {objectId:id,frameA,frameB,events:records.filter(e=>e.objectId===id&&e.frameId>=frameA&&e.frameId<=frameB).map(({_bytes,...e})=>e),latestCause:clone(causes.get(id))??"unknown"};},
   exportJSONL(){return records.map(({_bytes,...event})=>JSON.stringify(event)).join("\n");},
   incidentReport(id){const events=this.explainPositionChange(id,0,frameId).events;return `Spatial incident ${runId}\nObject: ${id}\nFrames: 0-${frameId}\nRecorded events: ${events.length}\nLatest cause: ${events.at(-1)?.causeId??"unknown"}\nOcclusion is unknown without a depth measurement.`;},
-  stats(){return {mode:currentMode,records:records.length,bytes,maxRecords,maxBytes,registered:entities.size}}
+  stats(){return {schemaVersion:SPATIAL_SCHEMA_VERSION,runId,frameId,mode:currentMode,records:records.length,bytes,maxRecords,maxBytes,registered:entities.size}}
  };
 }
 export {projectPoint,projectBounds};

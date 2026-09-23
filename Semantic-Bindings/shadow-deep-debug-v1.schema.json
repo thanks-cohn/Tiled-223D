@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thanks-cohn.github.io/Tiled-223D/shadow-deep-debug-v1.schema.json",
+  "title": "Tiled-223D shadow Deep Debug completed-frame trace",
+  "type": "object",
+  "required": ["schemaVersion", "runId", "frameId", "timestampMs", "status", "provenance", "physical", "shadow", "presentation", "camera", "viewport", "projection", "contributors", "anomalies"],
+  "properties": {
+    "schemaVersion": {"const": "1.0.0"},
+    "runId": {"type": "string", "minLength": 1},
+    "frameId": {"type": "number"},
+    "timestampMs": {"type": "number"},
+    "status": {"const": "captured"},
+    "provenance": {"type": "object", "required": ["sample", "pixelAttribution", "gpuDepth"]},
+    "physical": {"type": "object", "required": ["ship", "world", "scale", "altitude"]},
+    "shadow": {"type": "object", "required": ["id", "space", "units", "worldCenter", "preClampRadius", "postClampRadius", "effectiveAlpha", "coverageSamples", "clipping", "sources"]},
+    "presentation": {"type": "object", "required": ["mesh", "duplicateCount", "floatingOrigin", "scaleTransform"]},
+    "camera": {"type": "object", "required": ["worldPosition", "fovDegrees", "aspect", "near", "far", "viewMatrix", "projectionMatrix"]},
+    "viewport": {"type": "object", "required": ["cssWidth", "cssHeight", "drawingBufferWidth", "drawingBufferHeight", "dpr"]},
+    "projection": {"type": "object", "required": ["chain", "ship", "shadow"]},
+    "contributors": {"type": "array", "maxItems": 12, "items": {"type": "object", "required": ["entityId", "semanticType", "sourceModule", "pixelAttribution"]}},
+    "anomalies": {"type": "array", "items": {"type": "object", "required": ["code", "severity", "evidence"], "properties": {"severity": {"enum": ["WARNING", "CONFIRMED"]}}}},
+    "observationalLimits": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}

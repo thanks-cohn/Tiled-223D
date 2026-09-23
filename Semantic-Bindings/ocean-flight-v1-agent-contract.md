@@ -23,3 +23,7 @@ Trusted-click authorized `window.tiledSpatialDevelopment` provides `oceanPreview
 ## Performance and acceptance
 
 There is one ocean. The beauty layer has four pooled meshes (only active families draw), one 64² shadow alpha texture, bounded caches, and no per-world grid/texture. Broad tonal structures are ribbons, not another sea or fullscreen pass. Shadow uses nine bounded ocean samples so shore proximity reduces its alpha rather than stamping across land. Required manual acceptance: matching LOW/MIDDLE/HIGH/TOP and hover frames, cruise versus boost, multiple headings, shore/wrap/far-side safety, no hard patch boundary, and measured 4 GB Windows FPS/draw/GPU behavior. Automated tests/build cannot establish those results.
+
+## Shadow/circular-artifact diagnostics v1
+
+Deep Debug now captures the shadow's authoritative source, nine water-mask samples, effective reusable mesh/material/resource state, shared-horizon boundary projection, camera/viewport chain, and separate base-ocean/ribbon/atmosphere candidates. Use `shadow-deep-debug-v1.md`; candidate overlap is not GPU pixel attribution. Performance remains capture-free. No shadow/ocean beauty defaults were changed by this diagnostics work.
