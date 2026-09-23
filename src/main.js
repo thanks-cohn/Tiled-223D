@@ -384,30 +384,47 @@ function frame(now){
   }
  }
  const dx=Math.sin(yaw),dz=Math.cos(yaw);
- const desired=new THREE.Vector3(
+ const viewProfile=cameraViewProfile(profile.atmosphericAltitude,cameraChoice);
+ syncCameraButton();
+ const globe=profile.globeReveal;
+ const viewMix=viewProfile.overviewWeight;
+ // The forward cockpit and existing external/planetary camera are independent
+ // of navigation. Low/mid default to forward; high/top default to the existing
+ // overview. Manual Forward/Overview overrides altitude at any level.
+ const forwardPosition=new THREE.Vector3(0,pilot.y+1.65,0);
+ const forwardFocus=new THREE.Vector3(-dx*130,pilot.y+1.7,-dz*130);
+ const overviewPosition=new THREE.Vector3(
   dx*profile.cameraDistance,
-  pilot.y+cameraAscentHeight(profile.cameraHeight,profile.globeReveal)*
+  pilot.y+cameraAscentHeight(profile.cameraHeight,globe)*
    scaleScene.preset.altitudeScale,
   dz*profile.cameraDistance
  );
- // At turbo speeds, shorten camera lag so the ship cannot outrun the frame.
- const followRate=3.2+15*profile.globeReveal+Math.min(10,Math.abs(forwardVelocity)/80);
+ const overviewFocus=new THREE.Vector3(
+  THREE.MathUtils.lerp(-dx*(33+70*profile.curvature),0,globe),
+  THREE.MathUtils.lerp(pilot.y-profile.lookDown,
+   -horizonState.globeRadius.value,globe),
+  THREE.MathUtils.lerp(-dz*(33+70*profile.curvature),0,globe)
+ );
+ const desired=forwardPosition.lerp(overviewPosition,viewMix);
+ const focus=forwardFocus.lerp(overviewFocus,viewMix);
+ // High altitude: frame the WHOLE planet around the center of the view.
+ // A narrower overview lens makes the sphere occupy more of the screen
+ // without changing planetary geometry, camera clipping, or ship coordinates.
+ const planetFraming=globe*viewMix;
+ const goalFov=THREE.MathUtils.lerp(
+  profile.fieldOfView+(boosting?7:0),46,planetFraming);
+ const followRate=4.8+15*globe+Math.min(12,Math.abs(forwardVelocity)/80);
  if(!cameraInitialized){camera.position.copy(desired);cameraInitialized=true;}
  else camera.position.lerp(desired,1-Math.exp(-followRate*dt));
- // Approach the true globe view gradually: the planet becomes the camera's
- // primary subject, not a thin tip at the bottom of the screen. The ship and
- // authoritative world remain freely navigable throughout this transition.
- const globe=profile.globeReveal;
- const focusX=THREE.MathUtils.lerp(-dx*(33+70*profile.curvature),0,globe);
- const focusZ=THREE.MathUtils.lerp(-dz*(33+70*profile.curvature),0,globe);
- const focusY=THREE.MathUtils.lerp(pilot.y-profile.lookDown,
-  -horizonState.globeRadius.value,globe);
- // Both camera position and gaze share a stable local origin; far-away
- // planets no longer rotate on floating-point global coordinate jitter.
- camera.lookAt(focusX,focusY,focusZ);
- camera.rotateZ(bank*.12*(1-globe*.8));
- const nextFov=damp(camera.fov,profile.fieldOfView+(boosting?7:0),4,dt);
- if(Math.abs(camera.fov-nextFov)>.012){camera.fov=nextFov;camera.updateProjectionMatrix();}
+ // Use the SAME floating origin and avoid chasing a displaced ship.
+ camera.lookAt(focus);
+ camera.rotateZ(bank*.12*(1-globe*.8)*viewMix);
+ const nextFov=damp(camera.fov,goalFov,5,dt);
+ if(Math.abs(camera.fov-nextFov)>.012){
+  camera.fov=nextFov;camera.updateProjectionMatrix();
+ }
+ // Hide only the visual ship while viewing through its cockpit.
+ ship.visible=viewProfile.forwardWeight<.98;
  cloudSystem.update(pilot,world,time,profile,forwardVelocity,pilot,camera,yaw);
  if(mode==="world")positionUI.textContent=
   `X ${wrap(pilot.x,world.width).toFixed(1)} · Z ${wrap(pilot.z,world.height).toFixed(1)} · ALT ${pilot.y.toFixed(1)} · GROUND ${pointGround(pilot.x,pilot.z).height.toFixed(1)} · MOMENTUM ${Math.abs(forwardVelocity).toFixed(0)} · ${currentTravel.mode.toUpperCase()} · ${profile.layer.toUpperCase()}`;
