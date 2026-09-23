@@ -101,3 +101,11 @@ Reports refer to experimental V7 `feature/scale-profiles-floating-origin-v7`, ca
 - Root cause audit: the former 72 two-point segments were regenerated around a ship-centered patch and their axes came directly from ship heading. Even with world-seeded centers, turns rotated every line and two endpoints reduced curvature to a chord.
 - Change: stable wrapped crest identities generate low-frequency geographic orientation, bent sampled controls and six segments per crest. A fixed 72-crest buffer remains one draw call. Hover has no speed emphasis; heading is not an input to geometry.
 - Remaining: shore-edge aesthetics, far-hemisphere depth behavior, aliasing, and measured GPU cost on the owner's device require browser inspection.
+
+## DIAGNOSTICS-001 — Agents could inspect but could not reproduce or safely test a correction
+
+- Status: **bounded development interface and regression coverage implemented; browser automation and target-device replay pending**.
+- Previous limitation: Spatial Truth exposed read-only current state and JSONL events, but had no authorization boundary, deterministic control replay, synchronized before/after frame capture, safe adjustment whitelist, experiment comparison, or rollback. An agent still had to infer the Massive discontinuity from unrelated samples.
+- Change: a trusted user click grants expiring scoped access. The built-in 888-frame Massive scenario covers a Forward/Auto/Overview matrix across all four altitude targets, ascent through the former threshold, interrupted toggles and descent. Captures bind physical/camera/render/projection state to one completed frame. Presentation-only candidates are bounded and reversible; physical state can only be restored by an explicit replay checkpoint.
+- Budget: 1,800 frames / 1 MiB replay, 48 captures / 512 KiB metadata, optional individually capped images, FIFO eviction, and no frame-state construction in ordinary Performance flight.
+- Remaining: run the built-in scenario in a real browser at multiple aspect ratios with the custom GLB, compare baseline/candidate captures, and profile the owner’s 4 GB Windows computer. Automated state tests do not establish cinematic quality.

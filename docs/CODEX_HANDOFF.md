@@ -56,3 +56,8 @@ Do not overwrite source maps to regenerate examples; keep user maps and assets d
 ## Spatial Truth / V9 diagnostics addition
 
 The viewer now exposes a bounded read-only `window.tiledSpatial` registry. Performance mode is default and retains no event history; Debug and Deep Debug are explicit local opt-ins. Coordinate/projection rules and the JSONL schema live in `Semantic-Bindings/spatial-truth-v1.md` and `.json`. Massive camera requests no longer reset camera initialization, and Massive ship composition has a retargetable time-based state. Ocean marks are deterministic geographic curved crests in one bounded draw call. Automated math/build validation is not a substitute for the outstanding browser replay and 4 GB Windows profiling documented in `Bugs/flight-and-scale.md`.
+
+
+## Authorized spatial development interface
+
+`window.tiledSpatialDevelopment` is a capability-scoped development facade. A real click on **Authorize agent tools** grants 15 minutes of inspect/replay/capture/adjust/experiment access. It includes a deterministic Massive ascent/toggle/descent reproduction, synchronized frame captures, bounded presentation previews, experiment comparison, rollback and local bundles. Keep physical replay checkpoint restoration separate from visual adjustment. Preserve the budgets and threat boundary documented in `Semantic-Bindings/spatial-development-v1.md`; do not expose the private grant controller or add arbitrary property/network/filesystem access.

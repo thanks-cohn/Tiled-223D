@@ -33,6 +33,8 @@ The long-term goal is **make the places you care about; let the rest of the worl
 
 ## Spatial diagnostics
 
+**Authorized development workflow:** after selecting Deep Debug, click **Authorize agent tools** to grant a local, expiring 15-minute capability. `window.tiledSpatialDevelopment` can then record/replay bounded deterministic controls, request next-render synchronized captures, preview only whitelisted camera/presentation values, compare baseline and candidate measurements, and roll changes back. Synthetic clicks cannot authorize access, no trace is uploaded, and ordinary Performance flight does not construct capture snapshots. See the [agent interface and reproduction procedure](Semantic-Bindings/spatial-development-v1.md).
+
 The HUD diagnostics selector defaults to **Performance**, which records no trace history. Debug adds a low-rate coordinate overlay; Deep Debug enables bounded snapshots and local JSONL export. The read-only `window.tiledSpatial` API distinguishes authoritative pilot coordinates from the physical projection and actual displayed ship projection. Its coordinate contract, limits, event schema and incident workflow are documented in [Spatial Truth v1](Semantic-Bindings/spatial-truth-v1.md). No trace is uploaded.
 
 Ocean speed marks are now deterministic, world-anchored curved crests rather than heading-aligned straight lines. The pool remains bounded at 72 crests in one draw call; six segments per crest preserve a curve through the shared ocean deformation. Browser appearance and 4 GB device performance remain explicitly unverified.

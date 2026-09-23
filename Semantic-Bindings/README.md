@@ -63,3 +63,4 @@ Do not replace these with hundreds of transparent full-screen quads, video textu
 Run `npm install && npm test && npm run build`. In a browser, fly at heights 35, 130, 260, and 445, then descend; confirm that high clouds are visible from sea level, cloud groups have different optical movement, no layers pop at transitions, planetary clouds appear near the globe without obscuring the islands, and the low-altitude ocean remains legible. FPS and appearance on 4 GB hardware require direct measurement.
 
 - [Spatial Truth and Deep Diagnostics v1](spatial-truth-v1.md) — coordinate spaces, read-only agent API, bounded trace modes, Massive continuity and curved ocean crests. [JSONL schema](spatial-truth-v1.json).
+- [Authorized Spatial Development Interface v1](spatial-development-v1.md) — trusted-user capability scopes, deterministic replay, synchronized captures, bounded visual previews, experiment comparison and rollback. [Replay schema](spatial-development-v1.json).
