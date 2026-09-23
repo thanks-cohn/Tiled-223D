@@ -1,0 +1,20 @@
+import {DEFAULT_OCEAN_PRESET,cloneOceanPreset,mergeOceanPreset,validateOceanPreset,OCEAN_FAMILY_IDS} from "./ocean-visual-presets.js";
+import {evaluateOceanMood} from "./ocean-mood-model.js";
+import {oceanShadowState} from "./ocean-shadow.js";
+import {createOceanWaveRenderer} from "./ocean-wave-renderer.js";
+import {createOceanShadowRenderer} from "./ocean-shadow-renderer.js";
+
+// Developer map: preset.moods.middle.weights changes mid-altitude density;
+// preset.shadow.maxAlpha changes top shadow darkness; getSelectedCrest() proves
+// a crest's geographic anchor is independent of camera/altitude.
+export function createOceanVisualController({scene,horizonState,preset=DEFAULT_OCEAN_PRESET,project=null,diagnostics=null}){
+ let active=cloneOceanPreset(preset),lastMood=null,lastShadow=null,lastState=null,previewSequence=0;const previews=[];
+ const waves=createOceanWaveRenderer(scene,horizonState,active),shadow=createOceanShadowRenderer(scene,horizonState,active);
+ const update=state=>{const normalized=Math.max(0,Math.min(1,state.profile.atmosphericAltitude/445)),worldScale=state.profile.planetRadius/235;lastMood=evaluateOceanMood({normalizedAltitude:normalized,speed:state.speed,worldScale,preset:active});lastShadow=oceanShadowState({ship:state.ship,mood:lastMood,world:state.world,isOcean:(x,z)=>state.world.isOcean(x,z),profile:state.profile});const render=waves.update({...state,mood:lastMood,worldScale,lineHeight:Math.max(.35,state.profile.planetRadius*.00018),preset:active});shadow.update(lastShadow,state.origin,active);lastState={render,normalizedAltitude:normalized,speed:state.speed,frameId:state.frameId??null};return getSummary();};
+ const getSummary=()=>({schemaVersion:active.schemaVersion,presetId:active.id,mood:lastMood,footprint:lastShadow,render:{...waves.getSummary(),budget:cloneOceanPreset(active.budget)}});
+ const preview=(patch,reason="ocean-preview")=>{const before=cloneOceanPreset(active);active=mergeOceanPreset(active,patch);const item={id:`ocean-preview-${++previewSequence}`,reason:String(reason).slice(0,120),before,after:cloneOceanPreset(active)};previews.push(item);diagnostics?.record?.("ocean-preset-preview",{objectId:"ocean-visual",coordinateSpace:"visual-only",causeId:item.id});return {id:item.id,preset:cloneOceanPreset(active)};};
+ const rollback=id=>{const index=previews.findIndex(x=>x.id===id);if(index<0)return {error:{code:"UNKNOWN_PREVIEW"}};active=cloneOceanPreset(previews[index].before);previews.splice(index);return {ok:true,preset:cloneOceanPreset(active)};};
+ const reset=()=>{active=cloneOceanPreset(DEFAULT_OCEAN_PRESET);previews.length=0;return cloneOceanPreset(active);};
+ const selected=id=>{if(!OCEAN_FAMILY_IDS.includes(id))return {error:{code:"UNKNOWN_FAMILY"}};const crest=waves.getSelected(id);if(!crest)return null;const center=crest.anchor;return {...crest,renderCurvePoints:crest.bands.flat(),projection:project?project({x:center.x-(lastShadow?.physicalShip.x??0),y:.18,z:center.z-(lastShadow?.physicalShip.z??0)}):null,frame:lastState?.frameId??null,changeReason:"stable-geographic-field; visibility changes only through mood crossfade/LOD"};};
+ return {update,getSummary,getPreset:()=>cloneOceanPreset(active),getMoodState:()=>structuredClone(lastMood),getFamilyState:id=>structuredClone(lastMood?.families?.[id]??null),getFootprintState:()=>structuredClone(lastShadow),getRenderBudget:()=>({...active.budget,...waves.getSummary()}),getSelectedCrest:selected,preview,compare:(before,after)=>({schemaVersion:active.schemaVersion,changed:Object.keys(after).filter(k=>JSON.stringify(before?.[k])!==JSON.stringify(after[k])),before,after}),rollback,resetToDefaults:reset,exportPreset:()=>JSON.stringify(active,null,2),importPreset:value=>{const parsed=typeof value==="string"?JSON.parse(value):value;const result=validateOceanPreset(parsed);if(!result.ok)return {error:{code:"INVALID_PRESET",details:result.errors}};active=cloneOceanPreset(parsed);return {ok:true,preset:cloneOceanPreset(active)};},dispose(){waves.dispose();shadow.dispose();}};
+}

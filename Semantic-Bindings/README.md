@@ -1,4 +1,8 @@
 # Semantic-Bindings — agent navigation and source of truth
+## Read this next for ocean-flight work
+
+**Start with [`ocean-flight-v1-agent-contract.md`](ocean-flight-v1-agent-contract.md).** It is the shipped V1 source-navigation and API contract. The matching [schema](ocean-flight-v1.schema.json), [truthful status handoff](ocean-flight-v1-handoff.json), and [Ocean Studio guide](../docs/OCEAN_STUDIO_TUNING_GUIDE.md) supersede older two-pool/88-crest baseline claims. Owner visual acceptance and 4 GB Windows profiling remain open; do not infer them from passing tests.
+
 
 > **OCEAN FLIGHT V1 — START HERE for Codex and every future agent:** [ocean-flight-v1-agent-contract.md](ocean-flight-v1-agent-contract.md) explains the owner's actual aesthetic goal, current source boundaries, and what is *not yet implemented*. The full implementation assignment is [docs/CODEX_CINEMATIC_OCEAN_V1_IMPLEMENTATION.md](../docs/CODEX_CINEMATIC_OCEAN_V1_IMPLEMENTATION.md); the artistic reference is [docs/PROPOSAL_CINEMATIC_OCEAN_ALTITUDE_SHADOW.md](../docs/PROPOSAL_CINEMATIC_OCEAN_ALTITUDE_SHADOW.md). Codex must update the contract with exact real APIs and add validated preset schema + truthful machine-readable handoff when the implementation is done. Current older cloud/wave notes below are historical; do not mistake them for proof that the four wave moods or altitude shadow already work.
 
