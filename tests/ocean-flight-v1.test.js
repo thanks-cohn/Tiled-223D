@@ -44,6 +44,18 @@ test("wave groups are stable geographic shallow nested bands across altitude, he
  const large=sampleWaveGroup(family,-1,4,{...options,worldScale:32});assert.equal(a.id,large.id,"world scale changes presentation scale, not source identity");
 });
 
+test("V10 default flight renders no under-ship height shadow at any altitude or world mode",()=>{
+ assert.equal(DEFAULT_OCEAN_PRESET.shadow.enabled,false,
+  "height shadow must remain off for the user-facing default at every scale/altitude");
+ assert.equal(cloneOceanPreset().shadow.enabled,false);
+ assert.equal(mergeOceanPreset(DEFAULT_OCEAN_PRESET,{moods:{top:{whiteStrength:0}}}).shadow.enabled,false,
+  "normal ocean styling must not reenable the retired shadow");
+ assert.equal(validateOceanPreset(DEFAULT_OCEAN_PRESET).ok,true);
+ // Explicit developer-only inspection/preview can still enable the reversible
+ // legacy module; it is not enabled by loading or switching ordinary modes.
+ assert.equal(mergeOceanPreset(DEFAULT_OCEAN_PRESET,{shadow:{enabled:true}}).shadow.enabled,true);
+});
+
 test("shadow grows and darkens continuously, stays under a hovering ship, and clips off water",()=>{
  const ship={x:12,y:100,z:34},world={};let previous={radius:0,alpha:0};
  for(let i=0;i<=100;i++){const mood=evaluateOceanMood({normalizedAltitude:i/100,speed:0,worldScale:1,preset:DEFAULT_OCEAN_PRESET}),state=oceanShadowState({ship,mood,world,isOcean:()=>true,profile:{planetRadius:235,globeReveal:i/100}});assert.deepEqual(state.worldCenter,{x:12,y:0,z:34});assert.ok(state.radius>=previous.radius&&state.alpha>=previous.alpha);previous=state;}

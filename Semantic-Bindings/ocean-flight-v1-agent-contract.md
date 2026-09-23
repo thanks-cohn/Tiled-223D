@@ -6,7 +6,7 @@ V10 implements a low-cost beauty pass on the V9 ocean architecture. It replaces 
 
 Canonical Tiled X/Z, elevation Y, collision, flight, camera, clouds, ship, and world wrap are unchanged. Ocean visuals subtract the floating origin and use the same horizon/globe deformation as the sole ocean and terrain. No visual value writes physics or world data. `src/ocean-visual-presets.js` is the single aesthetic configuration; its runtime validator, JSON schema, Studio, tests, and this contract move together.
 
-Pipeline: `ocean-mood-model.js` continuously blends LOW/MIDDLE/HIGH/TOP → `ocean-wave-field.js` samples deterministic low-frequency groups → `ocean-wave-renderer.js` fills four fixed reusable ribbon buffers → `ocean-shadow.js` samples shoreline coverage → the controller exposes bounded inspection and previews. Altitude and heading never seed or slide geography. Actual motion and perspective provide parallax.
+Pipeline: `ocean-mood-model.js` continuously blends LOW/MIDDLE/HIGH/TOP → `ocean-wave-field.js` samples deterministic low-frequency groups → `ocean-wave-renderer.js` fills four fixed reusable ribbon buffers. The legacy `ocean-shadow.js` model and reusable mesh remain accessible to Deep Debug, but the creator-facing height shadow is **disabled by default** in every world scale and altitude mood. The controller exposes bounded inspection and previews. Altitude and heading never seed or slide geography. Actual motion and perspective provide parallax.
 
 ## Controls
 
@@ -22,8 +22,12 @@ Trusted-click authorized `window.tiledSpatialDevelopment` provides `oceanPreview
 
 ## Performance and acceptance
 
-There is one ocean. The beauty layer has four pooled meshes (only active families draw), one 64² shadow alpha texture, bounded caches, and no per-world grid/texture. Broad tonal structures are ribbons, not another sea or fullscreen pass. Shadow uses nine bounded ocean samples so shore proximity reduces its alpha rather than stamping across land. Required manual acceptance: matching LOW/MIDDLE/HIGH/TOP and hover frames, cruise versus boost, multiple headings, shore/wrap/far-side safety, no hard patch boundary, and measured 4 GB Windows FPS/draw/GPU behavior. Automated tests/build cannot establish those results.
+There is one ocean. The beauty layer has four pooled meshes (only active families draw), one retained 64² legacy shadow alpha texture, bounded caches, and no per-world grid/texture. The height-shadow mesh is hidden in normal/default flight and adds no shadow draw call. Broad tonal structures are ribbons, not another sea or fullscreen pass. Shadow uses nine bounded ocean samples so shore proximity reduces its alpha rather than stamping across land. Required manual acceptance: matching LOW/MIDDLE/HIGH/TOP and hover frames, cruise versus boost, multiple headings, shore/wrap/far-side safety, no hard patch boundary, and measured 4 GB Windows FPS/draw/GPU behavior. Automated tests/build cannot establish those results.
 
 ## Shadow/circular-artifact diagnostics v1
 
-Deep Debug now captures the shadow's authoritative source, nine water-mask samples, effective reusable mesh/material/resource state, shared-horizon boundary projection, camera/viewport chain, and separate base-ocean/ribbon/atmosphere candidates. Use `shadow-deep-debug-v1.md`; candidate overlap is not GPU pixel attribution. Performance remains capture-free. No shadow/ocean beauty defaults were changed by this diagnostics work.
+Deep Debug now captures the shadow's authoritative source, nine water-mask samples, effective reusable mesh/material/resource state, shared-horizon boundary projection, camera/viewport chain, and separate base-ocean/ribbon/atmosphere candidates. Use `shadow-deep-debug-v1.md`; candidate overlap is not GPU pixel attribution. Performance remains capture-free. Deep Debug originally made no changes to ocean beauty defaults. In the subsequent creator-approved removal pass the height shadow's default was changed to `enabled:false`, its Ocean Studio checkbox was removed, and all other visual and physical defaults were preserved. The diagnostics module remains available for controlled inspection.
+
+## No visible height shadow — V10 creator decision
+
+Default user flight intentionally displays **no under-ship height-shadow disk** at LOW/MIDDLE/HIGH/TOP or during Current/Bigger/Massive switches. The original height-shadow model/mesh and `tiledSpatial.shadow` diagnostics are retained only for deliberate authorized experiments. The legacy `shadow.enabled` field remains schema-compatible for programmatic opt-in; the standard Ocean Studio UI cannot re-enable it. This change does not remove the actual ocean planet, any blue-on-blue wave family, island geometry, or a generated SEKAI structure's future supporting stone platform.
