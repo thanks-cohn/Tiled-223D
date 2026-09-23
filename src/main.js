@@ -10,7 +10,7 @@ import {createIslandImpostors,updateIslandImpostor,disposeIslandImpostors} from 
 import {altitudeProfile,damp,LIMITS} from "./flight-model.js";
 import {makeHorizonState,setHorizonPosition,buildOceanGeometry} from "./horizon.js";
 import {makeScaleWorld,SCALE_PRESETS,transferScalePosition} from "./scale-world.js";
-import {cameraViewProfile,nextCameraChoice,overviewCameraScale,forwardLookAngle,planetOverviewFov} from "./camera-modes.js";
+import {cameraViewProfile,nextCameraChoice,overviewCameraScale,forwardLookAngle,overviewFocusHeight,planetOverviewFov} from "./camera-modes.js";
 import {travelRegion} from "./travel-regions.js";
 import {positionIslandVisual,cinematicShipScale,cameraAscentHeight} from "./visual-anchors.js";
 import {advanceMomentum,createFlybyTracker,resetFlybyTracker,updateFlybys} from "./flight-momentum.js";
@@ -430,8 +430,8 @@ function frame(now){
  );
  const overviewFocus=new THREE.Vector3(
   THREE.MathUtils.lerp(-dx*(33+70*profile.curvature),0,globe),
-  THREE.MathUtils.lerp(pilot.y-profile.lookDown,
-   -horizonState.globeRadius.value,globe),
+  overviewFocusHeight(pilot.y,profile.atmosphericAltitude,
+   scaleScene.preset.radius,globe,profile.lookDown),
   THREE.MathUtils.lerp(-dz*(33+70*profile.curvature),0,globe)
  );
  const desired=forwardPosition.lerp(overviewPosition,viewMix);
