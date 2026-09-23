@@ -1,5 +1,12 @@
 # Tiled-223D — Fly the Two-Island World
 
+## NEW: Insert a 50 × 50 low island into your 500 × 500 Tiled world
+
+The first offline **Sketch-to-World / Low to the ground** test is documented in [the step-by-step guide](docs/LOW_GROUND_INSERTION.md). Use the [50 × 50 test town-site](maps/low-town-50x50.json), paste its Ground tiles onto a separate **Additions** layer in your editable 500 × 500 map, export ordinary Tiled JSON, then drag that JSON onto **generate-low-world.bat**. Keep/supply your original elevation JSON to preserve old heights. This produces a single **generated/low-world.json** containing the combined map and generated numeric heights. Launch **start-world.bat** and import that single JSON through **Import Tiled JSON → Load map**; no separate elevation file is needed for generated output.
+
+If you do not already have the current 500 × 500 procedural demo in Tiled, run `node scripts/create-starter-map.mjs` to export its editable map and original elevations under `generated/`. The generator detects new painted regions, adds a low and irregular shoreline over empty ocean without overwriting old ground, and varies the result by a saved seed. This is a basic terrain/height prototype, **not** a built-in graphical GLB-town editor or a replacement for your original authored map.
+
+
 **You do not need Codex.** This repository already has a standalone Three.js browser viewer. Run it locally with the included starter scripts.
 
 **Windows:** In GitHub, choose **Code → Download ZIP**, extract the ZIP, then double-click `start-world.bat` inside the extracted folder. The first launch installs the small JavaScript dependencies; later launches reuse them. Node.js LTS must be installed on your computer ([nodejs.org](https://nodejs.org/)). A browser window should open to the flight demo. Keep the terminal window running while you play.
