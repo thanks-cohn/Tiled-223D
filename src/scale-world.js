@@ -107,8 +107,12 @@ export function makeScaleWorld(local,id="current"){
  return {preset:scale,nav,groundAt,pathNearLand,
   placementOf:(id)=>placements.find(x=>x.id===id),
   nearestLandInstance:(pilot,placement)=>({
-   x:placement.offsetX+nearest(pilot.x,placement.x,scale.width),
-   z:placement.offsetZ+nearest(pilot.z,placement.z,scale.height)
+   // Terrain vertices are still in ORIGINAL 500² local coordinates. Apply
+   // the relocation once, then add only an integer wrap-period copy offset.
+   // The previous formula added placement.offsetX/Z AND the relocated
+   // center a second time, teleporting land visually toward the player.
+   x:placement.offsetX+nearest(pilot.x,placement.x,scale.width)-placement.x,
+   z:placement.offsetZ+nearest(pilot.z,placement.z,scale.height)-placement.z
   })
  };
 }
@@ -116,4 +120,34 @@ export function localRenderPoint(global,origin){
  if(![global.x,global.z,origin.x,origin.z].every(Number.isFinite))
   throw Error("Invalid floating-origin coordinates");
  return {x:global.x-origin.x,z:global.z-origin.z};
+}
+
+// Preserve the pilot's geographical neighborhood when switching scale instead
+// of silently calling resetSpawn(). The 500² local island geometry is NOT
+// enlarged: we relocate the same offset relative to its semantic anchor.
+export function transferScalePosition(pilot,previous,next){
+ if(!pilot||![pilot.x,pilot.y,pilot.z].every(Number.isFinite))
+  throw Error("Invalid pilot position");
+ const from=previous?.nav,to=next?.nav;
+ if(!from||!to)throw Error("Invalid scale transition");
+ let nearestRegion=null,minDistance=Infinity;
+ for(const source of from.placements){
+  const dx=signed(pilot.x,source.x,from.width);
+  const dz=signed(pilot.z,source.z,from.height);
+  const d=Math.hypot(dx,dz);
+  if(d<minDistance){minDistance=d;nearestRegion={source,dx,dz};}
+ }
+ const destination=nearestRegion&&to.placements.find(p=>p.id===nearestRegion.source.id);
+ // Close to a destination: keep the EXACT local distance to that feature.
+ // In open ocean: preserve relative coordinates across the planet.
+ const local=destination&&minDistance<=nearestRegion.source.radius+90;
+ const x=local?destination.x+nearestRegion.dx:
+  wrap(pilot.x,from.width)/from.width*to.width;
+ const z=local?destination.z+nearestRegion.dz:
+  wrap(pilot.z,from.height)/from.height*to.height;
+ return {
+  x,z,
+  y:Math.max(next.groundAt(x,z).height+2,
+   pilot.y/previous.preset.altitudeScale*next.preset.altitudeScale)
+ };
 }
