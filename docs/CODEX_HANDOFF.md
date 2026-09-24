@@ -2,7 +2,7 @@
 
 ## Agent-created worlds: next implementation track
 
-Read [the ÆXIS agent world API handoff](AGENT_WORLD_API_HANDOFF.md) when implementing project-scoped tools that let Codex, other agents or hobbyists plan, inspect, place and revise multiple Tiled-editable regions in a 500 × 500 world. It defines the proposed structured operations, a three-reference/23-region example, revision and permission rules, and a staged first vertical slice. These APIs and multi-region composition are **not implemented yet**; preserve the browser-first baseline below.
+Read [the ÆXIS agent world API handoff](AGENT_WORLD_API_HANDOFF.md) for the longer plan. The first local vertical slice is implemented in [WORLD_API_V1.md](WORLD_API_V1.md): independent programmer and agent surfaces share a schema-v1 core, permissions, revisions, locks, protected authored base cells, precise sparse-patch masks, atomic commit/undo and Tiled JSON export. A shared inspection extension adds a truthful runtime manifest, bounded region/operation queries and a computed placement-surface fixture with lock/protection diagnostics; the fixture does not place entities or GLBs. Plans with diagnostics or no valid operations are non-committable. It handles a deterministic two-or-three-region workflow, not the three-picture/23-region workflow; image understanding, general seam/connectivity solving and scale-stage capacity planning remain unimplemented.
 
 ## Experimental desktop shell (2026-09-24)
 

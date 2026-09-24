@@ -1,6 +1,6 @@
 # ÆXIS agent world API: Codex implementation handoff
 
-**Status:** Implementation brief, not shipped. **Repository:** Tiled-223D. **Product goal:** A hobbyist describes a world with a few pictures and sentences; their chosen agent plans, builds, inspects and revises Tiled-editable maps through a documented local API. The same operations serve the desktop UI, Codex, other agents and an engineer writing scripts. The user should be able to accept a good default, edit individual regions and keep working in one workspace.
+**Status:** First vertical slice shipped locally; later stages remain a brief. See [WORLD_API_V1.md](WORLD_API_V1.md) for executable CLI/API contracts and limitations. **Repository:** Tiled-223D. **Product goal:** A hobbyist describes a world with a few pictures and sentences; their chosen agent plans, builds, inspects and revises Tiled-editable maps through a documented local API. The same operations serve the desktop UI, Codex, other agents and an engineer writing scripts. The user should be able to accept a good default, edit individual regions and keep working in one workspace.
 
 Start by reading `AGENTS.md`, `docs/CODEX_HANDOFF.md`, `docs/LOW_GROUND_INSERTION.md`, `docs/WORKFLOW_SINGLE_IMAGE_TO_WORLD.md`, `Proposals/aexis-within-reason-single-image-world.md`, `Proposals/substrate-workspace-app-format-native-tabs.md` and `Desktop/App/README.md`. Reproduce the current browser flow before changing it.
 
@@ -21,6 +21,16 @@ The three pictures are references, not truth about unseen sides or exact elevati
 ## Architecture: one core, several ways to call it
 
 Create a framework-light JavaScript/TypeScript **world operations core** with versioned JSON request/response schemas and pure validation/composition functions. Expose the same core through a local CLI and a small programmatic library first. The desktop app may later invoke it through bounded local IPC; an MCP/tool adapter may later expose its methods to Codex and third-party agents. Transport must not determine map semantics. No remote service, login, LLM call or Qt installation is required for core tests or basic scripted generation.
+
+### Two first-class API surfaces
+
+Build **a programmer API** and **an agent/AI API** over the same versioned world core. They share stable identities, coordinates, semantics, validation, revisions, permissions and undo; neither surface must be a thin or restricted translation of the other.
+
+- The **programmer API** exposes precise, typed, composable operations for cells, region bounds, height fields, geometry, asset references, file interchange and transactions. It should have predictable errors, batch edits and documented invariants. It may call high-level planning functions too.
+- The **agent API** exposes discoverable inspection, intent, constraint planning, proposed changes, explanations of uncertainty, preview and commit. Its plans return explicit operations/diffs the creator or engineer can inspect, modify and apply. It may request exact geometry and cell edits too.
+- The **creator UI** can move between plain-language goals, guided choices and direct manipulation. It shows the same proposed operations and underlying numeric values. User corrections remain authored facts, not hidden prompts.
+
+Test independent use: a script must build and revise a world without an agent model; an agent must inspect, plan and commit through documented tools without driving UI clicks. Test interoperability: a programmer's exact edit appears in agent inspection, and an agent's accepted plan is reproducible through the programmer operations. Both surfaces use one authorization and revision system; convenience for one must not cap the other's precision or expressive range.
 
 Treat the editable project as canonical: source image references, base map/elevations, stable region/object IDs, hard and soft constraints, tile semantics, proposed versus authored values, style seed, asset attribution, revisions and operation log. The `.tmx`/ordinary Tiled JSON map, `.sworld.json` semantic export and 3D runtime map are **derived or synchronized projections** with explicit adapters. Do not create a second silent truth in the renderer or overwrite the user's original map. Preserve raw reference files by path and hash; export only when the user chooses to package them.
 

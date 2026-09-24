@@ -1,6 +1,6 @@
 # Tiled-223D — Fly the Two-Island World
 
-**Agent world-building API brief:** [docs/AGENT_WORLD_API_HANDOFF.md](docs/AGENT_WORLD_API_HANDOFF.md) gives Codex a staged path from the current one-patch generator to inspectable, editable multi-region worlds. It includes a three-picture, 23-region example; the API is proposed, not shipped.
+**Local world-building API:** the first schema-v1 programmer API, agent planning API and atomic CLI slice is documented in [docs/WORLD_API_V1.md](docs/WORLD_API_V1.md). It plans/previews two or three named regions and exports ordinary Tiled JSON without modifying source maps. [The longer handoff](docs/AGENT_WORLD_API_HANDOFF.md) tracks what remains for the three-picture, 23-region workflow.
 
 **Experimental desktop workspace:** [Desktop/App](Desktop/App/README.md) contains a Qt shell with an on-demand browser world tab, a selected-map watcher and opt-in diagnostics. The actual Tiled native tab and `.sworld.json` round trip are still proposed work; the standalone browser path below remains the working entry point.
 
