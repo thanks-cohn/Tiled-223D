@@ -207,14 +207,7 @@ document.getElementById("quality").addEventListener("click",()=>{
  renderer.setSize(innerWidth,innerHeight);
  document.getElementById("quality").textContent="Quality: "+(quality==="low"?"Low":"Balanced");
 });
-document.getElementById("import").addEventListener("click",async()=>{
- const mapFile=document.getElementById("mapFile").files[0];
- const heightFile=document.getElementById("heightFile").files[0];
- if(!mapFile){statusUI.textContent="Choose a Tiled JSON map first.";return;}
- try{
-  if(mapFile.size>20_000_000 || (heightFile&&heightFile.size>30_000_000))throw Error("Map file exceeds prototype limits.");
-  const map=JSON.parse(await mapFile.text());
-  const heights=heightFile?JSON.parse(await heightFile.text()):null;
+function importParsedMap(map,heights=null){
   const next=fromTiled(map,heights);
   next.objects=[];sourceWorld=next;scaleScene=makeScaleWorld(next,"current");world=scaleScene.nav;
   document.getElementById("worldScale").value="current";
@@ -224,8 +217,53 @@ document.getElementById("import").addEventListener("click",async()=>{
   cameraChoice="auto";syncCameraButton();
   mapUI.refreshWorld();mapUI.close();
   statusUI.textContent=world.name+" · "+world.width+" × "+world.height+((heights||map.substrateElevation)?" · elevated":" · flat (no elevation file)");
+  return {name:world.name,width:world.width,height:world.height};
+}
+
+document.getElementById("import").addEventListener("click",async()=>{
+ const mapFile=document.getElementById("mapFile").files[0];
+ const heightFile=document.getElementById("heightFile").files[0];
+ if(!mapFile){statusUI.textContent="Choose a Tiled JSON map first.";return;}
+ try{
+  if(mapFile.size>20_000_000 || (heightFile&&heightFile.size>30_000_000))throw Error("Map file exceeds prototype limits.");
+  const map=JSON.parse(await mapFile.text());
+  const heights=heightFile?JSON.parse(await heightFile.text()):null;
+  importParsedMap(map,heights);
  }catch(err){statusUI.textContent="Import error: "+err.message;}
 });
+
+// Desktop-only bridge: the native shell reads the selected project map and
+// dispatches bytes here. Browser users keep the original file-picker path.
+if(window.qt?.webChannelTransport){
+ let desktopActive=true;
+ window.__aexisDesktopSetActive=active=>{desktopActive=!!active;held.clear();};
+ const script=document.createElement("script");
+ script.src="qrc:///qtwebchannel/qwebchannel.js";
+ script.onload=()=>new window.QWebChannel(window.qt.webChannelTransport,channel=>{
+  const host=channel.objects.aexisHost;
+  window.__aexisDesktopImport=encoded=>{
+   try{
+    if(encoded.length>10_700_000)throw Error("Map exceeds desktop import limit.");
+    const bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
+    const map=JSON.parse(new TextDecoder().decode(bytes));
+    const result=importParsedMap(map);
+    host.reportImport("ok",`${result.name} · ${result.width} × ${result.height}`);
+    return "ok";
+   }catch(err){
+    const detail=String(err?.message||err);
+    statusUI.textContent="Import error: "+detail;
+    host.reportImport("error",detail);
+    return "error";
+   }
+  };
+  host.reportImport("ready","desktop bridge connected");
+ });
+ script.onerror=()=>{statusUI.textContent="Desktop bridge could not load.";};
+ document.head.appendChild(script);
+ // The desktop host keeps the web view alive, but need not render its world
+ // while the native Map tab covers it. Standalone browser mode is unchanged.
+ window.__aexisDesktopIsActive=()=>desktopActive;
+}
 addEventListener("keydown",e=>{
  if(e.code==="KeyV"&&!e.repeat&&mode==="world"&&!mapUI.isOpen()){
   e.preventDefault();
@@ -250,6 +288,7 @@ addEventListener("resize",()=>{camera.aspect=innerWidth/innerHeight;camera.updat
 
 function frame(now){
  requestAnimationFrame(frame);
+ if(window.__aexisDesktopIsActive?.()===false){last=now;return;}
  const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;
  // Map is a paused, inexpensive 2D inspection mode; do not run flight,
  // redraw the 3D scene or move the ship while the overlay is open.
