@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thanks-cohn.github.io/Tiled-223D/schemas/world-api-inspection-v1.schema.json",
+  "title": "Tiled-223D world API v1 inspection response",
+  "anyOf": [
+    {"$ref":"#/$defs/capabilities"},
+    {"$ref":"#/$defs/region"},
+    {"$ref":"#/$defs/regionPage"},
+    {"$ref":"#/$defs/operationPage"},
+    {"$ref":"#/$defs/surface"}
+  ],
+  "$defs": {
+    "header":{"type":"object","required":["schemaVersion","projectId","revision"],"properties":{"schemaVersion":{"const":1},"projectId":{"type":"string"},"revision":{"type":"integer","minimum":0}}},
+    "bounds":{"type":"object","required":["x","y","width","height"],"properties":{"x":{"type":"integer","minimum":0},"y":{"type":"integer","minimum":0},"width":{"type":"integer","minimum":1},"height":{"type":"integer","minimum":1}},"additionalProperties":false},
+    "capabilities":{"allOf":[{"$ref":"#/$defs/header"},{"type":"object","required":["coordinates","topology","terrain","operations","actor","budgets","adapters","limitations"]}]},
+    "region":{"allOf":[{"$ref":"#/$defs/header"},{"type":"object","required":["id","bounds","locked","protectedBaseCells","placementSurfaceId"],"properties":{"id":{"type":"string"},"bounds":{"$ref":"#/$defs/bounds"},"locked":{"type":"boolean"},"protectedBaseCells":{"type":"integer","minimum":0},"placementSurfaceId":{"type":"string"}}}]},
+    "page":{"type":"object","required":["offset","limit","total","items","nextOffset"],"properties":{"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":100},"total":{"type":"integer","minimum":0},"items":{"type":"array","maxItems":100},"nextOffset":{"type":["integer","null"],"minimum":0}}},
+    "regionPage":{"allOf":[{"$ref":"#/$defs/header"},{"$ref":"#/$defs/page"},{"type":"object","properties":{"items":{"type":"array","maxItems":100,"items":{"type":"object","required":["id","bounds","locked","protectedBaseCells","placementSurfaceId"]}}}}]},
+    "operationPage":{"allOf":[{"$ref":"#/$defs/header"},{"$ref":"#/$defs/page"},{"type":"object","properties":{"items":{"type":"array","maxItems":100,"items":{"type":"object","required":["operationId","actor","revision","kind"]}}}}]},
+    "surface":{"allOf":[{"$ref":"#/$defs/header"},{"type":"object","required":["id","fixture","regionId","bounds","height","normal","locked","protectedBaseCells","supportsObject"],"properties":{"fixture":{"const":true},"bounds":{"$ref":"#/$defs/bounds"},"supportsObject":{"type":"object","required":["supported","reasons","scope"]}}}]}
+  }
+}

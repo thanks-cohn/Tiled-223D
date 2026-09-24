@@ -1,5 +1,6 @@
 import {assertEnvelope, clone, diagnostic, ERROR_CODES, TERRAIN, validateRegion, WorldApiError} from './core.js';
 import {ProgrammerWorldApi, applyTransaction, projectProjection} from './programmer.js';
+import {WorldInspection} from './inspection.js';
 
 const hash=(text,seed)=>{let h=seed|0;for(const c of text)h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0;};
 function terrain(width,height,seed,id){const tiles=[],heights=[];for(let y=0;y<height;y++)for(let x=0;x<width;x++){const edge=Math.min(x,y,width-1-x,height-1-y),n=(hash(`${x},${y},${id}`,seed)%1000)/1000;tiles.push(edge<2?TERRAIN.sand:(n<.18?TERRAIN.dirt:TERRAIN.grass));heights.push(edge<2?1+n:3+n*3);}return {tiles,heights};}
@@ -7,7 +8,12 @@ function candidates(area,w,h,canvas){const slots={north:[Math.floor((canvas.widt
 
 /** Intent-oriented surface. Plans are explicit diffs; plan and preview never mutate project state. */
 export class AgentWorldApi {
-  constructor(project){this.project=project;this.programmer=new ProgrammerWorldApi(project);}
+  constructor(project){this.project=project;this.programmer=new ProgrammerWorldApi(project);this.inspection=new WorldInspection(project);}
+  inspectCapabilities(actor){return this.inspection.capabilities(actor);}
+  inspectRegions(actor,options){return this.inspection.regions(actor,options);}
+  inspectRegion(actor,id){return this.inspection.region(actor,id);}
+  inspectOperations(actor,options){return this.inspection.operations(actor,options);}
+  inspectPlacementSurface(actor,id){return this.inspection.placementSurface(actor,id);}
   inspect(){return {schemaVersion:1,projectId:this.project.projectId,revision:this.project.revision,canvas:{width:this.project.width,height:this.project.height,unit:'tiled-cell'},regions:this.project.regions.map(({tiles,heights,...r})=>({...r,cellCount:tiles.length,hasNumericHeights:Boolean(heights)})),capabilities:['inspect','plan','preview','commit','undo','export','exact-map-patch'],permissions:clone(this.project.permissions)};}
   plan(request){assertEnvelope(request,this.project,'draft');const seed=request.seed??0;if(!Number.isInteger(seed))throw new WorldApiError(ERROR_CODES.invalid,'seed must be an integer.');if(!Array.isArray(request.regions)||request.regions.length<1||request.regions.length>3)throw new WorldApiError(ERROR_CODES.capacity,'The v1 planner accepts one to three regions.', ['Split larger work into reviewed transactions.']);const operations=[],diagnostics=[],seen=new Set,planningProject=clone(this.project);for(let i=0;i<request.regions.length;i++){const spec=request.regions[i],width=spec.width??32,height=spec.height??32;let [x,y]=spec.at||candidates(spec.anchor?.area,width,height,this.project);if(!spec.at&&!spec.anchor?.area){x=20+(i*67)%(this.project.width-width-40);y=20+(i*83)%(this.project.height-height-40);}const generated=terrain(width,height,seed,spec.id);const region={id:spec.id,kind:spec.kind||'terrain-patch',bounds:{x,y,width,height},...generated,locked:Boolean(spec.lockedAfterAccept),provenance:{kind:'agent-plan',seed,referenceId:spec.referenceId||null,referenceUse:spec.referenceUse||'style-only'}};try{if(seen.has(region.id))throw new WorldApiError(ERROR_CODES.duplicate,`Region ID ${region.id} occurs more than once.`);seen.add(region.id);validateRegion(region,planningProject,region.id);operations.push({type:'region.place',region,previous:null});planningProject.regions.push(region);}catch(error){diagnostics.push(diagnostic(error));}}
     if(diagnostics.length)return {schemaVersion:1,kind:'world-plan',projectId:this.project.projectId,baseRevision:this.project.revision,seed,operations:[],diagnostics,alternatives:['Reduce region dimensions.','Supply non-overlapping at coordinates.']};
