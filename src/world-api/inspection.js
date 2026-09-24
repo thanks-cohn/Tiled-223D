@@ -11,10 +11,10 @@ function projectProjection(project) {
   return {ground,heights};
 }
 
-function page(items,{offset=0,limit=25}={}) {
+function page(items,{offset=0,limit=25}={},mapItem=item=>item) {
   if (!Number.isInteger(offset)||!Number.isInteger(limit)||offset<0||limit<1||limit>MAX_PAGE_SIZE)
     throw new WorldApiError(ERROR_CODES.bounds, `Inspection pages require offset >= 0 and limit between 1 and ${MAX_PAGE_SIZE}.`);
-  return {offset,limit,total:items.length,items:items.slice(offset,offset+limit),nextOffset:offset+limit<items.length?offset+limit:null};
+  return {offset,limit,total:items.length,items:items.slice(offset,offset+limit).map(mapItem),nextOffset:offset+limit<items.length?offset+limit:null};
 }
 function regionSummary(region,project) {
   let cellCount=0,protectedCellCount=0;
@@ -53,15 +53,15 @@ export class WorldInspection {
       adapters:[{id:'tiled-json',direction:['import','export'],status:'implemented'},{id:'numeric-elevation-json',direction:['import'],status:'implemented'}],
       limitations:['Placement surfaces are computed inspection fixtures; they do not place entities or GLB assets.','Only terrain-v1 rectangular regions and sparse cell patches are mutable.','The world API uses a finite canvas; browser rendering wrap is not spherical topology.']};
   }
-  regions(actor,options){assertGrant(this.project,actor);return {schemaVersion:1,projectId:this.project.projectId,revision:this.project.revision,...page(this.project.regions.map(r=>regionSummary(r,this.project)),options)};}
+  regions(actor,options){assertGrant(this.project,actor);return {schemaVersion:1,projectId:this.project.projectId,revision:this.project.revision,...page(this.project.regions,options,region=>regionSummary(region,this.project))};}
   region(actor,id){assertGrant(this.project,actor);const found=this.project.regions.find(r=>r.id===id);if(!found)throw new WorldApiError(ERROR_CODES.invalid,`Unknown region ${id}.`);return {schemaVersion:1,projectId:this.project.projectId,...regionSummary(found,this.project)};}
-  operations(actor,options){assertGrant(this.project,actor);return {schemaVersion:1,projectId:this.project.projectId,revision:this.project.revision,...page(this.project.operationLog.map(entry=>clone(entry)),options)};}
+  operations(actor,options){assertGrant(this.project,actor);return {schemaVersion:1,projectId:this.project.projectId,revision:this.project.revision,...page(this.project.operationLog,options,clone)};}
   placementSurface(actor,surfaceId) {
     assertGrant(this.project,actor);const match=/^region:(.+):surface$/.exec(surfaceId||''),region=match&&this.project.regions.find(r=>r.id===match[1]);
     if(!region)throw new WorldApiError(ERROR_CODES.invalid,`Unknown placement-surface fixture ${surfaceId}.`);
-    const projection=projectProjection(this.project),heights=[];let water=false,holes=false,protectedCells=0;
+    const projection=projectProjection(this.project);let minHeight=Infinity,maxHeight=-Infinity,water=false,holes=false,protectedCells=0;
     for(let y=region.bounds.y;y<region.bounds.y+region.bounds.height;y++)for(let x=region.bounds.x;x<region.bounds.x+region.bounds.width;x++){
-      if(!regionWritesCell(region,x,y)){holes=true;continue;}const i=indexAt(x,y,this.project.width);heights.push(projection.heights[i]);water ||= [TERRAIN.ocean,TERRAIN.river,TERRAIN.lake].includes(projection.ground[i]);protectedCells += this.project.baseGround[i]!==TERRAIN.ocean||this.project.baseHeights[i]!==0?1:0;
+      if(!regionWritesCell(region,x,y)){holes=true;continue;}const i=indexAt(x,y,this.project.width),height=projection.heights[i];minHeight=Math.min(minHeight,height);maxHeight=Math.max(maxHeight,height);water ||= [TERRAIN.ocean,TERRAIN.river,TERRAIN.lake].includes(projection.ground[i]);protectedCells += this.project.baseGround[i]!==TERRAIN.ocean||this.project.baseHeights[i]!==0?1:0;
     }
     const cx=Math.floor(region.bounds.x+(region.bounds.width-1)/2),cy=Math.floor(region.bounds.y+(region.bounds.height-1)/2),reasons=[];
     if(region.locked)reasons.push({code:ERROR_CODES.locked,message:`Region ${region.id} is locked.`});
@@ -69,7 +69,7 @@ export class WorldInspection {
     if(water)reasons.push({code:'NON_WALKABLE_TERRAIN',message:'The fixture includes water terrain.'});
     if(holes)reasons.push({code:'SPARSE_SURFACE',message:'The fixture has cells not owned by its region.'});
     return {schemaVersion:1,projectId:this.project.projectId,revision:this.project.revision,id:surfaceId,fixture:true,regionId:region.id,bounds:clone(region.bounds),
-      height:{min:Math.min(...heights),max:Math.max(...heights),sample:{x:cx,y:projection.heights[indexAt(cx,cy,this.project.width)],z:cy}},normal:normalAt(this.project,projection,cx,cy),
+      height:{min:minHeight,max:maxHeight,sample:{x:cx,y:projection.heights[indexAt(cx,cy,this.project.width)],z:cy}},normal:normalAt(this.project,projection,cx,cy),
       locked:Boolean(region.locked),protectedBaseCells:protectedCells,supportsObject:{supported:reasons.length===0,reasons,scope:'diagnostic-only-no-entity-placement'}};
   }
 }
