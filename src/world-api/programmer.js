@@ -40,7 +40,7 @@ export function applyTransaction(project, request, operations) {
   assertEnvelope(request, project, 'commit');
   const prior=clone(project), next=clone(project);
   if(next.operationLog.some(e=>e.operationId===request.operationId)) return {project,revision:project.revision,idempotent:true,undoToken:null};
-  try { for(const operation of operations){ if(operation.type!=='region.place')throw new WorldApiError(ERROR_CODES.invalid,`Unsupported operation ${operation.type}.`); const at=next.regions.findIndex(r=>r.id===operation.region.id); validateRegion(operation.region,next,operation.region.id); if(at<0)next.regions.push(clone(operation.region));else next.regions[at]=clone(operation.region); } }
+  try { for(const operation of operations){ if(operation.type!=='region.place')throw new WorldApiError(ERROR_CODES.invalid,`Unsupported operation ${operation.type}.`); const at=next.regions.findIndex(r=>r.id===operation.region.id); if(at>=0&&next.regions[at].locked)throw new WorldApiError(ERROR_CODES.locked,`${operation.region.id} is locked.`); validateRegion(operation.region,next,operation.region.id); if(at<0)next.regions.push(clone(operation.region));else next.regions[at]=clone(operation.region); } }
   catch(error){ return {project,revision:project.revision,committed:false,diagnostics:[diagnostic(error)]}; }
   next.revision++; const undoToken=`undo-${request.operationId}`;
   next.operationLog.push({operationId:request.operationId,actor:request.actor,revision:next.revision,kind:'commit'});
@@ -48,7 +48,8 @@ export function applyTransaction(project, request, operations) {
   return {project:next,revision:next.revision,committed:true,undoToken};
 }
 
-export function undoTransaction(project, token, actor) {
+export function undoTransaction(project, request, token) {
+  assertEnvelope(request, project, 'commit');
   const record=project.undoStack.at(-1); if(!record||record.token!==token)throw new WorldApiError(ERROR_CODES.revision,'Undo token is not the latest committed change.');
-  const next=clone(project);next.regions=record.regions;next.undoStack.pop();next.revision++;next.operationLog.push({operationId:`undo:${token}`,actor,revision:next.revision,kind:'undo'});return next;
+  const next=clone(project);next.regions=record.regions;next.undoStack.pop();next.revision++;next.operationLog.push({operationId:request.operationId,actor:request.actor,revision:next.revision,kind:'undo',undoToken:token});return next;
 }

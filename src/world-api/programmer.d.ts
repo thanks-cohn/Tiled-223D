@@ -13,5 +13,4 @@ export declare class ProgrammerWorldApi {
 }
 export declare function projectProjection(project: Project): {ground:number[]; heights:number[]};
 export declare function applyTransaction(project: Project, request: OperationEnvelope, operations: RegionPlaceOperation[]): {project:Project; revision:number; committed?:boolean; idempotent?:boolean; undoToken:string|null; diagnostics?:object[]};
-export declare function undoTransaction(project: Project, token: string, actor: string): Project;
-
+export declare function undoTransaction(project: Project, request: OperationEnvelope, token: string): Project;

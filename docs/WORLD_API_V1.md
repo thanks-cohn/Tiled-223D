@@ -2,7 +2,7 @@
 
 The first vertical slice has one versioned project core and two independent JavaScript surfaces. `ProgrammerWorldApi` provides bounded cell inspection, exact numeric `patchCells`, rectangular `placeRegion`, atomic transactions and undo. `AgentWorldApi` provides capability inspection, seeded intent planning, explicit proposed operations, non-mutating SVG preview and commit.
 
-Both use schema version 1, terrain-v1 IDs, map X → world X / map Y → world Z, finite numeric elevations, stable region IDs, optimistic revisions, actor grants, operation IDs, locks and the same transaction/undo log. An agent plan is reviewable data, not a hidden prompt. No model, upload, Tiled GUI automation, Qt or network call is involved.
+Both use schema version 1, terrain-v1 IDs, map X → world X / map Y → world Z, finite numeric elevations, stable region IDs, optimistic revisions, actor grants, operation IDs, locks and the same transaction/undo log. Commit-time validation enforces locks even for operations constructed without the convenience APIs. Undo accepts the same operation envelope as commit and checks its actor's `commit` grant and expected revision before changing state. An agent plan is reviewable data, not a hidden prompt. No model, upload, Tiled GUI automation, Qt or network call is involved.
 
 ## Project and CLI walkthrough
 
@@ -36,4 +36,3 @@ The export is ordinary Tiled JSON. `Ground`, embedded `substrateElevation`, a vi
 ## Limits before the three-picture / 23-region workflow
 
 This slice supports two or three rectangular, generated terrain-v1 regions. It does **not** yet provide image analysis, reference hashing/cataloguing, arbitrary asset-map ingestion through the CLI, irregular coast outlines, seam/connectivity solving, routes, paginated object inspection, selected-region grants, TMX or `.sworld.json` export, 23-region capacity optimization, or targeted seam regeneration. Anchor words select deterministic canvas areas; unrecognized natural language is not interpreted. Preview is a cheap labeled footprint SVG, not a final 3D preview. Imported Tiled edits inside a known region are recovered from the exported rectangle, but external edits to region metadata still need conflict reconciliation.
-
