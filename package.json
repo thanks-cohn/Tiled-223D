@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "test": "node --test"
+    "test": "node --test",
+    "world-api": "node scripts/world-api-cli.mjs"
   },
+  "bin": { "tiled-world-api": "scripts/world-api-cli.mjs" },
   "dependencies": {
     "three": "^0.180.0"
   },

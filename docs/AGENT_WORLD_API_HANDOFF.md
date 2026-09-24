@@ -1,6 +1,6 @@
 # ÆXIS agent world API: Codex implementation handoff
 
-**Status:** Implementation brief, not shipped. **Repository:** Tiled-223D. **Product goal:** A hobbyist describes a world with a few pictures and sentences; their chosen agent plans, builds, inspects and revises Tiled-editable maps through a documented local API. The same operations serve the desktop UI, Codex, other agents and an engineer writing scripts. The user should be able to accept a good default, edit individual regions and keep working in one workspace.
+**Status:** First vertical slice shipped locally; later stages remain a brief. See [WORLD_API_V1.md](WORLD_API_V1.md) for executable CLI/API contracts and limitations. **Repository:** Tiled-223D. **Product goal:** A hobbyist describes a world with a few pictures and sentences; their chosen agent plans, builds, inspects and revises Tiled-editable maps through a documented local API. The same operations serve the desktop UI, Codex, other agents and an engineer writing scripts. The user should be able to accept a good default, edit individual regions and keep working in one workspace.
 
 Start by reading `AGENTS.md`, `docs/CODEX_HANDOFF.md`, `docs/LOW_GROUND_INSERTION.md`, `docs/WORKFLOW_SINGLE_IMAGE_TO_WORLD.md`, `Proposals/aexis-within-reason-single-image-world.md`, `Proposals/substrate-workspace-app-format-native-tabs.md` and `Desktop/App/README.md`. Reproduce the current browser flow before changing it.
 
