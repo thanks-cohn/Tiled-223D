@@ -1,5 +1,9 @@
 # Codex handoff: standalone Toon World / Tiled-223D
 
+## Next Codex task: agent-native diagnostics
+
+The current implementation request is [the unified agent-native world API diagnostics task](CODEX_AGENT_NATIVE_DEBUG_CONTRACT_V1.md). It calls for one versioned diagnostic event/API contract with bounded regular and deep debug views for programmers and agents, plus actor-scoped inspection, precise machine-readable types, and semantic cell explanations. Work on the linked task from branch `codex/agent-native-debug-contract-v1`; its document is a specification, not a claim that the features already exist.
+
 ## Agent-created worlds: next implementation track
 
 Read [the ÆXIS agent world API handoff](AGENT_WORLD_API_HANDOFF.md) for the longer plan. The first local vertical slice is implemented in [WORLD_API_V1.md](WORLD_API_V1.md): independent programmer and agent surfaces share a schema-v1 core, permissions, revisions, locks, protected authored base cells, precise sparse-patch masks, atomic commit/undo and Tiled JSON export. A shared inspection extension adds a truthful runtime manifest, bounded region/operation queries and a computed placement-surface fixture with lock/protection diagnostics; the fixture does not place entities or GLBs. Plans with diagnostics or no valid operations are non-committable. It handles a deterministic two-or-three-region workflow, not the three-picture/23-region workflow; image understanding, general seam/connectivity solving and scale-stage capacity planning remain unimplemented.
