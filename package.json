@@ -9,11 +9,14 @@
     "test": "node --test",
     "world-api": "node scripts/world-api-cli.mjs"
   },
-  "bin": { "tiled-world-api": "scripts/world-api-cli.mjs" },
+  "bin": {
+    "tiled-world-api": "scripts/world-api-cli.mjs"
+  },
   "dependencies": {
     "three": "^0.180.0"
   },
   "devDependencies": {
+    "ajv": "^8.20.0",
     "vite": "^7.0.0"
   }
 }
