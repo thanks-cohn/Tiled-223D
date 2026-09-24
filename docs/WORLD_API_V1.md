@@ -4,6 +4,14 @@ The first vertical slice has one versioned project core and two independent Java
 
 Both use schema version 1, terrain-v1 IDs, map X → world X / map Y → world Z, finite numeric elevations, stable region IDs, optimistic revisions, actor grants, operation IDs, locks and the same transaction/undo log. Commit-time validation enforces locks even for operations constructed without the convenience APIs. Undo accepts the same operation envelope as commit and checks its actor's `commit` grant and expected revision before changing state. An agent plan is reviewable data, not a hidden prompt. No model, upload, Tiled GUI automation, Qt or network call is involved.
 
+### V1 edit policy
+
+The base map and elevation companion are immutable inputs. World API v1 treats only a base cell whose terrain is `ocean` **and** whose numeric elevation is exactly `0` as blank canvas. A new planned region or exact patch may write those blank cells; it may not replace any other base terrain or elevation. An unlocked API-authored region can be revised by using the same stable region ID, while a locked region cannot be revised. Different region IDs cannot write the same cell.
+
+`patchCells` records a `writeMask`, so only the explicitly listed cells are owned and changed. Cells merely enclosed by the sparse patch's bounding rectangle are neither overwritten nor treated as overlap. Rectangular `placeRegion` and planned regions omit that mask and therefore intentionally write every cell in their bounds. These rules are validated by both convenience methods and again atomically at commit, so hand-built operations cannot bypass them. Conflicts return `PROTECTED_CELL`, `OVERLAP`, or `OVERLAP_LOCKED` diagnostics and leave the revision and project state unchanged.
+
+A plan containing any diagnostic is not a committable partial plan (`PLAN_HAS_DIAGNOSTICS`). A plan or transaction with no valid operations is also rejected (`NO_VALID_OPERATIONS`). Neither case increments the revision or appends to the operation log; callers must resolve diagnostics and create/review a new plan.
+
 ## Project and CLI walkthrough
 
 The initializer never overwrites its inputs:

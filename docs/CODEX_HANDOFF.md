@@ -2,7 +2,7 @@
 
 ## Agent-created worlds: next implementation track
 
-Read [the ÆXIS agent world API handoff](AGENT_WORLD_API_HANDOFF.md) for the longer plan. The first local vertical slice is implemented in [WORLD_API_V1.md](WORLD_API_V1.md): independent programmer and agent surfaces share a schema-v1 core, permissions, revisions, locks, atomic commit/undo and Tiled JSON export. It handles a deterministic two-or-three-region workflow, not the three-picture/23-region workflow; image understanding, general seam/connectivity solving and scale-stage capacity planning remain unimplemented.
+Read [the ÆXIS agent world API handoff](AGENT_WORLD_API_HANDOFF.md) for the longer plan. The first local vertical slice is implemented in [WORLD_API_V1.md](WORLD_API_V1.md): independent programmer and agent surfaces share a schema-v1 core, permissions, revisions, locks, protected authored base cells, precise sparse-patch masks, atomic commit/undo and Tiled JSON export. Plans with diagnostics or no valid operations are non-committable. It handles a deterministic two-or-three-region workflow, not the three-picture/23-region workflow; image understanding, general seam/connectivity solving and scale-stage capacity planning remain unimplemented.
 
 ## Experimental desktop shell (2026-09-24)
 

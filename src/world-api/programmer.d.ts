@@ -1,6 +1,6 @@
 export interface Bounds { x: number; y: number; width: number; height: number }
 export interface Provenance { kind: string; seed?: number; referenceId?: string | null; [key: string]: unknown }
-export interface Region { id: string; kind?: string; bounds: Bounds; tiles: number[]; heights?: number[]; locked?: boolean; provenance?: Provenance }
+export interface Region { id: string; kind?: string; bounds: Bounds; tiles: number[]; heights?: number[]; writeMask?: boolean[]; locked?: boolean; provenance?: Provenance }
 export interface Project { schemaVersion: 1; projectId: string; revision: number; width: number; height: number; baseGround: number[]; baseHeights: number[]; regions: Region[]; permissions: Record<string,string[]>; operationLog: object[]; undoStack: object[] }
 export interface OperationEnvelope { schemaVersion: 1; operationId: string; projectId: string; expectedRevision: number; actor: string }
 export interface RegionPlaceOperation { type: 'region.place'; region: Region; previous: Region | null }
