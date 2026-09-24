@@ -20,6 +20,12 @@ export function assertEnvelope(request, project, capability) {
   const grants = project.permissions?.[request.actor] || [];
   if (!grants.includes(capability)) throw new WorldApiError(ERROR_CODES.permission, `${request.actor} lacks ${capability} permission.`);
 }
+export function assertGrant(project, actor, capability = 'inspect') {
+  if (!actor || typeof actor !== 'string') throw new WorldApiError(ERROR_CODES.invalid, 'An actor is required for inspection.');
+  const grants = project.permissions?.[actor] || [];
+  if (!grants.includes(capability)) throw new WorldApiError(ERROR_CODES.permission, `${actor} lacks ${capability} permission.`);
+  return grants;
+}
 export function boundsOverlap(a, b, gap = 0) {
   return a.x < b.x + b.width + gap && a.x + a.width + gap > b.x && a.y < b.y + b.height + gap && a.y + a.height + gap > b.y;
 }

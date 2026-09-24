@@ -1,8 +1,14 @@
 import {assertEnvelope, clone, diagnostic, ERROR_CODES, indexAt, validateRegion, WorldApiError} from './core.js';
+import {WorldInspection} from './inspection.js';
 
 /** Precise programmer surface. Methods accept versioned operation envelopes and return immutable next-state proposals. */
 export class ProgrammerWorldApi {
-  constructor(project) { this.project = project; }
+  constructor(project) { this.project = project; this.inspection = new WorldInspection(project); }
+  inspectCapabilities(actor){return this.inspection.capabilities(actor);}
+  inspectRegions(actor,options){return this.inspection.regions(actor,options);}
+  inspectRegion(actor,id){return this.inspection.region(actor,id);}
+  inspectOperations(actor,options){return this.inspection.operations(actor,options);}
+  inspectPlacementSurface(actor,id){return this.inspection.placementSurface(actor,id);}
   inspectMap({x = 0, y = 0, width = this.project.width, height = this.project.height, limit = 4096} = {}) {
     if (![x,y,width,height,limit].every(Number.isInteger) || width < 1 || height < 1 || x < 0 || y < 0 || x+width > this.project.width || y+height > this.project.height || width*height > limit)
       throw new WorldApiError(ERROR_CODES.bounds, `Inspection rectangle must be in bounds and contain at most ${limit} cells.`);

@@ -4,6 +4,16 @@ The first vertical slice has one versioned project core and two independent Java
 
 Both use schema version 1, terrain-v1 IDs, map X → world X / map Y → world Z, finite numeric elevations, stable region IDs, optimistic revisions, actor grants, operation IDs, locks and the same transaction/undo log. Commit-time validation enforces locks even for operations constructed without the convenience APIs. Undo accepts the same operation envelope as commit and checks its actor's `commit` grant and expected revision before changing state. An agent plan is reviewable data, not a hidden prompt. No model, upload, Tiled GUI automation, Qt or network call is involved.
 
+## Runtime inspection extension
+
+`AgentWorldApi` and `ProgrammerWorldApi` delegate their new queries to the same read-only inspection core. `inspectCapabilities(actor)` reports only callable v1 operations, terrain-v1, finite-canvas topology, the map-X/map-Y to world-X/world-Z convention, the requesting actor's grants, adapters, budgets and explicit limits. It does not advertise entity or GLB placement. Every new query requires the actor's `inspect` grant:
+
+- `inspectRegions(actor, {offset, limit})` and `inspectRegion(actor, id)` expose stable identity, bounds, provenance, revision, lock state and protected-base-cell count without returning unbounded terrain arrays.
+- `inspectOperations(actor, {offset, limit})` pages the transaction log. Page size is limited to 100.
+- `inspectPlacementSurface(actor, "region:<region-id>:surface")` computes a **diagnostic fixture** over an existing region. It reports bounds, numeric height range/sample, a terrain-derived normal, lock/protection facts and `supportsObject` reasons. It is not persistent entity state, a reservation, collision geometry, a placement mutation or general GLB support.
+
+The response shapes are described by [`schemas/world-api-inspection-v1.schema.json`](../schemas/world-api-inspection-v1.schema.json). Inspection never increments revision or appends to the operation log. Existing mutation validation remains authoritative at commit time.
+
 ### V1 edit policy
 
 The base map and elevation companion are immutable inputs. World API v1 treats only a base cell whose terrain is `ocean` **and** whose numeric elevation is exactly `0` as blank canvas. A new planned region or exact patch may write those blank cells; it may not replace any other base terrain or elevation. An unlocked API-authored region can be revised by using the same stable region ID, while a locked region cannot be revised. Different region IDs cannot write the same cell.
@@ -22,6 +32,11 @@ mkdir -p generated/api-demo
 cp generated/starter-500.json generated/starter-elevation.json generated/api-demo/
 npm run world-api -- init --project generated/api-demo --map starter-500.json --elevation starter-elevation.json --id demo
 npm run world-api -- inspect --project generated/api-demo
+npm run world-api -- capabilities --project generated/api-demo --actor owner
+npm run world-api -- inspect-regions --project generated/api-demo --actor owner --limit 25
+npm run world-api -- inspect-operations --project generated/api-demo --actor owner --limit 25
+# After committing a region, use the placementSurfaceId returned by inspect-regions:
+npm run world-api -- inspect-surface --project generated/api-demo --actor owner --id region:north-garden:surface
 ```
 
 Create `generated/api-demo/plan-request.json`. Every request carries the common envelope; `owner` is the initial local actor:

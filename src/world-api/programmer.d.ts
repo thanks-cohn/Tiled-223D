@@ -7,6 +7,11 @@ export interface RegionPlaceOperation { type: 'region.place'; region: Region; pr
 export interface PatchCell { x: number; y: number; terrainId: 1|2|3|4|5|6; height: number }
 export declare class ProgrammerWorldApi {
   constructor(project: Project);
+  inspectCapabilities(actor:string): object;
+  inspectRegions(actor:string, page?:{offset?:number;limit?:number}): object;
+  inspectRegion(actor:string, id:string): object;
+  inspectOperations(actor:string, page?:{offset?:number;limit?:number}): object;
+  inspectPlacementSurface(actor:string, id:string): object;
   inspectMap(bounds?: Partial<Bounds> & {limit?: number}): {schemaVersion:1; projectId:string; revision:number; bounds:Bounds; cells:Array<PatchCell>};
   placeRegion(region: Region): RegionPlaceOperation;
   patchCells(change: {id:string; cells:PatchCell[]; locked?:boolean; provenance?:Provenance}): RegionPlaceOperation;

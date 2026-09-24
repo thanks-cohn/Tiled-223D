@@ -4,9 +4,13 @@ export interface PlanRequest extends OperationEnvelope { seed?:number; regions:R
 export interface WorldPlan { schemaVersion:1; kind:'world-plan'; projectId:string; baseRevision:number; seed:number; operations:RegionPlaceOperation[]; diagnostics:object[]; explanation?:string; alternatives?:string[] }
 export declare class AgentWorldApi {
   constructor(project: Project);
+  inspectCapabilities(actor:string): object;
+  inspectRegions(actor:string, page?:{offset?:number;limit?:number}): object;
+  inspectRegion(actor:string, id:string): object;
+  inspectOperations(actor:string, page?:{offset?:number;limit?:number}): object;
+  inspectPlacementSurface(actor:string, id:string): object;
   inspect(): object;
   plan(request: PlanRequest): WorldPlan;
   preview(plan: WorldPlan, size?:{width?:number;height?:number}): {mediaType:'image/svg+xml';width:number;height:number;artifact:string;diagnostics:object[]};
   commit(request: OperationEnvelope, plan: WorldPlan): ReturnType<typeof import('./programmer.js').applyTransaction>;
 }
-
