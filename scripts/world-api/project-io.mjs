@@ -1,0 +1,20 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import {fromTiled} from '../../src/world-data.js';
+import {clone, WORLD_API_SCHEMA_VERSION} from '../../src/world-api/core.js';
+import {projectProjection} from '../../src/world-api/programmer.js';
+
+const readJson=file=>JSON.parse(fs.readFileSync(file,'utf8'));
+const safeRelative=(root,file)=>{const relative=path.relative(root,path.resolve(root,file));if(relative.startsWith('..')||path.isAbsolute(relative))throw Error('Paths must stay inside the project directory.');return relative;};
+export function initProject(directory,{map,elevation,id='world-project'}){
+  const root=path.resolve(directory), mapRel=safeRelative(root,map), elevationRel=elevation?safeRelative(root,elevation):null;
+  const tiled=readJson(path.join(root,mapRel)), elev=elevationRel?readJson(path.join(root,elevationRel)):null, world=fromTiled(tiled,elev);
+  const importedRegions=(tiled.substrateRegions||[]).map(region=>{const tiles=[],heights=[];for(let y=0;y<region.bounds.height;y++)for(let x=0;x<region.bounds.width;x++){const i=(region.bounds.y+y)*world.width+region.bounds.x+x;tiles.push(world.ground[i]);heights.push(world.heights[i]);}return {...region,tiles,heights,provenance:{kind:'tiled-reimport',previous:region.provenance||null}};});
+  const metadata={schemaVersion:WORLD_API_SCHEMA_VERSION,projectId:id,revision:0,width:world.width,height:world.height,mapPath:mapRel,elevationPath:elevationRel,regions:importedRegions,permissions:{owner:['inspect','draft','edit','commit','export']},operationLog:[],undoStack:[]};
+  atomicJson(path.join(root,'world.project.json'),metadata);return loadProject(root);
+}
+export function loadProject(directory){const root=path.resolve(directory),file=path.join(root,'world.project.json'),metadata=readJson(file);if(metadata.schemaVersion!==1)throw Error('Unsupported project schema.');const tiled=readJson(path.join(root,metadata.mapPath)),elev=metadata.elevationPath?readJson(path.join(root,metadata.elevationPath)):null,world=fromTiled(tiled,elev);if(world.width!==metadata.width||world.height!==metadata.height)throw Error('Base map dimensions changed outside the project.');return {...metadata,baseMap:tiled,baseGround:Array.from(world.ground),baseHeights:Array.from(world.heights),projectRoot:root};}
+export function saveProject(project){const {baseMap,baseGround,baseHeights,projectRoot,...metadata}=project;atomicJson(path.join(projectRoot,'world.project.json'),metadata);}
+export function exportTiled(project,target){const output=clone(project.baseMap),projection=projectProjection(project),ground=output.layers.find(l=>l.type==='tilelayer'&&l.name==='Ground');ground.data=projection.ground;output.layers=output.layers.filter(l=>l.name!=='Additions'&&l.name!=='Substrate Regions');output.substrateElevation={width:project.width,height:project.height,values:projection.heights};output.properties=[...(output.properties||[]).filter(p=>!['substrateProjectId','substrateRevision'].includes(p.name)),{name:'substrateProjectId',type:'string',value:project.projectId},{name:'substrateRevision',type:'int',value:project.revision}];output.substrateRegions=project.regions.map(({tiles,heights,...region})=>region);output.layers.push({id:Math.max(0,...output.layers.map(l=>l.id||0))+1,name:'Substrate Regions',type:'objectgroup',visible:true,objects:output.substrateRegions.map((r,i)=>({id:i+1,name:r.id,type:'substrate-region',x:r.bounds.x*output.tilewidth,y:r.bounds.y*output.tileheight,width:r.bounds.width*output.tilewidth,height:r.bounds.height*output.tileheight,properties:[{name:'stableId',type:'string',value:r.id},{name:'locked',type:'bool',value:Boolean(r.locked)}]}))});atomicJson(target,output);return {path:path.resolve(target),sha256:crypto.createHash('sha256').update(fs.readFileSync(target)).digest('hex'),format:'tiled-json',revision:project.revision};}
+export function atomicJson(file,value){fs.mkdirSync(path.dirname(file),{recursive:true});const temporary=`${file}.${process.pid}.tmp`;fs.writeFileSync(temporary,JSON.stringify(value));fs.renameSync(temporary,file);}
