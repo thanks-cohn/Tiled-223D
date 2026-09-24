@@ -59,3 +59,26 @@ The export is ordinary Tiled JSON. `Ground`, embedded `substrateElevation`, a vi
 ## Limits before the three-picture / 23-region workflow
 
 This slice supports two or three rectangular, generated terrain-v1 regions. It does **not** yet provide image analysis, reference hashing/cataloguing, arbitrary asset-map ingestion through the CLI, irregular coast outlines, seam/connectivity solving, routes, paginated object inspection, selected-region grants, TMX or `.sworld.json` export, 23-region capacity optimization, or targeted seam regeneration. Anchor words select deterministic canvas areas; unrecognized natural language is not interpreted. Preview is a cheap labeled footprint SVG, not a final 3D preview. Imported Tiled edits inside a known region are recovered from the exported rectangle, but external edits to region metadata still need conflict reconciliation.
+
+## Unified diagnostics and actor-scoped reads
+
+All project reads now require an explicit actor with `inspect`: this includes the legacy `AgentWorldApi.inspect(actor)`, `ProgrammerWorldApi.inspectMap(actor, bounds)`, paged queries, placement fixtures, and `explainCell(actor, {x,y})`. Map inspection has an implementation-owned 4,096-cell cap; callers cannot raise it. Pages contain at most 100 records and are sliced before cloning.
+
+Requests may select `debug: "off" | "regular" | "deep"` (CLI: `--debug`). This changes only the view of the core decision. A diagnostic-v1 record always carries stable code/severity/message, phase, operation/project/revision context, affected IDs or coordinates, and a repair hint. Deep mode adds the ordered trace actually captured by validation, capped at 32 steps; regular does not build that trace. Records are capped at 8 per response and text at 512 characters. Debug selection grants no permissions and never changes mutation results, project files, revision, or operation log.
+
+`explainCell` reports authored base terrain/elevation/protection separately from projected terrain/elevation, current owner/lock/provenance, and coded reasons why the actor could not propose a write. It is a read-only snapshot; commit-time revision and concurrent-state validation remains authoritative. Sparse masks are honored: enclosed masked-out cells are neither diagnosed nor written.
+
+Machine contracts are in `schemas/world-api-diagnostics-v1.schema.json`, `schemas/world-api-inspection-v1.schema.json`, `schemas/world-api-types-v1.schema.json`, and the precise declarations in `src/world-api/*.d.ts`. Capability entries name required grants and input/output schema IDs. The placement surface remains a computed diagnostic fixture, never persistent entity or GLB support.
+
+Run the library example and equivalent CLI reads:
+
+```sh
+node examples/world-api-diagnostics.mjs
+npm run world-api -- capabilities --project generated/api-demo --actor owner
+npm run world-api -- inspect-map --project generated/api-demo --actor owner --x 0 --y 0 --width 32 --height 32
+npm run world-api -- explain-cell --project generated/api-demo --actor owner --x 250 --y 250
+npm run world-api -- commit --project generated/api-demo --plan generated/api-demo/plan.json --request generated/api-demo/commit-request.json --debug regular
+npm run world-api -- commit --project generated/api-demo --plan generated/api-demo/plan.json --request generated/api-demo/commit-request.json --debug deep
+```
+
+CLI/library transport is implemented. ChatGPT-native tools, MCP, desktop IPC, a browser developer panel, and general asset/GLB placement remain future adapters. The Qt debug dock still emits its existing shell JSON-lines format; adapting it to diagnostic-v1 is an explicit future boundary, and Qt is not required by this core.

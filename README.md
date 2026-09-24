@@ -112,3 +112,7 @@ A tile has stable semantic identity `grass` etc., plus a stable `asset3d` path. 
 For large maps do not instantiate a GLB per ground tile; merge/instance repeated terrain meshes and use collision proxies. Default to low poly for 4 GB systems.
 
 Generated starter art and GLB geometry in this repository are dedicated to the public domain under CC0-1.0. No external marketplace assets were copied.
+
+### Agent/programmer diagnostics
+
+The local world API exposes actor-scoped bounded inspection and one diagnostic-v1 envelope with `off`, `regular`, and opt-in bounded `deep` views. See [`docs/WORLD_API_V1.md`](docs/WORLD_API_V1.md) and run `node examples/world-api-diagnostics.mjs`. The CLI supports `inspect-map`, `explain-cell`, and `--debug regular|deep`; these flags never add grants.

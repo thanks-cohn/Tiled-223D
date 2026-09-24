@@ -1,0 +1,14 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://thanks-cohn.github.io/Tiled-223D/schemas/world-api-diagnostics-v1.schema.json",
+  "title":"World API diagnostic record v1",
+  "type":"object",
+  "required":["schemaVersion","code","severity","message","phase","operationId","context","affected","suggestedRepair","repairs"],
+  "properties":{
+    "schemaVersion":{"const":1},"code":{"type":"string","minLength":1},"severity":{"enum":["info","warning","error"]},"level":{"enum":["info","warning","error"]},
+    "message":{"type":"string","maxLength":512},"phase":{"type":"string"},"operationId":{"type":["string","null"]},
+    "context":{"type":"object","required":["projectId","revision"],"properties":{"projectId":{"type":["string","null"]},"revision":{"type":["integer","null"],"minimum":0}},"additionalProperties":false},
+    "affected":{"type":"object"},"suggestedRepair":{"type":["string","null"],"maxLength":512},"repairs":{"type":"array","maxItems":4,"items":{"type":"string","maxLength":512}},
+    "trace":{"type":"object","required":["steps","truncated","limit"],"properties":{"steps":{"type":"array","maxItems":32,"items":{"type":"object","required":["sequence","code","outcome","facts"],"properties":{"sequence":{"type":"integer","minimum":1},"code":{"type":"string"},"outcome":{"enum":["allow","deny","rollback"]},"facts":{"type":"object"}},"additionalProperties":false}},"truncated":{"type":"boolean"},"limit":{"const":32}},"additionalProperties":false}
+  },"additionalProperties":false
+}
