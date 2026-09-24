@@ -1,5 +1,7 @@
 # Tiled-223D — Fly the Two-Island World
 
+**Experimental desktop workspace:** [Desktop/App](Desktop/App/README.md) contains a Qt shell with an on-demand browser world tab, a selected-map watcher and opt-in diagnostics. The actual Tiled native tab and `.sworld.json` round trip are still proposed work; the standalone browser path below remains the working entry point.
+
 **Seven-stage world creation roadmap:** [ÆXIS → AERIS → TOPOS → SEKAI → ASTRA → ARCADIA → ANIMA](Stages/README.md).
 
 ## NEW: Insert a 50 × 50 low island into your 500 × 500 Tiled world

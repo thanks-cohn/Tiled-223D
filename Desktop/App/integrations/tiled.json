@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "id": "org.aexis.tiled-bridge",
+  "displayName": "Tiled map editor bridge",
+  "status": "experimental",
+  "view": {
+    "requested": "native-tab",
+    "current": "project-file-handoff",
+    "nativeTabImplemented": false
+  },
+  "input": {
+    "type": "ordinary-tiled-json",
+    "maxBytes": 8000000
+  },
+  "semanticExport": {
+    "type": "sworld-json",
+    "viewerAdapterImplemented": false
+  },
+  "capabilities": ["selected-project-map:read", "selected-project-map:watch"],
+  "credits": "https://www.mapeditor.org/",
+  "support": "https://www.mapeditor.org/donate.html"
+}

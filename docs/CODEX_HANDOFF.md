@@ -1,5 +1,9 @@
 # Codex handoff: standalone Toon World / Tiled-223D
 
+## Experimental desktop shell (2026-09-24)
+
+`Desktop/App` now contains an isolated Qt 6/C++ shell skeleton for the proposed single-workspace workflow. It does not change the browser-first project contract: the existing viewer is loaded lazily through Qt WebEngine, and a selected ordinary Tiled JSON file is read by the native shell, watched with a debounce and passed to `fromTiled()` through an opt-in Qt WebChannel bridge. A debug-only dock records expected versus actual capabilities and import events. The Map tab is a clearly labeled placeholder; the native Tiled editor, `.sworld.json` adapter, packaged installer and 4 GB Windows validation do not exist yet. See `Desktop/App/README.md` for the run/debug sequence. This shell must remain optional; `npm test` and `npm run build` must work without Qt.
+
 ## Goal
 
 Build a **working lightweight browser world** from a top-down Tiled map and an independent numeric elevation grid. Fly a low-poly ship over two small islands in a mostly-ocean 500 × 500 repeating world, see a clear blue sky/darker ocean and persistent horizon, navigate over actual elevated ridges, ascend past an atmosphere threshold, fade to a quiet “You're awake” canvas placeholder, and return. It must later embed in FrameChute with a small enter/exit API, but do not integrate it there yet.
