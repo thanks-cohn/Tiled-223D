@@ -2,7 +2,7 @@
 
 ## Next Codex task: agent-native diagnostics
 
-The current implementation request is [the unified agent-native world API diagnostics task](CODEX_AGENT_NATIVE_DEBUG_CONTRACT_V1.md). It calls for one versioned diagnostic event/API contract with bounded regular and deep debug views for programmers and agents, plus actor-scoped inspection, precise machine-readable types, and semantic cell explanations. Work on the linked task from branch `codex/agent-native-debug-contract-v1`; its document is a specification, not a claim that the features already exist.
+The unified agent-native diagnostics slice is implemented on `codex/agent-native-debug-contract-v1`: programmer, agent and CLI surfaces share diagnostic-v1; regular and bounded deep trace views report the same core decisions; all reads are actor-scoped; cell explanations separate base/projected facts; and schemas/types/capability budgets are published. See [WORLD_API_V1.md](WORLD_API_V1.md). Qt/MCP/browser-panel adapters remain future work.
 
 ## Agent-created worlds: next implementation track
 

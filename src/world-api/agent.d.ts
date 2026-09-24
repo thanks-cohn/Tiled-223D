@@ -9,8 +9,9 @@ export declare class AgentWorldApi {
   inspectRegion(actor:string, id:string): object;
   inspectOperations(actor:string, page?:{offset?:number;limit?:number}): object;
   inspectPlacementSurface(actor:string, id:string): object;
-  inspect(): object;
+  explainCell(actor:string, cell:{x:number;y:number}): import('./programmer.js').CellExplanation;
+  inspect(actor:string): object;
   plan(request: PlanRequest): WorldPlan;
-  preview(plan: WorldPlan, size?:{width?:number;height?:number}): {mediaType:'image/svg+xml';width:number;height:number;artifact:string;diagnostics:object[]};
+  preview(plan: WorldPlan, options:{actor:string;width?:number;height?:number}): {mediaType:'image/svg+xml';width:number;height:number;artifact:string;diagnostics:object[]};
   commit(request: OperationEnvelope, plan: WorldPlan): ReturnType<typeof import('./programmer.js').applyTransaction>;
 }

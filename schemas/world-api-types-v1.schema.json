@@ -1,0 +1,14 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://thanks-cohn.github.io/Tiled-223D/schemas/world-api-types-v1.schema.json",
+  "title":"World API v1 requests and operation envelopes",
+  "$defs":{
+    "debugLevel":{"enum":["off","regular","deep"]},
+    "envelope":{"type":"object","required":["schemaVersion","operationId","projectId","expectedRevision","actor"],"properties":{"schemaVersion":{"const":1},"operationId":{"type":"string","minLength":1},"projectId":{"type":"string","minLength":1},"expectedRevision":{"type":"integer","minimum":0},"actor":{"type":"string","minLength":1},"debug":{"$ref":"#/$defs/debugLevel"}}},
+    "bounds":{"type":"object","required":["x","y","width","height"],"properties":{"x":{"type":"integer","minimum":0},"y":{"type":"integer","minimum":0},"width":{"type":"integer","minimum":1},"height":{"type":"integer","minimum":1}},"additionalProperties":false},
+    "mapInspectRequest":{"type":"object","required":["actor","bounds"],"properties":{"actor":{"type":"string","minLength":1},"bounds":{"$ref":"#/$defs/bounds"}},"additionalProperties":false},
+    "cellExplainRequest":{"type":"object","required":["actor","x","y"],"properties":{"actor":{"type":"string","minLength":1},"x":{"type":"integer","minimum":0},"y":{"type":"integer","minimum":0}},"additionalProperties":false},
+    "pageRequest":{"type":"object","required":["actor"],"properties":{"actor":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":100}},"additionalProperties":false}
+  },
+  "oneOf":[{"$ref":"#/$defs/envelope"},{"$ref":"#/$defs/mapInspectRequest"},{"$ref":"#/$defs/cellExplainRequest"},{"$ref":"#/$defs/pageRequest"}]
+}
