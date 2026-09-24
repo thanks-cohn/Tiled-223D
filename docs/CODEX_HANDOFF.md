@@ -1,5 +1,9 @@
 # Codex handoff: standalone Toon World / Tiled-223D
 
+## Agent-created worlds: next implementation track
+
+Read [the ÆXIS agent world API handoff](AGENT_WORLD_API_HANDOFF.md) when implementing project-scoped tools that let Codex, other agents or hobbyists plan, inspect, place and revise multiple Tiled-editable regions in a 500 × 500 world. It defines the proposed structured operations, a three-reference/23-region example, revision and permission rules, and a staged first vertical slice. These APIs and multi-region composition are **not implemented yet**; preserve the browser-first baseline below.
+
 ## Experimental desktop shell (2026-09-24)
 
 `Desktop/App` now contains an isolated Qt 6/C++ shell skeleton for the proposed single-workspace workflow. It does not change the browser-first project contract: the existing viewer is loaded lazily through Qt WebEngine, and a selected ordinary Tiled JSON file is read by the native shell, watched with a debounce and passed to `fromTiled()` through an opt-in Qt WebChannel bridge. A debug-only dock records expected versus actual capabilities and import events. The Map tab is a clearly labeled placeholder; the native Tiled editor, `.sworld.json` adapter, packaged installer and 4 GB Windows validation do not exist yet. See `Desktop/App/README.md` for the run/debug sequence. This shell must remain optional; `npm test` and `npm run build` must work without Qt.

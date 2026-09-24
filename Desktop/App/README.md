@@ -28,3 +28,5 @@ The debug sequence to inspect is `shell ready` → `viewer-start` → `viewer-lo
 3. Measure installed size, startup, idle/peak RAM, tab switching and save-to-preview latency on the 4 GB Windows target with about 5 GB free. Qt WebEngine and the native editor may exceed the budget; no performance claim has been validated yet.
 
 See [the workspace app proposal](../../Proposals/substrate-workspace-app-format-native-tabs.md) and [the browser handoff](../../docs/CODEX_HANDOFF.md).
+
+For agent-facing project, map and region operations that may later connect to this shell, see [the ÆXIS agent world API handoff](../../docs/AGENT_WORLD_API_HANDOFF.md). Its methods are proposed; the current desktop bridge only watches one selected ordinary Tiled JSON map.
