@@ -6,7 +6,7 @@ export const ERROR_CODES = Object.freeze({
   protected: 'PROTECTED_CELL', empty: 'NO_VALID_OPERATIONS', plan: 'PLAN_HAS_DIAGNOSTICS'
 });
 export const DEBUG_LEVELS = Object.freeze(['off', 'regular', 'deep']);
-export const DIAGNOSTIC_BUDGETS = Object.freeze({records: 8, traceSteps: 32, textLength: 512});
+export const DIAGNOSTIC_BUDGETS = Object.freeze({records:8,traceSteps:32,textLength:512,repairs:4,factKeys:16,arrayItems:32,nesting:4});
 
 export class WorldApiError extends Error {
   constructor(code, message, repairs = []) { super(message); this.name = 'WorldApiError'; this.code = code; this.repairs = repairs; }
@@ -14,8 +14,9 @@ export class WorldApiError extends Error {
 export const clone = value => structuredClone(value);
 export const indexAt = (x, y, width) => y * width + x;
 export function assertEnvelope(request, project, capability) {
+  if (request?.debug !== undefined && !DEBUG_LEVELS.includes(request.debug)) throw new WorldApiError(ERROR_CODES.invalid, 'debug must be off, regular, or deep.');
   if (request?.schemaVersion !== WORLD_API_SCHEMA_VERSION) throw new WorldApiError(ERROR_CODES.invalid, 'schemaVersion must be 1.');
-  if (!request.operationId || !request.actor || request.projectId !== project.projectId)
+  if (typeof request.operationId !== 'string' || !request.operationId || request.operationId.length > 128 || typeof request.actor !== 'string' || !request.actor || request.actor.length > 128 || request.projectId !== project.projectId)
     throw new WorldApiError(ERROR_CODES.invalid, 'operationId, actor and matching projectId are required.');
   if (request.expectedRevision !== project.revision)
     throw new WorldApiError(ERROR_CODES.revision, `Expected revision ${request.expectedRevision}; current revision is ${project.revision}.`, ['Inspect the project and retry against the current revision.']);
@@ -39,21 +40,33 @@ export function validateBounds(bounds, project) {
     throw new WorldApiError(ERROR_CODES.bounds, 'Region footprint is outside the project canvas.', ['Move or resize the region inside the canvas.']);
 }
 export function createDiagnosticContext(project, request = {}, phase = 'validation') {
-  const debug = DEBUG_LEVELS.includes(request.debug) ? request.debug : 'off';
+  if (request.debug !== undefined && !DEBUG_LEVELS.includes(request.debug)) throw new WorldApiError(ERROR_CODES.invalid, 'debug must be off, regular, or deep.');
+  const debug = request.debug || 'off';
   const trace = [];
+  let omitted=0;
   return {
     debug, phase, operationId: request.operationId || null,
     projectId: project.projectId, revision: project.revision,
     step(code, outcome, facts = {}) {
       if (debug !== 'deep') return;
-      if (trace.length < DIAGNOSTIC_BUDGETS.traceSteps) trace.push({sequence:trace.length + 1, code, outcome, facts:clone(facts)});
+      if (trace.length < DIAGNOSTIC_BUDGETS.traceSteps) trace.push({sequence:trace.length + 1, code:boundedText(code), outcome, facts:boundedValue(facts)});
+      else omitted++;
     },
     trace,
-    get truncated(){ return debug === 'deep' && trace.length >= DIAGNOSTIC_BUDGETS.traceSteps; }
+    get truncated(){ return omitted > 0; }
   };
 }
+function boundedText(value){return String(value??'').slice(0,DIAGNOSTIC_BUDGETS.textLength);}
+function boundedValue(value,depth=0){
+  if(depth>=DIAGNOSTIC_BUDGETS.nesting)return '[truncated]';
+  if(typeof value==='string')return boundedText(value);
+  if(value===null||typeof value==='number'||typeof value==='boolean')return value;
+  if(Array.isArray(value))return value.slice(0,DIAGNOSTIC_BUDGETS.arrayItems).map(v=>boundedValue(v,depth+1));
+  if(typeof value==='object')return Object.fromEntries(Object.entries(value).slice(0,DIAGNOSTIC_BUDGETS.factKeys).map(([k,v])=>[boundedText(k),boundedValue(v,depth+1)]));
+  return boundedText(value);
+}
 export function validateRegion(region, project, ignoringId = null, context = null) {
-  if (!region?.id || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(region.id)) throw new WorldApiError(ERROR_CODES.invalid, 'Region needs a stable filesystem-safe ID.');
+  if (!region?.id || region.id.length > 128 || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(region.id)) throw new WorldApiError(ERROR_CODES.invalid, 'Region needs a stable filesystem-safe ID of at most 128 characters.');
   validateBounds(region.bounds, project);
   context?.step('BOUNDS_CHECK','allow',{regionId:region.id,bounds:region.bounds});
   const size = region.bounds.width * region.bounds.height;
@@ -90,7 +103,7 @@ export function diagnostic(error, context = null) {
   const record={schemaVersion:1,code:error.code||ERROR_CODES.invalid,severity:'error',level:'error',message,
     phase:context?.phase||'request',operationId:context?.operationId||null,
     context:{projectId:context?.projectId||null,revision:context?.revision??null},
-    affected:clone(error.affected||{}),suggestedRepair:(error.repairs||[])[0]||null,repairs:(error.repairs||[]).slice(0,4)};
+    affected:boundedValue(error.affected||{}),suggestedRepair:error.repairs?.[0]?boundedText(error.repairs[0]):null,repairs:(error.repairs||[]).slice(0,DIAGNOSTIC_BUDGETS.repairs).map(boundedText)};
   if(context?.debug==='deep') record.trace={steps:clone(context.trace),truncated:context.truncated,limit:DIAGNOSTIC_BUDGETS.traceSteps};
   return record;
 }

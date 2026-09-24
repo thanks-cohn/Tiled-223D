@@ -8,16 +8,21 @@ export interface OperationLogEntry { operationId:string; actor:string; revision:
 export interface UndoRecord { token:string; revision:number; regions:Region[] }
 export interface Project { schemaVersion: 1; projectId: string; revision: number; width: number; height: number; baseGround: number[]; baseHeights: number[]; regions: Region[]; permissions: Record<string,string[]>; operationLog: OperationLogEntry[]; undoStack: UndoRecord[] }
 export interface OperationEnvelope { schemaVersion: 1; operationId: string; projectId: string; expectedRevision: number; actor: string; debug?:DebugLevel }
+export interface Page<T> { schemaVersion:1;projectId:string;revision:number;offset:number;limit:number;total:number;items:T[];nextOffset:number|null }
+export interface RegionSummary { id:string;kind:string;bounds:Bounds;cellCount:number;hasNumericHeights:boolean;locked:boolean;protectedBaseCells:number;provenance:Provenance;revision:number;placementSurfaceId:string }
+export interface MapCell { x:number;y:number;terrainId:number;height:number }
+export interface CapabilityOperation { type:string;requiredGrant:string;fixture?:true;inputSchemaId:string;outputSchemaId:string }
+export interface CapabilityManifest { schemaVersion:1;projectId:string;revision:number;coordinates:object;topology:object;terrain:object;operations:CapabilityOperation[];actor:{id:string;grants:string[]};budgets:Record<string,number>;adapters:object[];limitations:string[] }
 export interface RegionPlaceOperation { type: 'region.place'; region: Region; previous: Region | null }
 export interface PatchCell { x: number; y: number; terrainId: 1|2|3|4|5|6; height: number }
 export declare class ProgrammerWorldApi {
   constructor(project: Project);
-  inspectCapabilities(actor:string): object;
-  inspectRegions(actor:string, page?:{offset?:number;limit?:number}): object;
-  inspectRegion(actor:string, id:string): object;
-  inspectOperations(actor:string, page?:{offset?:number;limit?:number}): object;
+  inspectCapabilities(actor:string): CapabilityManifest;
+  inspectRegions(actor:string, page?:{offset?:number;limit?:number}): Page<RegionSummary>;
+  inspectRegion(actor:string, id:string): RegionSummary & {schemaVersion:1;projectId:string};
+  inspectOperations(actor:string, page?:{offset?:number;limit?:number}): Page<OperationLogEntry>;
   inspectPlacementSurface(actor:string, id:string): object;
-  inspectMap(actor:string, bounds?: Partial<Bounds>): {schemaVersion:1; projectId:string; revision:number; bounds:Bounds; cells:Array<PatchCell>};
+  inspectMap(actor:string, bounds?: Partial<Bounds>): {schemaVersion:1; projectId:string; revision:number; bounds:Bounds; cells:MapCell[]};
   explainCell(actor:string, cell:{x:number;y:number}): CellExplanation;
   placeRegion(region: Region): RegionPlaceOperation;
   patchCells(change: {id:string; cells:PatchCell[]; locked?:boolean; provenance?:Provenance}): RegionPlaceOperation;

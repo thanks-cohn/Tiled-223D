@@ -2,7 +2,7 @@
 
 ## Next Codex task: agent-native diagnostics
 
-The unified agent-native diagnostics slice is implemented on `codex/agent-native-debug-contract-v1`: programmer, agent and CLI surfaces share diagnostic-v1; regular and bounded deep trace views report the same core decisions; all reads are actor-scoped; cell explanations separate base/projected facts; and schemas/types/capability budgets are published. See [WORLD_API_V1.md](WORLD_API_V1.md). Qt/MCP/browser-panel adapters remain future work.
+The unified agent-native diagnostics slice is implemented and hardened: programmer, agent and CLI surfaces share diagnostic-v1; malformed debug levels are rejected; successful and failed deep traces capture actual decision-site steps with truthful truncation; all reads are actor-scoped and bounded (including legacy inspect); cell and bounded-map reads avoid whole-world projections; and advertised schemas are resolution-tested against concrete outputs. See [WORLD_API_V1.md](WORLD_API_V1.md). Qt/MCP/browser-panel adapters and Windows/4 GB validation remain future work.
 
 ## Agent-created worlds: next implementation track
 

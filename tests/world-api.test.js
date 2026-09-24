@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {sampleWorld, fromTiled, ID} from '../src/world-data.js';
 import {AgentWorldApi} from '../src/world-api/agent.js';
-import {ERROR_CODES, WorldApiError} from '../src/world-api/core.js';
+import {createDiagnosticContext, ERROR_CODES, WorldApiError} from '../src/world-api/core.js';
 import {applyTransaction, ProgrammerWorldApi, undoTransaction} from '../src/world-api/programmer.js';
 import {exportTiled, initProject, saveProject} from '../scripts/world-api/project-io.mjs';
 
@@ -14,7 +14,7 @@ const envelope=(operationId='op',actor='agent',revision=0)=>({schemaVersion:1,op
 
 test('agent surface plans deterministic explicit regions without mutating the project',()=>{const p=project(),api=new AgentWorldApi(p),request={...envelope('plan'),seed:27183,regions:[{id:'north',width:30,height:24,anchor:{area:'north'},lockedAfterAccept:true},{id:'west',width:24,height:24,anchor:{area:'west'}}]};const a=api.plan(request),b=api.plan(request);assert.deepEqual(a,b);assert.equal(a.operations.length,2);assert.equal(p.regions.length,0);assert.match(api.preview(a,{actor:'agent'}).artifact,/north/);});
 
-test('programmer edit is visible to agent inspection and agent commit is visible to programmer geometry inspection',()=>{let p=project();const programmer=new ProgrammerWorldApi(p),op=programmer.patchCells({id:'exact',cells:[{x:10,y:11,terrainId:ID.dirt,height:123}]});let result=applyTransaction(p,envelope('program','programmer'),[op]);assert.ok(result.committed);p=result.project;assert.equal(new AgentWorldApi(p).inspect('agent').regions[0].id,'exact');const plan=new AgentWorldApi(p).plan({...envelope('agent-plan','agent',1),seed:9,regions:[{id:'east',width:8,height:8,at:[400,400]}]});result=new AgentWorldApi(p).commit(envelope('agent-commit','agent',1),plan);p=result.project;const cells=new ProgrammerWorldApi(p).inspectMap('programmer',{x:400,y:400,width:1,height:1});assert.equal(cells.cells[0].terrainId,ID.sand);assert.ok(cells.cells[0].height>0);});
+test('programmer edit is visible to agent inspection and agent commit is visible to programmer geometry inspection',()=>{let p=project();const programmer=new ProgrammerWorldApi(p),op=programmer.patchCells({id:'exact',cells:[{x:10,y:11,terrainId:ID.dirt,height:123}]});let result=applyTransaction(p,envelope('program','programmer'),[op]);assert.ok(result.committed);p=result.project;assert.equal(new AgentWorldApi(p).inspect('agent').regions.items[0].id,'exact');const plan=new AgentWorldApi(p).plan({...envelope('agent-plan','agent',1),seed:9,regions:[{id:'east',width:8,height:8,at:[400,400]}]});result=new AgentWorldApi(p).commit(envelope('agent-commit','agent',1),plan);p=result.project;const cells=new ProgrammerWorldApi(p).inspectMap('programmer',{x:400,y:400,width:1,height:1});assert.equal(cells.cells[0].terrainId,ID.sand);assert.ok(cells.cells[0].height>0);});
 
 test('collisions, locks and revision conflicts are machine-readable and atomic',()=>{let p=project(),api=new AgentWorldApi(p);const first=api.plan({...envelope('p1'),seed:1,regions:[{id:'locked',width:20,height:20,at:[50,50],lockedAfterAccept:true}]});p=api.commit(envelope('c1'),first).project;api=new AgentWorldApi(p);const collision=api.plan({...envelope('p2','agent',1),seed:2,regions:[{id:'overlap',width:10,height:10,at:[55,55]}]});assert.equal(collision.diagnostics[0].code,ERROR_CODES.locked);assert.equal(collision.operations.length,0);assert.throws(()=>api.commit(envelope('stale','agent',0),first),e=>e instanceof WorldApiError&&e.code===ERROR_CODES.revision);assert.equal(p.regions.length,1);});
 
@@ -64,4 +64,19 @@ test('regular and deep diagnostics share decision while deep trace is bounded an
   const deep=applyTransaction(p,{...envelope('deep','programmer'),debug:'deep'},[bad]);
   assert.equal(regular.diagnostics[0].code,deep.diagnostics[0].code);assert.equal(regular.diagnostics[0].trace,undefined);assert.ok(deep.diagnostics[0].trace.steps.length<=32);
   assert.ok(!deep.diagnostics[0].trace.steps.some(step=>step.facts.x===100&&step.facts.y===100));assert.deepEqual(p.regions,[]);assert.equal(p.revision,0);assert.equal(p.operationLog.length,0);
+});
+
+test('debug values are strict, successful deep trace is captured, and truncation means omission',()=>{
+  const p=project(),api=new ProgrammerWorldApi(p),op=api.patchCells({id:'trace',cells:[{x:2,y:2,terrainId:ID.grass,height:1}]});
+  assert.throws(()=>applyTransaction(p,{...envelope('bad-debug','programmer'),debug:'verbose'},[op]),e=>e.code===ERROR_CODES.invalid);
+  const regular=applyTransaction(p,{...envelope('regular-ok','programmer'),debug:'regular'},[op]);
+  const deep=applyTransaction(p,{...envelope('deep-ok','programmer'),debug:'deep'},[op]);
+  assert.equal(regular.committed,deep.committed);assert.equal(regular.revision,deep.revision);assert.equal(regular.diagnostics[0].code,deep.diagnostics[0].code);
+  assert.equal(regular.diagnostics[0].trace,undefined);assert.ok(deep.diagnostics[0].trace.steps.some(s=>s.code==='TRANSACTION'&&s.outcome==='allow'));
+  const exactly=createDiagnosticContext(p,{debug:'deep'},'test');for(let i=0;i<32;i++)exactly.step('STEP','allow',{i});assert.equal(exactly.trace.length,32);assert.equal(exactly.truncated,false);exactly.step('OMITTED','allow');assert.equal(exactly.truncated,true);
+});
+
+test('legacy inspect is a bounded actor-scoped compatibility page',()=>{
+  const p=project();p.regions=Array.from({length:30},(_,i)=>({id:`r${i}`,bounds:{x:i,y:0,width:1,height:1},tiles:[ID.grass],heights:[i],writeMask:[true]}));
+  const value=new AgentWorldApi(p).inspect('agent');assert.equal(value.regions.items.length,25);assert.equal(value.regions.total,30);assert.equal(value.regionsTruncated,true);assert.equal(value.regions.nextOffset,25);
 });

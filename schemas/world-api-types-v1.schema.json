@@ -1,14 +1,584 @@
 {
-  "$schema":"https://json-schema.org/draft/2020-12/schema",
-  "$id":"https://thanks-cohn.github.io/Tiled-223D/schemas/world-api-types-v1.schema.json",
-  "title":"World API v1 requests and operation envelopes",
-  "$defs":{
-    "debugLevel":{"enum":["off","regular","deep"]},
-    "envelope":{"type":"object","required":["schemaVersion","operationId","projectId","expectedRevision","actor"],"properties":{"schemaVersion":{"const":1},"operationId":{"type":"string","minLength":1},"projectId":{"type":"string","minLength":1},"expectedRevision":{"type":"integer","minimum":0},"actor":{"type":"string","minLength":1},"debug":{"$ref":"#/$defs/debugLevel"}}},
-    "bounds":{"type":"object","required":["x","y","width","height"],"properties":{"x":{"type":"integer","minimum":0},"y":{"type":"integer","minimum":0},"width":{"type":"integer","minimum":1},"height":{"type":"integer","minimum":1}},"additionalProperties":false},
-    "mapInspectRequest":{"type":"object","required":["actor","bounds"],"properties":{"actor":{"type":"string","minLength":1},"bounds":{"$ref":"#/$defs/bounds"}},"additionalProperties":false},
-    "cellExplainRequest":{"type":"object","required":["actor","x","y"],"properties":{"actor":{"type":"string","minLength":1},"x":{"type":"integer","minimum":0},"y":{"type":"integer","minimum":0}},"additionalProperties":false},
-    "pageRequest":{"type":"object","required":["actor"],"properties":{"actor":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":100}},"additionalProperties":false}
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thanks-cohn.github.io/Tiled-223D/schemas/world-api-types-v1.schema.json",
+  "title": "World API v1 requests and operation envelopes",
+  "$defs": {
+    "debugLevel": {
+      "enum": [
+        "off",
+        "regular",
+        "deep"
+      ]
+    },
+    "envelope": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "operationId",
+        "projectId",
+        "expectedRevision",
+        "actor"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "operationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "projectId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "debug": {
+          "$ref": "#/$defs/debugLevel"
+        }
+      }
+    },
+    "bounds": {
+      "type": "object",
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "x": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "y": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "mapInspectRequest": {
+      "type": "object",
+      "required": [
+        "actor",
+        "bounds"
+      ],
+      "properties": {
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bounds": {
+          "$ref": "#/$defs/bounds"
+        }
+      },
+      "additionalProperties": false
+    },
+    "cellExplainRequest": {
+      "type": "object",
+      "required": [
+        "actor",
+        "x",
+        "y"
+      ],
+      "properties": {
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "x": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "y": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "pageRequest": {
+      "type": "object",
+      "required": [
+        "actor"
+      ],
+      "properties": {
+        "actor": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "additionalProperties": false
+    },
+    "capabilityRequest": {
+      "type": "object",
+      "required": [
+        "actor"
+      ],
+      "properties": {
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "surfaceRequest": {
+      "type": "object",
+      "required": [
+        "actor",
+        "surfaceId"
+      ],
+      "properties": {
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "surfaceId": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "regionRequest": {
+      "type": "object",
+      "required": [
+        "actor",
+        "regionId"
+      ],
+      "properties": {
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "regionId": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "terrainId": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 6
+    },
+    "region": {
+      "type": "object",
+      "required": [
+        "id",
+        "bounds",
+        "tiles"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*$"
+        },
+        "bounds": {
+          "$ref": "#/$defs/bounds"
+        },
+        "tiles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/terrainId"
+          }
+        },
+        "heights": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "writeMask": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          }
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "provenance": {
+          "type": "object"
+        }
+      }
+    },
+    "patchRequest": {
+      "type": "object",
+      "required": [
+        "id",
+        "cells"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "x",
+              "y",
+              "terrainId",
+              "height"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              },
+              "terrainId": {
+                "$ref": "#/$defs/terrainId"
+              },
+              "height": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    "planRequest": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/envelope"
+        },
+        {
+          "type": "object",
+          "required": [
+            "regions"
+          ],
+          "properties": {
+            "seed": {
+              "type": "integer"
+            },
+            "regions": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 3,
+              "items": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "width": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "at": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2
+                  },
+                  "anchor": {
+                    "type": "object",
+                    "required": [
+                      "area"
+                    ],
+                    "properties": {
+                      "area": {
+                        "enum": [
+                          "north",
+                          "south",
+                          "east",
+                          "west",
+                          "center"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "lockedAfterAccept": {
+                    "type": "boolean"
+                  },
+                  "referenceId": {
+                    "type": "string"
+                  },
+                  "referenceUse": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "commitRequest": {
+      "$ref": "#/$defs/envelope"
+    },
+    "undoRequest": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/envelope"
+        },
+        {
+          "type": "object",
+          "required": [
+            "undoToken"
+          ],
+          "properties": {
+            "undoToken": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "exportRequest": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/envelope"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "format": {
+              "const": "tiled-json"
+            }
+          }
+        }
+      ]
+    },
+    "operation": {
+      "type": "object",
+      "required": [
+        "type",
+        "region",
+        "previous"
+      ],
+      "properties": {
+        "type": {
+          "const": "region.place"
+        },
+        "region": {
+          "$ref": "#/$defs/region"
+        },
+        "previous": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/region"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "plan": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "kind",
+        "projectId",
+        "baseRevision",
+        "seed",
+        "operations",
+        "diagnostics"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "kind": {
+          "const": "world-plan"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "baseRevision": {
+          "type": "integer"
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "operations": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/operation"
+          }
+        },
+        "diagnostics": {
+          "type": "array",
+          "maxItems": 8
+        },
+        "explanation": {
+          "type": "string"
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "preview": {
+      "type": "object",
+      "required": [
+        "mediaType",
+        "width",
+        "height",
+        "artifact",
+        "diagnostics"
+      ],
+      "properties": {
+        "mediaType": {
+          "const": "image/svg+xml"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        },
+        "artifact": {
+          "type": "string"
+        },
+        "diagnostics": {
+          "type": "array",
+          "maxItems": 8
+        }
+      }
+    },
+    "transactionResult": {
+      "type": "object",
+      "required": [
+        "revision"
+      ],
+      "properties": {
+        "revision": {
+          "type": "integer"
+        },
+        "committed": {
+          "type": "boolean"
+        },
+        "idempotent": {
+          "type": "boolean"
+        },
+        "undoToken": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "diagnostics": {
+          "type": "array",
+          "maxItems": 8
+        }
+      }
+    },
+    "exportResult": {
+      "type": "object",
+      "required": [
+        "path",
+        "revision"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer"
+        },
+        "format": {
+          "type": "string"
+        }
+      }
+    },
+    "previewRequest": {
+      "type": "object",
+      "required": [
+        "actor"
+      ],
+      "properties": {
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    }
   },
-  "oneOf":[{"$ref":"#/$defs/envelope"},{"$ref":"#/$defs/mapInspectRequest"},{"$ref":"#/$defs/cellExplainRequest"},{"$ref":"#/$defs/pageRequest"}]
+  "oneOf": [
+    {
+      "$ref": "#/$defs/envelope"
+    },
+    {
+      "$ref": "#/$defs/mapInspectRequest"
+    },
+    {
+      "$ref": "#/$defs/cellExplainRequest"
+    },
+    {
+      "$ref": "#/$defs/pageRequest"
+    }
+  ]
 }
