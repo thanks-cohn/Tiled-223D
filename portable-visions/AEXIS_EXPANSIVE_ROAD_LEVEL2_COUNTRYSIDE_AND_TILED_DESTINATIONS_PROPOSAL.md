@@ -237,3 +237,44 @@ The expansive-road/forest promo can use the rainbow bubble **only for its gorgeo
 Validate: cosmetic-only retains identical collision/contact behavior to a ship with the effect off; obstacle phasing passes only declared classes and preserves the road support; high-altitude and ground cameras (including separate main and preview) draw the bubble consistently and without ship cutoff or a falsely shared postprocess; correct rendering on arbitrary compatible GLBs and bounded low-end GPU cost; re-enabling and disabling near objects is safe. Road-related phasing remains documented as an open future decision. Keep this addendum separate from the current urgent cinematic-camera/curved-island bugfix work.
 
 **Creative principle:** The Phaser is allowed to exist simply because a beautiful rainbow bubble around a speeding spaceship is worth experiencing. The collision ability is optional; the aesthetic joy is a first-class feature.
+
+## Addendum — Forest-only authored destinations by default; optional cross-world access
+
+**Creator's explicit default:** The Expansive Forest is an **experience-space and a world-building canvas**, not merely a stretched road within the exterior flight world's continuously reachable geometry. A creator can drive to a chosen point in this experience (for example, halfway through the journey), right-click the terrain and import a Tiled-derived 3D place. That place belongs to the forest experience **by default**. The player reaches it by entering and progressing through the forest drive; they **cannot simply fly directly to it from the exterior ship world**. This is an intentional part of the default design: the journey is worth taking and its discoveries cannot all be skipped by flying straight to an apparent exterior coordinate.
+
+**Do not confuse two destination types:** A city or landmark exposed in the ordinary exterior world can still be reached by direct flight when its own rules allow. By contrast, a village, clearing, shop, event or other Tiled place created *within* the forest's experience-space is **forest-only by default**, including when it appears beside a road at 50% or 75% of a speed-expanded trip. Its being known to the overall world index/rendering system does *not* automatically make it physically instantiated, visible or accessible from the exterior flight map. This refines earlier statements in this proposal that all authored places must have a single immediately reachable exterior world coordinate: **forest-bound authored places instead have stable experience-local locations with explicitly controlled cross-world connections**.
+
+### Persistent progress and simple right-click creation
+
+The forest has a stable journey ID, selected entry, route/progression space and ordered stages. It remembers progress—halfway, three-quarters, or a specific stage and road location—even if the system adjusts the experience's effective length, repeat count, artificial scenery speed or 3↔4 layered presentation. A creator can stop at a position, open the right-click context menu, choose **Import Tiled World**, select an appropriate source map and 2D-to-3D conversion filter, rotate/place it using the proposed bottom-plane direction control, and save the result as a first-class forest location. The region retains source provenance, identity, authored geometry, environment/collision and subsequent native edits. It is not duplicated for every repeated road module.
+
+The simplest default placement anchors to **journey-relative progress** and its selected road/stage reference (e.g. halfway through the forest), plus road-relative side/height and local placement transform. Store the exact anchor and a stable ID, and define how a later expansion change moves or retains this destination; expose optional fixed route-distance and other placement policies rather than secretly assuming all are equivalent. Level 2 countryside and distance proxies should know that the location exists and reveal it when appropriate along the forest journey. Prefetch detailed terrain and collision before an approaching fast vehicle reaches it. Any distinct exterior placement is a **separately authorized link**, not an automatic consequence of the forest's renderer knowing the region.
+
+### Explicit creator/programmer access policy
+
+The shared browser editor must show an intelligible default such as **Access: Forest journey only**. The programmer/agent API can explicitly opt into alternatives: exterior-flight reachable, accessible from another road or experience, portal/transition linked, or other creator-defined access rules. Providing an exterior link requires valid placement coordinates, route/portal entry and exit semantics, visibility/LOD/physics compatibility, and a consistent mapping for entering and leaving the experience—do not merely toggle a flag and pretend a stretched 100× corridor automatically shares one-to-one geometry with the exterior world. Do not allow untrusted imported content to modify access or world connections without permission.
+
+Proposed conceptual data contract (not a shipped schema):
+
+```json
+{
+  "id": "forest-village-halfway",
+  "experienceId": "expansive-forest",
+  "placement": {
+    "space": "experience-local",
+    "routeId": "forest-main-road",
+    "anchor": { "kind": "journey-progress", "fraction": 0.5 },
+    "offsetFromRoadFeet": 180,
+    "sourceMap": "maps/village.tmj"
+  },
+  "access": {
+    "default": "forest-journey-only",
+    "exteriorFlightEntry": null,
+    "optionalCreatorLinks": []
+  }
+}
+```
+
+This is why creators can make a new place by driving through the forest, yet the same place does not accidentally appear to exterior pilots as a shortcut. The experience has its own coherent geography, and the overall system indexes and renders that geography **in the correct context**. Programmers are free to create a seamless exterior-connected version, but ÆXIS's carefully authored default expresses the opposite creative intent: **discover this place by taking the forest road, because the drive itself is part of the reward.**
+
+**Acceptance:** Create a Tiled village halfway along a forest journey; verify its persistence and reveal on repeated drives and under changed expansion/speed profiles. Verify an exterior ship cannot see, fly directly into or bypass the forest to access the village by default. Verify explicit programmer-enabled exterior links work only with validated coordinates, transitions, and permissions, without duplicating the village or teleporting the player unexpectedly. Keep the original exterior city accessible by direct flight when its own policy permits. This is a design addendum, not implemented gameplay or a reason to delay the active camera bug fixes.
