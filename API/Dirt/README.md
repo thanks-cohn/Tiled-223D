@@ -26,6 +26,10 @@ All operation IDs listed below are callable. `dirt.capabilities` is authoritativ
 
 See [COMMANDS.md](COMMANDS.md) for tested calls, [SCHEMAS.md](SCHEMAS.md) for envelopes, and [DEBUGGING.md](DEBUGGING.md) for bounded investigation recipes.
 
+## Next Codex request — precompiled dirt and agent-visible performance
+
+[CODEX_PRECOMPILED_DIRT_PERFORMANCE_REQUEST.md](../../docs/CODEX_PRECOMPILED_DIRT_PERFORMANCE_REQUEST.md) defines the **next implementation**, not a capability that already ships. It requests compact, persistent compiled Current/Bigger/Massive dirt assets from the same saved canonical source, a reusable three-brown-tone visual material, inexpensive physical near terrain with invariant ramps, elimination of synchronous multi-second near-mesh rebuilds, and inspect/plan/compile/diff/debug commands for programmers and agents. Existing `dirt.inspectPerformance` is model-only outside the live browser; [PERFORMANCE.md](PERFORMANCE.md) documents how the creator can capture real frame stalls and mesh timings on their machine. Treat proposed compiler/asset APIs as `NOT_IMPLEMENTED` until Codex implements and tests actual invocations. Black elevation outlines/gradients are intentionally deferred.
+
 ## Observed browser performance diagnostics
 
 The browser viewer additionally exposes `window.tiledWorldDirtApi.startPerformanceCapture()`, `.stopPerformanceCapture()`, `.performanceSnapshot()` and a browser-local `dirt.inspectRuntimePerformance` request. Unlike the model-only `dirt.inspectPerformance` CLI operation, this records **observed** animation frame gaps, near/far terrain mesh rebuild times, sampled vertex counts and CPU render-submission times; no GPU or RAM measurement is claimed. [Capture a stutter for Codex or ChatGPT](PERFORMANCE.md) on the actual device. These runtime diagnostics do not modify terrain or source Tiled cells and have bounded histories.
