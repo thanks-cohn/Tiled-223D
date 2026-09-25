@@ -44,7 +44,7 @@ test("protected authored footprint cannot be swallowed by separate continent",()
  const opts=validateExpansiveDirt({areaFraction:.5});
  const loc=[{x:1250,z:1250,radius:75}];
  assert.equal(dirtLandSample(1250,1250,2500,2500,opts,loc).ground,ID.ocean);
- assert.equal(dirtLandSample(1350,1250,2500,2500,opts,loc).ground,ID.dirt);
+ assert.equal(dirtLandSample(1410,1250,2500,2500,opts,loc).ground,ID.dirt);
  const footprint=expansiveDirtFootprint(16000,16000);
  assert.ok(footprint.radiusX>0&&footprint.radiusZ>0);
 });
