@@ -6,8 +6,6 @@ import islandData from "./worlds/floating-islands.json";
 import {buildFloatingIslands,disposeFloatingIslands} from "./floating-islands.js";
 import {spatialHit} from "./spatial.js";
 import {createWorldMap} from "./world-map.js";
-import {createDirtWorld,validateDirtRule} from "./expansive-dirt.js";
-import {landmasses} from "./landmasses.js";
 import {createIslandImpostors,updateIslandImpostor,disposeIslandImpostors} from "./island-impostors.js";
 import {altitudeProfile,damp,LIMITS} from "./flight-model.js";
 import {makeHorizonState,setHorizonPosition,buildOceanGeometry} from "./horizon.js";
@@ -62,10 +60,8 @@ new GLTFLoader().load("/ship/ship.glb",gltf=>{
  ship.add(gltf.scene);refreshShipVisualBounds();
 },undefined,()=>{ /* no uploaded model yet: retain the sphere */ });
 
-let sourceBaseWorld=sampleWorld(),dirtRules={},
- sourceWorld=createDirtWorld(sourceBaseWorld,dirtRules),copies=[],floatingInstances=[],islandCards=[],yaw=0,
+let sourceWorld=sampleWorld(),copies=[],floatingInstances=[],islandCards=[],yaw=0,
  mode="world",quality="low",time=0,last=performance.now();
-sourceBaseWorld.objects=islandData.objects;
 sourceWorld.objects=islandData.objects;
 let scaleScene=makeScaleWorld(sourceWorld,"current"),world=scaleScene.nav;
 let regions=world.regions;
@@ -153,37 +149,16 @@ function makeTerrain(){
  // so a long view distance never exposes 9 repeated maps at once.
  scene.add(base);copies.push(base);
 }
-// Explicit authoring API. The original Tiled source is never overwritten.
-function refreshDirtTreatment(){
- sourceWorld=createDirtWorld(sourceBaseWorld,dirtRules);
- scaleScene=makeScaleWorld(sourceWorld,scaleScene.preset.id);
- world=scaleScene.nav;
- makeTerrain();cameraInitialized.clear();mapUI.refreshWorld();
- return sourceWorld.dirtTreatment;
-}
+// The legacy per-island dirt prototype is disabled: original island cells,
+// heights and colors are authoritative. Separate-landmass work remains in
+// its own unmerged terrain branch and is NOT applied to these islands.
 window.tiledWorldDirtApi={
- listLandmasses:()=>landmasses(sourceBaseWorld).map(region=>({
-  id:region.id,cells:region.cells.length,bounds:[...region.bounds],
-  rule:{...(sourceWorld.dirtTreatment?.plans?.find(p=>p.id===region.id)?.rule||{})}
- })),
- getTreatment:()=>sourceWorld.dirtTreatment?{
-  plans:sourceWorld.dirtTreatment.plans.map(p=>({...p,rule:{...p.rule}})),
-  rampCandidates:sourceWorld.dirtTreatment.rampCandidates.map(p=>({...p}))
- }:null,
- setLandmassRule:(id,patch)=>{
-  if(!landmasses(sourceBaseWorld).some(region=>region.id===id))throw Error("Unknown landmass: "+id);
-  if(!patch||typeof patch!=="object"||Array.isArray(patch))throw Error("Invalid dirt rule");
-  dirtRules={...dirtRules,[id]:validateDirtRule({...dirtRules[id],...patch})};
-  return refreshDirtTreatment();
- },
- clearLandmassRule:id=>{
-  if(!landmasses(sourceBaseWorld).some(region=>region.id===id))throw Error("Unknown landmass: "+id);
-  const next={...dirtRules};delete next[id];dirtRules=next;
-  return refreshDirtTreatment();
- },
- capabilities:()=>({dirt:"semantic-tiles-and-four-shades",
-  ramp:"deterministic-candidates-only-no-collision-safe-mesh",
-  expansion:"metadata-only",sourcePreserved:true})
+ listLandmasses:()=>world.placements.map(p=>({id:p.id,kind:"authored-protected"})),
+ getTreatment:()=>null,
+ setLandmassRule:()=>{throw Error("Original islands are protected; the separate dirt-landmass implementation is not active on this branch.");},
+ clearLandmassRule:()=>{throw Error("Original islands are protected; no island dirt override exists.");},
+ capabilities:()=>({dirt:"original-islands-unchanged",ramp:"not-active-on-this-branch",
+  expansion:"separate-terrain-proposal",sourcePreserved:true})
 };
 function resetSpawn(reason="initialization"){
  // Never reset spawn inside the flight loop or a camera/LOD transition.
@@ -330,7 +305,7 @@ document.getElementById("quality").addEventListener("click",()=>{
 });
 function importParsedMap(map,heights=null){
   const next=fromTiled(map,heights);
-  next.objects=[];sourceBaseWorld=next;dirtRules={};sourceWorld=next;scaleScene=makeScaleWorld(next,"current");world=scaleScene.nav;
+  next.objects=[];sourceWorld=next;scaleScene=makeScaleWorld(next,"current");world=scaleScene.nav;
   document.getElementById("worldScale").value="current";
   document.getElementById("worldScale").disabled=true;
   makeTerrain();
