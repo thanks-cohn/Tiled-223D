@@ -4,17 +4,31 @@ import {ID,sampleWorld} from "../src/world-data.js";
 import {makeScaleWorld} from "../src/scale-world.js";
 import {dirtLandSample,expansiveDirtFootprint,validateExpansiveDirt} from "../src/expansive-dirt-land.js";
 
-test("expansive mode adds independent sparse dirt continent without altering authored islands or a 16k grid",()=>{
+test("all three demo world sizes add independent sparse dirt without altering authored islands",()=>{
  const local=sampleWorld(),original=local.ground.slice(),heights=local.heights.slice();
  const massive=makeScaleWorld(local,"massive");
  const bigger=makeScaleWorld(local,"bigger");
+ const current=makeScaleWorld(local,"current");
  assert.equal(massive.nav.ground,null);
  assert.equal(massive.nav.heights,null);
  assert.equal(massive.expansiveDirt.id,"expansive-dirt:continent");
  assert.equal(massive.expansiveDirt.targetAreaFraction,1/3);
  assert.equal(massive.groundAt(8000,8000).ground,ID.dirt);
  assert.equal(bigger.groundAt(1250,1250).ground,ID.dirt);
- assert.equal(makeScaleWorld(local,"current").expansiveDirt,null);
+ assert.equal(current.expansiveDirt.id,"expansive-dirt:continent");
+ assert.equal(current.expansiveDirt.targetAreaFraction,1/3);
+ assert.equal(current.groundAt(250,250).ground,ID.dirt);
+ assert.equal(current.groundAt(250,0).ground,ID.ocean);
+ for(const region of [current,bigger,massive]){
+  assert.ok(region.expansiveDirt.rules.enabled);
+  assert.equal(region.expansiveDirt.targetAreaFraction,1/3);
+ }
+ for(const island of current.nav.placements){
+  const original=local.ground[Math.floor(island.z)*local.width+Math.floor(island.x)];
+  assert.equal(current.groundAt(island.x,island.z).ground,original);
+  assert.equal(current.groundAt(island.x,island.z).height,
+   local.heights[Math.floor(island.z)*local.width+Math.floor(island.x)]);
+ }
  assert.deepEqual(local.ground,original);
  assert.deepEqual(local.heights,heights);
  const island=massive.nav.placements[0];
