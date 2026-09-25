@@ -82,6 +82,41 @@ export function evaluateCameraPose(camera,{follow,aimPoint=follow,yaw=0,pitch=0,
  return {position,target,angleOffset:{...camera.angleOffset},projection:{...camera.projection}};
 }
 
+// Runtime fitting is separate from the creator's stored, exact preset offsets.
+// A displayed GLB can grow dramatically in orbit while the original rig stays
+// only a few feet from its anchor. Fit against its *rendered* bounds, not the
+// authoritative physics/collision size. The caller owns the actual mesh bounds.
+export function fitShipCamera({position,shipCenter,shipRadius,fov,aspect,sceneNear,orbitalBlend=0,margin=1.18}){
+ const values=[position?.x,position?.y,position?.z,shipCenter?.x,shipCenter?.y,shipCenter?.z,
+  shipRadius,fov,aspect,sceneNear,orbitalBlend,margin];
+ if(!values.every(Number.isFinite)||shipRadius<=0||fov<=1||fov>=179||
+  aspect<=0||sceneNear<=0||orbitalBlend<0||orbitalBlend>1||margin<1)
+  throw Error("Invalid cinematic camera fitting inputs");
+ const delta={x:position.x-shipCenter.x,y:position.y-shipCenter.y,z:position.z-shipCenter.z};
+ let distance=Math.hypot(delta.x,delta.y,delta.z);
+ // The narrower vertical/horizontal angle determines whether the whole ship fits.
+ const verticalHalf=fov*Math.PI/360;
+ const half=Math.atan(Math.tan(verticalHalf)*Math.min(1,aspect));
+ const minimum=shipRadius*margin/Math.sin(half);
+ if(distance<1e-6){delta.x=0;delta.y=0;delta.z=1;distance=1;}
+ const factor=Math.max(1,minimum/distance);
+ let fitted={
+  x:shipCenter.x+delta.x*factor,
+  y:shipCenter.y+delta.y*factor,
+  z:shipCenter.z+delta.z*factor
+ };
+ // During orbital reveal, a ship-facing front/rear shot otherwise looks away
+ // from the globe. Rise smoothly above the ship *in render space* while still
+ // aiming at it. Overhead is already planet-facing and needs no extra lift.
+ const lateral=Math.hypot(fitted.x-shipCenter.x,fitted.z-shipCenter.z);
+ fitted.y+=lateral*.47*orbitalBlend;
+ // Never allow the near plane to clip the very subject being framed.
+ const clearance=Math.max(.04,Math.hypot(fitted.x-shipCenter.x,
+  fitted.y-shipCenter.y,fitted.z-shipCenter.z)-shipRadius);
+ const near=Math.max(.04,Math.min(sceneNear,clearance*.55));
+ return {position:fitted,near,minimumDistance:minimum,clearance};
+}
+
 export function createCameraController(definitions=createShipCameraLibrary(),mainId="ship.camera.rear-chase",previewId="ship.camera.high-front-left"){
  const cameras=new Map(definitions.map(camera=>[camera.id,camera]));
  const requireId=id=>{if(!cameras.has(id))throw Error(`Unknown camera: ${id}`);return id;};
