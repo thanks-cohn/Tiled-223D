@@ -22,7 +22,7 @@ test("expansive mode adds independent sparse dirt continent without altering aut
 });
 
 test("dirt sampling is deterministic, multi-shade, elevated and has three configurable ramp types",()=>{
- const options=validateExpansiveDirt({seed:27,rampCoverage:{large:1,medium:1,small:1}});
+ const options=validateExpansiveDirt({seed:27,rampCoverage:{large:.34,medium:.33,small:.33}});
  const sample=(x,z)=>dirtLandSample(x,z,2500,2500,options,[]);
  assert.deepEqual(sample(1250,1250),sample(1250,1250));
  const shades=new Set(),ramps=new Set();let heights=0;
