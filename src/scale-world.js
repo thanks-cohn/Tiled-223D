@@ -50,7 +50,7 @@ export function makeScaleWorld(local,id="current",dirtConfig={}){
   return best;
  };
  const expansiveDirt=validateExpansiveDirt(dirtConfig);
- const dirtFootprint=demo&&scale.id!=="current"?expansiveDirtFootprint(scale.width,scale.height,expansiveDirt):null;
+ const dirtFootprint=demo?expansiveDirtFootprint(scale.width,scale.height,expansiveDirt):null;
  const sampleExpansiveDirt=(x,z)=>dirtFootprint?dirtLandSample(x,z,scale.width,scale.height,expansiveDirt,placements):null;
  const objects=(local.objects||[]).map(object=>{
   const host=nearestPlacement(object.at[0],object.at[2]);
@@ -63,8 +63,15 @@ export function makeScaleWorld(local,id="current",dirtConfig={}){
    z:wrap(region.z+(host?.offsetZ||0),scale.height)};
  });
  function groundAt(x,z){
-  // Preserve the exact full map in the original and imported-world modes.
-  if(scale.id==="current")return cell(local,x,z);
+  // All three demo sizes receive the same separate procedural continent.
+  // The authored local tile map wins wherever it contains actual land:
+  // do not overwrite any of the existing island cells or elevations.
+  if(scale.id==="current"){
+   const authored=cell(local,x,z);
+   if(authored.ground!==ID.ocean||!dirtFootprint)return authored;
+   const dirt=sampleExpansiveDirt(x,z);
+   return dirt?.ground===ID.dirt?dirt:authored;
+  }
   for(const placement of placements){
    const dx=signed(x,placement.x,scale.width);
    const dz=signed(z,placement.z,scale.height);
@@ -91,7 +98,7 @@ export function makeScaleWorld(local,id="current",dirtConfig={}){
   objects,spawns,placements,regions,mapMarkers,
   groundAt:(x,z)=>groundAt(x,z).ground,
   isOcean:(x,z)=>groundAt(x,z).ground===ID.ocean,
-  sparse:scale.id!=="current",altitudeScale:scale.altitudeScale,
+  sparse:scale.id!=="current"||!!dirtFootprint,altitudeScale:scale.altitudeScale,
   localWidth:local.width,localHeight:local.height,
   expansiveDirt:dirtFootprint
  };
