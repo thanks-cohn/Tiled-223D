@@ -4,6 +4,11 @@ This folder is the **active agent-facing bug registry** for Tiled-223D. Read alo
 
 See [flight and scale bugs](flight-and-scale.md) and [atmosphere and release bugs](atmosphere-and-release.md).
 
+
+## Active 2026-09-25 pre-merge camera and 2D island reports
+
+Read [camera framing, settings and curvature-aware island impostor bugs](camera-and-curvature-impostor-2026-09-25.md) before merging cinematic-camera PR #28. It records the user's actual browser screenshots, observed main/preview framing failures, high-altitude 2D island-base orientation mismatch, confirmed source behavior versus unverified root causes, focused fixes and acceptance checks. The programmable 2D representation/altitude-band/Liquid proposals are future feature work, not falsely marked as implemented. Do not mark these issues verified fixed without an affected-browser check.
+
 ## Triage conventions
 
 - `reported / unverified`: the user observed it, but we cannot consistently reproduce it or confirm the cause from code.
