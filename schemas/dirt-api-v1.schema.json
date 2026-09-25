@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dirt-api-v1",
+  "title": "Dirt API v1 request",
+  "type": "object",
+  "required": ["schemaVersion", "operation", "actorId", "projectId"],
+  "properties": {
+    "schemaVersion": {"const": "dirt-v1"},
+    "operation": {"type": "string", "pattern": "^dirt\\."},
+    "operationId": {"type": "string", "maxLength": 128},
+    "actorId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "projectId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "landmassId": {"const": "dirt-landmass-01"},
+    "expectedRevision": {"type": "integer", "minimum": 0},
+    "input": {"type": "object"}
+  },
+  "additionalProperties": false
+}

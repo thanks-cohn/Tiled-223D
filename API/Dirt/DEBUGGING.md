@@ -1,6 +1,6 @@
 # Dirt API — agent debugging and safe-change playbook
 
-**STATUS: requested workflow; the `dirt.*` operations are proposed, not yet shipped.** Codex should turn this into a tested guide when the API is implemented. Never fabricate successful command output or claim to have visually verified a viewport using an API-only unit test.
+**STATUS: the bounded local `dirt-v1` operations used below are shipped through the JavaScript and CLI adapters.** Live GPU telemetry, arbitrary 2D warp, MCP and desktop IPC remain unavailable and are reported as such by `dirt.capabilities`. Never infer visual verification from an API-only test.
 
 ## Before any edit: invariant snapshot
 

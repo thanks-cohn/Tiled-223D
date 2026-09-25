@@ -1,6 +1,6 @@
 import {ID,cell,wrap} from "./world-data.js";
 import {landmasses} from "./landmasses.js";
-import {dirtLandSample,expansiveDirtFootprint,validateExpansiveDirt} from "./expansive-dirt-land.js";
+import {createCanonicalDirtProduction,sampleCanonicalDirt} from "./dirt/canonical.js";
 import {protectedRegions} from "./travel-regions.js";
 
 // SURFACE AREA multipliers, not linear dimensions. Massive is 32² = 1,024×
@@ -21,6 +21,18 @@ const signed=(value,center,period)=>{
  return delta;
 };
 const nearest=(position,center,size)=>Math.round((position-center)/size)*size;
+const dirtProductionCache=new WeakMap();
+
+function canonicalProduction(local,config){
+ const key=JSON.stringify(config);let cached=dirtProductionCache.get(local);
+ if(cached?.key===key)return cached.production;
+ const production=createCanonicalDirtProduction(local,{
+  seed:config.seed,targetWholeWorldCoverage:config.areaFraction,baseElevation:config.baseHeight,
+  undulationAmplitude:config.rollingHeight==null?undefined:Math.min(10,config.rollingHeight*.1),highPointHeight:config.highPointHeight,
+  candidateProbability:config.rampCoverage?{large:config.rampCoverage.large,medium:config.rampCoverage.medium,small:config.rampCoverage.small}:undefined
+ });
+ dirtProductionCache.set(local,{key,production});return production;
+}
 
 export function makeScaleWorld(local,id="current",dirtConfig={}){
  const preset=SCALE_PRESETS[id];
@@ -49,9 +61,22 @@ export function makeScaleWorld(local,id="current",dirtConfig={}){
   }
   return best;
  };
- const expansiveDirt=validateExpansiveDirt(dirtConfig);
- const dirtFootprint=demo?expansiveDirtFootprint(scale.width,scale.height,expansiveDirt):null;
- const sampleExpansiveDirt=(x,z)=>dirtFootprint?dirtLandSample(x,z,scale.width,scale.height,expansiveDirt,placements):null;
+ const canonicalDirt=demo?canonicalProduction(local,dirtConfig):null;
+ const dirtFootprint=canonicalDirt?{id:"expansive-dirt:continent",canonicalId:canonicalDirt.id,x:scale.width/2,z:scale.height/2,
+  radiusX:scale.width/2,radiusZ:scale.height/2,targetAreaFraction:dirtConfig.areaFraction??1/3,measuredAreaFraction:canonicalDirt.coverage.wholeWorldFraction,
+  source:"canonical-saved-production",rules:{enabled:true,expansion:"expansive",...dirtConfig},production:canonicalDirt}:null;
+ const sampleExpansiveDirt=(x,z)=>{
+  if(!canonicalDirt)return null;
+  const canonicalX=wrap(x,scale.width)/scale.width*500,canonicalZ=wrap(z,scale.height)/scale.height*500;
+  const base=sampleCanonicalDirt(canonicalDirt,canonicalX,canonicalZ,{includeRamps:false});
+  if(base.ground!==ID.dirt)return base;
+  let height=base.height,ramp=null;
+  for(const feature of canonicalDirt.features){const centerX=feature.canonical.x/500*scale.width,centerZ=feature.canonical.z/500*scale.height,g=feature.geometry;
+   const dx=signed(x,centerX,scale.width),dz=signed(z,centerZ,scale.height),along=(feature.orientation==="x"?dx:dz)/(g.length/2),across=(feature.orientation==="x"?dz:dx)/(g.width/2);
+   if(Math.abs(along)<=1&&Math.abs(across)<=1){const clamp=v=>Math.max(0,Math.min(1,v)),smooth=t=>t*t*(3-2*t);height+=g.height*smooth(clamp((1-Math.abs(across))/.25))*smooth(clamp((along+1)/1.65))*smooth(clamp((1-along)/.35));ramp=feature.id;break;}
+  }
+  return {...base,height,ramp,source:ramp?"saved-ramp":base.source};
+ };
  const objects=(local.objects||[]).map(object=>{
   const host=nearestPlacement(object.at[0],object.at[2]);
   return {...object,at:[object.at[0]+(host?.offsetX||0),

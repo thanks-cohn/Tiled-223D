@@ -1,46 +1,34 @@
-# ÆXIS Dirt API — programmer and agent contract
+# ÆXIS Dirt API v1
 
-**STATUS: PROPOSED API SPECIFICATION / CODEX WORK ITEM, NOT IMPLEMENTED COMMANDS.** This directory is the designated home for the new canonical dirt-landmass API, command reference, machine-readable schemas, examples and agent debugging playbooks. The full implementation brief is [docs/CODEX_DIRT_LANDMASS_SYSTEM_REQUEST.md](../../docs/CODEX_DIRT_LANDMASS_SYSTEM_REQUEST.md); the governing design is [the canonical dirt landmass proposal](../../portable-visions/AEXIS_CANONICAL_DIRT_LANDMASS_FIXED_FEATURES_EXPANDABLE_SPACING_PROPOSAL.md). Read both before coding.
+**Status:** The local JavaScript core, JSON CLI adapter, browser developer surface, canonical production, fixed-feature route interpreter, bounded inspection/diagnostics, and compact editor described here are implemented. This is an intentionally honest browser-first slice; the limitations below remain.
 
-## Important current state
+## Architecture
 
-The repository already has [World API v1](../../docs/WORLD_API_V1.md), `ProgrammerWorldApi`, `AgentWorldApi`, JSON schemas and a `scripts/world-api-cli.mjs` CLI. Those do **not** automatically implement dirt commands described here. A preexisting experimental `window.tiledWorldDirtApi` or independently sampled elliptical continent on PR #30 is **not** the completed canonical/agent-native API. Codex must inspect current reality and ensure that capabilities only advertise genuinely supported methods. The restored original islands on the target branch are immutable inputs to this work.
+`src/dirt/canonical.js` builds one deterministic 500 × 500 canonical production. Its exact measured default mask is 83,333 cells (33.3332% of the whole world), and it excludes every authored island cell plus a ten-cell water clearance. It stores stable fixed-ramp records generated at 5% large, 3% medium, and 10% small **per eligible candidate zone**. Shade selection and physical elevation are separate outputs.
 
-## Architecture: one core, two first-class surfaces
+`src/dirt/expansion.js` implements a monotone, invertible main-route interpreter. Feature intervals retain exact physical length; only gaps receive the selected profile factor. `inherit-world` resolves Current/Bigger/Massive to 1×/5×/32×. `replace` selects exactly one profile, including `expansive-ocean` at 12×; it never multiplies that value by the world profile. This is a one-dimensional route implementation, **not** arbitrary 2D terrain warping.
 
-- **Common core:** versioned canonical Tiled-relative dirt landmass, saved fixed features, experience-space expansion mappings, deterministic terrain/chunk sampler, collision, provenance, policy, validation, actor/grants, expected revision and atomic transaction/undo log. No renderer API is allowed to be the sole authority for positions, heights or ramp identities.
-- **Programmer surface:** exact JSON/typed operations to inspect source masks/coordinates, list/edit presets and constraints, select expansion policy, retrieve feature IDs/geometries, query mapping/inversion and terrain/collision samples, request stable chunk records, stage canonical edits and inspect profiling information.
-- **Agent surface:** independently designed high-level intent planning, bounded map/sample/diff/why diagnostics, dry-run seed/spacing regeneration, cost/performance forecasts, preview, validated plan→commit with permissions, undo, and a reproducible bounded debugging bundle. Agent actions compile to the common validated transaction core; no unrestricted hidden code execution, privileged bypass or mandatory LLM call.
-- **Adapters:** local importable JS module and JSON/CLI adapter must be real and tested first. A browser editor can call the same core. A future desktop IPC/MCP adapter can be added without redefining operations. Never document a nonexistent function as an available capability.
+`src/dirt/api.js` is the common transport-neutral core. `ProgrammerDirtApi` and `AgentDirtApi` expose the same validated operations and actor grants. `scripts/dirt-api-cli.mjs` persists only compact rules, policy, revision, and undo history; the mask and features are deterministically reconstructed. `window.tiledWorldDirtApi.execute(request)` is also available during the browser viewer lifecycle. That local global has an in-memory creator actor for this standalone demo; it is not remote authentication, does not write a project file, and must not be exposed as a trusted network boundary.
 
-## Names, semantics, and invariants
+The viewer samples the same canonical mask and fixed ramps for navigation and near geometry. World overview coordinates preserve the canonical normalized footprint; ramp geometry is evaluated in physical world units and is never multiplied by the overview scale.
 
-Canonical map space always references one saved original 500 × 500 Tiled-relative landmass. World overview spaces are the Current/Bigger/Massive interpretations. Travel/experience-local coordinates describe the extra distance driven **between** saved, unscaled ramps. Each operation must identify which space it reads or changes: `canonical`, `world`, `experience`, or `render-local`. Do not silently mix these; provenance must show exact transforms and source/profile versions.
+## Implemented operations
 
-World expansion and landmass experience expansion are separate controls. `inherit-world` resolves the current world's default; `replace` selects a **single** alternative profile. No implicit profile multiplication. Dirt ground/contact/material behavior is orthogonal to expansion choice. All ramp IDs and physical footprints remain unchanged across scales; new ramps only arise from an explicitly reviewed canonical regen. Original islands and already authored locations cannot be overwritten by a direct or an agent-planned operation.
+All operation IDs listed below are callable. `dirt.capabilities` is authoritative and includes grants, caps, adapters, coordinate spaces, and unsupported features.
 
-Recommended canonical default: new dirt region is approximately one third of the 500 × 500 world including protected original-island exclusions; mostly flat brown/light-brown/dark-brown shading, subtle outlines and low hills. Ramp candidate selection defaults to large 5%, medium 3%, small 10%, with minimum clearance around each ramp. Probability per eligible candidate zone is **not** literal surface-area coverage; return measured region coverage and candidate counts separately.
+- Discovery: `dirt.capabilities`, `dirt.inspectWorld`, `dirt.listLandmasses`, `dirt.inspectLandmass`, `dirt.inspectRules`, `dirt.listProfiles`, `dirt.inspectProvenance`.
+- Canonical: `dirt.planCanonical`, `dirt.previewCanonical`, `dirt.validateCanonical`, `dirt.listFeatures`, `dirt.inspectFeature`, `dirt.planRampRegeneration`, `dirt.diffRampRegeneration`.
+- Expansion: `dirt.inspectExpansion`, `dirt.inspectIntervals`, `dirt.mapCoordinates`, `dirt.explainMapping`, `dirt.planExpansion`.
+- Physical/visual: `dirt.sampleTerrain`, `dirt.inspectCollision`, `dirt.inspectLOD`, `dirt.inspectChunk`, `dirt.inspectPerformance`, `dirt.planAppearance`, `dirt.planGroundTuning`.
+- Agent/debug: `dirt.explainAt`, `dirt.traceDecision`, `dirt.diffWorldScales`, `dirt.validatePlan`, `dirt.previewPlan`, `dirt.commitPlan`, `dirt.undo`, `dirt.diagnosticBundle`.
 
-## Command index (see [COMMANDS.md](COMMANDS.md))
+See [COMMANDS.md](COMMANDS.md) for tested calls, [SCHEMAS.md](SCHEMAS.md) for envelopes, and [DEBUGGING.md](DEBUGGING.md) for bounded investigation recipes.
 
-**Discovery:** `dirt.capabilities`, `dirt.inspectWorld`, `dirt.listLandmasses`, `dirt.inspectLandmass`, `dirt.inspectRules`, `dirt.listProfiles`, `dirt.inspectProvenance`.
+## Current limits / remaining work
 
-**Canonical production:** `dirt.planCanonical`, `dirt.previewCanonical`, `dirt.validateCanonical`, `dirt.commitCanonical`, `dirt.listFeatures`, `dirt.inspectFeature`, `dirt.planRampRegeneration`, `dirt.diffRampRegeneration`.
-
-**Expansion:** `dirt.inspectExpansion`, `dirt.setExpansionPolicy` (staged), `dirt.inspectIntervals`, `dirt.mapCoordinates`, `dirt.explainMapping`, `dirt.planExpansion`.
-
-**Physical/visual:** `dirt.sampleTerrain`, `dirt.inspectChunk`, `dirt.inspectLOD`, `dirt.inspectCollision`, `dirt.inspectPerformance`, `dirt.planAppearance`, `dirt.planGroundTuning`.
-
-**Agent/debug:** `dirt.explainAt`, `dirt.traceDecision`, `dirt.diffWorldScales`, `dirt.validatePlan`, `dirt.previewPlan`, `dirt.commitPlan`, `dirt.undo`, `dirt.diagnosticBundle`.
-
-These are **proposed stable operation identifiers**. Codex may refine naming to integrate with existing World API v1, but it must preserve documented one-to-one capabilities, version/adapters and tests, explain any renaming in this file, and update the exact invocations in `COMMANDS.md`. Avoid duplicating operations without a meaningful difference.
-
-## Required operation envelope / response
-
-Every write must carry `schemaVersion`, `operationId`, `actorId`, `projectId`, `landmassId`, `expectedRevision`, exact `coordinateSpace`, mode (`plan` versus `commit`) and a typed operation payload. Commit-time validation is authoritative even for hand-crafted payloads. A successful mutation returns the resulting revision, affected interval/chunk IDs, preserved/changed canonical feature IDs, undo token/operation ID and bounded repro/debug metadata. A failed mutation returns a typed code, conflicting source/region/feature ID, offending coordinates, range/clearance/cost budget, how to correct the request, and NO change to source/revision. Queries must support `offset/limit` or bounded geometry window, enforce caps, and never leak private files by default.
-
-Minimum errors: `NOT_IMPLEMENTED`, `UNAUTHORIZED`, `STALE_REVISION`, `PROTECTED_ISLAND`, `SOURCE_PROTECTED`, `REGION_OVERLAP`, `INSUFFICIENT_CANONICAL_AREA`, `INVALID_COORDINATE_SPACE`, `INVALID_PROFILE`, `INVALID_RAMP_PROBABILITY`, `RAMP_SPACING_CONFLICT`, `FIXED_FEATURE_WOULD_RESCALE`, `NONINVERTIBLE_EXPANSION`, `UNPREPARED_COLLISION_CHUNK`, `LOD_COLLISION_MISMATCH`, `QUERY_LIMIT_EXCEEDED`, `PERFORMANCE_BUDGET_EXCEEDED`. Do not silently fall back to ocean or a randomly regenerated ramp to conceal an error.
-
-## Future file organization for Codex
-
-Codex should create and maintain `API/Dirt/COMMANDS.md` (exact call examples), `API/Dirt/SCHEMAS.md` (versioned JSON/TS shapes and validation rules), `API/Dirt/DEBUGGING.md` (agent cookbook for reproducing geometry, collision, and LOD issues), plus executable schema files under the existing `schemas/` conventions and genuine tests under `tests/`. Update examples and capability status as methods ship; retain a changelog/migration note when an operation contract changes. This directory is a user-facing API reference, not the location of all executable source code.
+- Canonical state is deterministic versioned project data, but an ordinary Tiled JSON overlay exporter/re-import adapter for this irregular mask is not yet implemented. The source `sampleWorld()` arrays remain untouched.
+- The expansion interpreter covers one main route. General graph junction solving and continuous safe arbitrary-2D warp are explicitly unsupported.
+- Near/far rendering remains the existing fixed-budget 96²/112² geometry path. It has deterministic rebuilds and disposal, but not a measured eviction queue, velocity prefetch telemetry, or seam morphing.
+- `inspectLOD`, `inspectChunk`, and `inspectPerformance` truthfully return model budgets and unavailable live telemetry; they do not pretend to measure a GPU or 4 GB Windows host.
+- The editor supports expansion policy, ramp probabilities, and flatness with plan/preview/commit. Full outline painting, clearance controls, palette/high-point controls, three simultaneous graphical previews, and persistent browser project storage remain future work.
+- MCP, desktop IPC, native/Tiled embedded UI, automatic uploads, and arbitrary full-world snapshots are not implemented.

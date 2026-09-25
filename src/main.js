@@ -19,6 +19,7 @@ import {advanceMomentum,createFlybyTracker,resetFlybyTracker,updateFlybys} from 
 import {sweepHorizontal} from "./horizontal-flight.js";
 import {makeOceanSpeedCues} from "./ocean-speed-cues.js";
 import {createCameraController,cameraDisplayName,setCameraOffset,setCameraLookAt,setShipFacing,createLegacyShipFacing,LEGACY_SHIP_FACING_IDS,restoreCamera,evaluateCameraPose,fitShipCamera,shouldHandleCameraKey,previewViewport} from "./cinematic-cameras.js";
+import {createDirtState,ProgrammerDirtApi} from "./dirt/api.js";
 
 const view=document.getElementById("view");
 const positionUI=document.getElementById("position"),statusUI=document.getElementById("status");
@@ -306,6 +307,18 @@ syncCameraUI();
 syncLegacyCameraUI();
 
 const scaleSelector=document.getElementById("worldScale");
+const dirtCore=new ProgrammerDirtApi(createDirtState());
+// Local developer surface only: it performs no file/network access and grants
+// the documented local creator actor. Embedders should provide their own actor
+// and persistence adapter rather than treating this global as remote auth.
+window.tiledWorldDirtApi={...window.tiledWorldDirtApi,execute:request=>dirtCore.execute(request)};
+const dirtEditor=document.getElementById("dirtEditor"),dirtOutput=document.getElementById("dirtEditorOutput"),dirtCommit=document.getElementById("dirtCommit");let pendingDirtPlan=null;
+const dirtRequest=(operation,input={})=>({schemaVersion:"dirt-v1",operation,actorId:"creator",projectId:"demo-world",landmassId:"dirt-landmass-01",input});
+document.getElementById("dirtButton").addEventListener("click",()=>{dirtEditor.hidden=false;});
+document.getElementById("dirtClose").addEventListener("click",()=>{dirtEditor.hidden=true;});
+document.getElementById("dirtDefaults").addEventListener("click",()=>{document.getElementById("dirtPolicy").value="inherit-world";document.getElementById("dirtLarge").value=.05;document.getElementById("dirtMedium").value=.03;document.getElementById("dirtSmall").value=.10;document.getElementById("dirtVariation").value=1.25;pendingDirtPlan=null;dirtCommit.disabled=true;dirtOutput.textContent="Defaults restored locally; preview before committing.";});
+document.getElementById("dirtPreview").addEventListener("click",()=>{const policyValue=document.getElementById("dirtPolicy").value,policy=policyValue==="inherit-world"?{mode:"inherit-world"}:{mode:"replace",profileId:policyValue};const canonical=dirtCore.execute(dirtRequest("dirt.planCanonical",{candidateProbability:{large:Number(document.getElementById("dirtLarge").value),medium:Number(document.getElementById("dirtMedium").value),small:Number(document.getElementById("dirtSmall").value)},rules:{undulationAmplitude:Number(document.getElementById("dirtVariation").value)}}));const expansion=dirtCore.execute(dirtRequest("dirt.planExpansion",{worldId:scaleSelector.value,policy}));if(canonical.status!=="ok"||expansion.status!=="ok"){dirtOutput.textContent=JSON.stringify(canonical.status!=="ok"?canonical.error:expansion.error,null,2);return;}pendingDirtPlan={canonical:canonical.result,expansion:expansion.result};dirtCommit.disabled=false;dirtOutput.textContent=`Preview only · ${canonical.result.coverage.cells} dirt cells (${(canonical.result.coverage.wholeWorldFraction*100).toFixed(2)}%)\nRamp diff: +${canonical.result.featureDiff.added.length} / -${canonical.result.featureDiff.removed.length}\nEffective gap profile: ${expansion.result.plan.profile.id} ×${expansion.result.plan.profile.gapFactor}`;});
+document.getElementById("dirtCommit").addEventListener("click",()=>{if(!pendingDirtPlan)return;const first=dirtCore.execute({...dirtRequest("dirt.commitPlan",{plan:pendingDirtPlan.canonical}),expectedRevision:dirtCore.state.revision,operationId:`editor-canonical-${Date.now()}`});if(first.status!=="ok"){dirtOutput.textContent=JSON.stringify(first.error,null,2);return;}const second=dirtCore.execute({...dirtRequest("dirt.commitPlan",{plan:{...pendingDirtPlan.expansion,baseRevision:dirtCore.state.revision}}),expectedRevision:dirtCore.state.revision,operationId:`editor-expansion-${Date.now()}`});if(second.status!=="ok"){dirtOutput.textContent=JSON.stringify(second.error,null,2);return;}const r=dirtCore.state.rules;expansiveDirtRule=validateExpansiveDirt({...expansiveDirtRule,seed:r.seed,baseHeight:r.baseElevation,rollingHeight:r.undulationAmplitude*10,rampCoverage:{large:r.candidateProbability.large,medium:r.candidateProbability.medium,small:r.candidateProbability.small}});scaleScene=makeScaleWorld(sourceWorld,scaleSelector.value,expansiveDirtRule);world=scaleScene.nav;makeTerrain();mapUI.refreshWorld();pendingDirtPlan=null;dirtCommit.disabled=true;dirtOutput.textContent=`Committed revision ${dirtCore.state.revision}. Original islands remain protected.`;});
 scaleSelector.addEventListener("change",()=>{
  if(!SCALE_PRESETS[scaleSelector.value])return;
  // Changing map scale is an intentional UI action, not a spawn request.
