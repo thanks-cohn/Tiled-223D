@@ -39,7 +39,7 @@ function geometryFromGrid(sampler,x0,z0,dx,dz,nx,nz){
  g.setIndex(indices);g.computeVertexNormals();
  return g;
 }
-export function createExpansiveDirtRenderer(scene,horizonState){
+export function createExpansiveDirtRenderer(scene,horizonState,diagnostics=null){
  const material=curveMaterial(new THREE.MeshLambertMaterial({
   color:"#ffffff",vertexColors:true,side:THREE.DoubleSide
  }),horizonState);
@@ -48,6 +48,7 @@ export function createExpansiveDirtRenderer(scene,horizonState){
  for(const m of [distant,near]){m.frustumCulled=false;scene.add(m);}
  let world=null,lastX=NaN,lastZ=NaN,lastTick=-Infinity;
  function rebuild(scaleScene){
+  const started=performance.now();
   world=scaleScene;lastX=NaN;lastZ=NaN;lastTick=-Infinity;
   const old=distant.geometry;
   distant.visible=!!world.expansiveDirt?.rules.enabled;
@@ -59,6 +60,9 @@ export function createExpansiveDirtRenderer(scene,horizonState){
     radiusX*2.13/112,radiusZ*2.13/112,112,112);
   }else distant.geometry=new THREE.BufferGeometry();
   old.dispose();
+  if(distant.visible)diagnostics?.meshBuild({level:"far",ms:performance.now()-started,
+   samples:113*113,vertices:113*113,triangles:distant.geometry.index?.count/3||0,
+   coordinate:{x:world.expansiveDirt.x,z:world.expansiveDirt.z}});
  }
  function update(pilot,now=0){
   if(!world?.expansiveDirt?.rules.enabled){distant.visible=near.visible=false;return;}
@@ -69,7 +73,11 @@ export function createExpansiveDirtRenderer(scene,horizonState){
   if(!Number.isFinite(lastX)||Math.hypot(pilot.x-lastX,pilot.z-lastZ)>32&&now-lastTick>.2){
    const ox=Math.floor(pilot.x/STEP)*STEP-HALF;
    const oz=Math.floor(pilot.z/STEP)*STEP-HALF;
+   const buildStart=performance.now();
    const geometry=geometryFromGrid(world.sampleExpansiveDirt,ox,oz,STEP,STEP,GRID,GRID);
+   diagnostics?.meshBuild({level:"near",ms:performance.now()-buildStart,samples:(GRID+1)**2,
+    vertices:(GRID+1)**2,triangles:geometry.index?.count/3||0,
+    coordinate:{x:ox,z:oz}});
    near.geometry.dispose();near.geometry=geometry;
    lastX=pilot.x;lastZ=pilot.z;lastTick=now;
   }
