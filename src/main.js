@@ -184,7 +184,7 @@ window.tiledWorldDirtApi={
  capabilities:()=>({separateLandmass:true,sourcePreserved:true,
   largeMediumSmallRamps:"sparse-analytic-elevation-with-matching-near-mesh",
   exactCoverage:false,lowCost:"bounded-near-and-coarse-global-mesh",
-  worldScope:"Bigger/Massive demo only",roadGameplay:"not-yet-implemented"})
+  worldScope:"Current/Bigger/Massive demo worlds",roadGameplay:"not-yet-implemented"})
 };
 function resetSpawn(reason="initialization"){
  // Never reset spawn inside the flight loop or a camera/LOD transition.
