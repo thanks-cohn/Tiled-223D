@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {SHIP_CAMERA_PRESETS,FEET_TO_WORLD_UNITS,createShipCameraLibrary,cameraDisplayName,isCameraModified,setCameraOffset,moveCamera,restoreCamera,shipLocalOffset,evaluateCameraPose,fitShipCamera,createCameraController,shouldHandleCameraKey,previewViewport} from "../src/cinematic-cameras.js";
+import {SHIP_CAMERA_PRESETS,FEET_TO_WORLD_UNITS,createShipCameraLibrary,cameraDisplayName,isCameraModified,setCameraOffset,moveCamera,restoreCamera,setShipFacing,createLegacyShipFacing,LEGACY_SHIP_FACING_IDS,shipLocalOffset,evaluateCameraPose,fitShipCamera,createCameraController,shouldHandleCameraKey,previewViewport} from "../src/cinematic-cameras.js";
 
 test("six exact ship presets use ship targets and requested mirrored offsets",()=>{
  assert.equal(SHIP_CAMERA_PRESETS.length,6);
@@ -114,4 +114,24 @@ test("effective near distance is independent for main and preview, including por
   assert.ok(result.near<Math.hypot(result.position.x,result.position.y,result.position.z)-3);
  }
  assert.throws(()=>fitShipCamera({...input,aspect:0}),/Invalid cinematic camera fitting/);
+});
+
+test("per-camera facing is cosmetic, independent, validated and resettable",()=>{
+ const cameras=createShipCameraLibrary();
+ const original=JSON.stringify(cameras[1]);
+ setShipFacing(cameras[0],{yaw:90,pitch:12,roll:-4});
+ assert.deepEqual([cameras[0].shipFacing.yaw,cameras[0].shipFacing.pitch,cameras[0].shipFacing.roll],[90,12,-4]);
+ assert.deepEqual(cameras[1].shipFacing,{yaw:0,pitch:0,roll:0,unit:"deg"});
+ assert.equal(JSON.stringify(cameras[1]),original);
+ assert.equal(cameraDisplayName(cameras[0]),"Rear Chase (Modified)");
+ assert.throws(()=>setShipFacing(cameras[0],{yaw:Infinity}),/must be finite/);
+ assert.throws(()=>setShipFacing(cameras[0],{roll:NaN}),/must be finite/);
+ restoreCamera(cameras[0]);
+ assert.equal(cameras[0].shipFacing.yaw,0);
+ assert.equal(cameraDisplayName(cameras[0]),"Rear Chase (Customizable)");
+ const overview=createLegacyShipFacing(),forward=createLegacyShipFacing();
+ setShipFacing({shipFacing:overview},{yaw:180});
+ assert.equal(forward.yaw,0);
+ assert.equal(overview.yaw,180);
+ assert.equal(LEGACY_SHIP_FACING_IDS.overview,"ship.camera.legacy-overview");
 });
