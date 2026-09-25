@@ -89,9 +89,18 @@ export function createCameraController(definitions=createShipCameraLibrary(),mai
  return {
   list:()=>[...cameras.values()],get:id=>cameras.get(requireId(id)),
   selections:()=>({mainId:main,previewId:preview}),
-  selectMain:id=>{main=requireId(id);},selectPreview:id=>{preview=requireId(id);},
+  selectMain:id=>{id=requireId(id);if(id===preview)[main,preview]=[preview,main];else main=id;},
+  selectPreview:id=>{id=requireId(id);if(id===main)[main,preview]=[preview,main];else preview=id;},
   swap:()=>{[main,preview]=[preview,main];return {mainId:main,previewId:preview};}
  };
+}
+
+export function previewViewport(width,height,maxWidth=360,widthRatio=.31,margin=14){
+ if(![width,height,maxWidth,widthRatio,margin].every(Number.isFinite)||width<=0||height<=0||maxWidth<=0||widthRatio<=0||margin<0)
+  throw Error("Invalid preview viewport");
+ const viewportWidth=Math.min(width*widthRatio,maxWidth,width-margin*2);
+ const viewportHeight=Math.min(viewportWidth*9/16,height-margin*2);
+ return {x:width-viewportWidth-margin,y:margin,width:viewportWidth,height:viewportHeight};
 }
 
 export function shouldHandleCameraKey(event){

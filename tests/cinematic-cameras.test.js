@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {SHIP_CAMERA_PRESETS,FEET_TO_WORLD_UNITS,createShipCameraLibrary,cameraDisplayName,isCameraModified,setCameraOffset,moveCamera,restoreCamera,shipLocalOffset,evaluateCameraPose,createCameraController,shouldHandleCameraKey} from "../src/cinematic-cameras.js";
+import {SHIP_CAMERA_PRESETS,FEET_TO_WORLD_UNITS,createShipCameraLibrary,cameraDisplayName,isCameraModified,setCameraOffset,moveCamera,restoreCamera,shipLocalOffset,evaluateCameraPose,createCameraController,shouldHandleCameraKey,previewViewport} from "../src/cinematic-cameras.js";
 
 test("six exact ship presets use ship targets and requested mirrored offsets",()=>{
  assert.equal(SHIP_CAMERA_PRESETS.length,6);
@@ -54,6 +54,26 @@ test("preview selection is independent and C-style swap is exactly reversible",(
  assert.deepEqual(controller.swap(),before);
  controller.selectPreview("ship.camera.overhead");
  assert.equal(controller.selections().mainId,before.mainId);
+ controller.selectMain("ship.camera.overhead");
+ assert.deepEqual(controller.selections(),{mainId:"ship.camera.overhead",previewId:before.mainId});
+});
+
+test("all cinematic positions remain outside the fallback ship and mirror through motion",()=>{
+ const definitions=createShipCameraLibrary();
+ for(const camera of definitions){
+  const pose=evaluateCameraPose(camera,{follow:{x:0,y:10,z:0},yaw:.7,pitch:-.11,roll:.2});
+  assert.ok(Math.hypot(pose.position.x,pose.position.y-10,pose.position.z)>2.4,camera.semanticName);
+ }
+ const left=evaluateCameraPose(definitions[3],{follow:{x:0,y:0,z:0}}).position;
+ const right=evaluateCameraPose(definitions[4],{follow:{x:0,y:0,z:0}}).position;
+ assert.equal(left.x,-right.x);assert.equal(left.y,right.y);assert.equal(left.z,right.z);
+});
+
+test("preview viewport stays bottom-right, 16:9, and bounded after resize",()=>{
+ assert.deepEqual(previewViewport(1280,800),{x:906,y:14,width:360,height:202.5});
+ const small=previewViewport(320,180);
+ assert.ok(small.x>=0&&small.y>=0&&small.width<=292&&small.height<=152);
+ assert.equal(small.width/small.height,16/9);
 });
 
 test("camera keyboard shortcuts ignore typing and modified/repeated keys",()=>{
