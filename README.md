@@ -21,7 +21,13 @@ If you do not already have the current 500 × 500 procedural demo in Tiled, run 
 
 **Manual launch:** `npm install` followed by `npm run dev -- --open`. Do **not** double-click `index.html` directly: the project uses ES module imports that need the local Vite server.
 
-**Flight controls:** W/S forward/back, A/D turn, Up/Down ascend/descend, Shift boost, R take off. Import your Tiled map JSON and its separate elevation JSON through the on-screen buttons. The ship defaults to a low-poly sphere; add `public/ship/ship.glb` to replace it.
+**Flight controls:** W/S forward/back, A/D turn, Up/Down ascend/descend, Shift boost, R take off, and C swaps the main and live-preview cameras in both directions. Import your Tiled map JSON and its separate elevation JSON through the on-screen buttons. The ship defaults to a low-poly sphere; add `public/ship/ship.glb` to replace it.
+
+## Cinematic ship cameras (first vertical slice)
+
+The browser now provides six ship-relative presets: Rear Chase, Front Portrait, Low Front Fisheye, High Front Left, High Front Right and Overhead. Choose the main and bottom-right preview independently, edit the selected main camera's forward/right/up values in feet, toggle its ship target, or restore the preset. A changed definition says `(Modified)`; a definition whose normalized values match its original again says `(Customizable)`. The low-front preset currently uses a wide perspective-FOV approximation, explicitly not a true fisheye projection.
+
+Portable schema-v1 definitions are separate from the two Three.js camera instances and evaluated poses. `window.tiledWorldCameraApi` exposes list/get, main/preview selection and swap plus position, look-at and reset operations for this browser integration. This is not yet project persistence or the authorized world API camera adapter. Universal world-object/GLB-node/custom target registries, angle/lens UI, transitions and bounded Liquid behavior remain staged work described by [the authoritative proposal](docs/CINEMATIC_CAMERA_SYSTEM_CODEX_PROPOSAL.md).
 
 The default demo procedurally generates a **500 × 500 mostly-ocean world with two sandy-coast islands**; the committed `maps/test-world.tmx` is a separate smaller editing example. This is an early flight/landscape demo, **not yet a fully verified browser experience on a 4 GB machine or a finished FrameChute integration**. The “You're awake” screen is a standalone canvas placeholder.
 
@@ -31,7 +37,7 @@ For ongoing engine tasks see [docs/CODEX_HANDOFF.md](docs/CODEX_HANDOFF.md), but
 
 ## V8 camera and flight stability update
 
-**Camera:** The `View` button (or `V`) immediately toggles the **actual** Forward/Overview view; use the separate `Auto camera` button (or Shift+V) to return to automatic low/middle Forward and high/planetary Overview. `Fly forward` controls movement only. The Massive (16,000) world now uses the same proportions for the camera's horizontal distance and vertical follow height as the smaller worlds, and both camera views aim toward the world as altitude rises rather than becoming stuck looking into empty sky. The overview continues to frame more of the planet centrally without adding another globe mesh. These changes need visual confirmation on the affected browser.
+**Historical camera note:** V8 introduced Forward/Overview altitude views. The cinematic vertical slice above now replaces those viewer controls with six ship-relative definitions and C swapping while leaving authoritative flight, terrain and world-scale state unchanged.
 
 **Flight/navigation:** Pressing S overrides automatic forward cruise instead of canceling it out; a near-land collision advances only to the last safe sample, then lets you reverse. Deliberate world-scale changes preserve relative location and earned momentum rather than resetting spawn. The intermittent user-reported surprise reset and the exact high-altitude visual result still require affected-device confirmation. See [camera/navigation agent binding](Semantic-Bindings/camera-navigation-v1.md) and [Bugs/](Bugs/README.md).
 

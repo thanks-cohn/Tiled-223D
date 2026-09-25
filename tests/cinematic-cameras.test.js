@@ -1,0 +1,64 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {SHIP_CAMERA_PRESETS,FEET_TO_WORLD_UNITS,createShipCameraLibrary,cameraDisplayName,isCameraModified,setCameraOffset,moveCamera,restoreCamera,shipLocalOffset,evaluateCameraPose,createCameraController,shouldHandleCameraKey} from "../src/cinematic-cameras.js";
+
+test("six exact ship presets use ship targets and requested mirrored offsets",()=>{
+ assert.equal(SHIP_CAMERA_PRESETS.length,6);
+ assert.deepEqual(SHIP_CAMERA_PRESETS.map(p=>p.semanticName),["Rear Chase","Front Portrait","Low Front Fisheye","High Front Left","High Front Right","Overhead"]);
+ assert.ok(SHIP_CAMERA_PRESETS.every(p=>p.lookAt.enabled&&p.lookAt.target.kind==="controlled-ship"));
+ const low=SHIP_CAMERA_PRESETS[2],left=SHIP_CAMERA_PRESETS[3],right=SHIP_CAMERA_PRESETS[4],overhead=SHIP_CAMERA_PRESETS[5];
+ assert.deepEqual([low.offset.forward,low.offset.up],[10,-2]);
+ assert.deepEqual([left.offset.forward,left.offset.right,left.offset.up],[15,-10,14]);
+ assert.deepEqual([right.offset.forward,right.offset.right,right.offset.up],[15,10,14]);
+ assert.deepEqual([overhead.offset.forward,overhead.offset.right,overhead.offset.up],[0,0,20]);
+});
+
+test("semantic status derives from normalized values and reset, never stacks suffixes",()=>{
+ const camera=createShipCameraLibrary()[5];
+ assert.equal(cameraDisplayName(camera),"Overhead (Customizable)");
+ moveCamera(camera,{up:5});
+ assert.equal(cameraDisplayName(camera),"Overhead (Modified)");
+ assert.equal(isCameraModified(camera),true);
+ setCameraOffset(camera,{up:20+1e-10});
+ assert.equal(cameraDisplayName(camera),"Overhead (Customizable)");
+ camera.mode="liquid";
+ assert.equal(cameraDisplayName(camera),"Overhead (Modified)");
+ restoreCamera(camera);
+ assert.equal(cameraDisplayName(camera),"Overhead (Customizable)");
+});
+
+test("ship-local offsets rotate through yaw, pitch and roll with explicit feet conversion",()=>{
+ assert.deepEqual(shipLocalOffset({forward:10,right:0,up:0},0),{x:0,y:0,z:-10*FEET_TO_WORLD_UNITS});
+ const yaw=shipLocalOffset({forward:10,right:0,up:0},Math.PI/2);
+ assert.ok(Math.abs(yaw.x+10*FEET_TO_WORLD_UNITS)<1e-10);
+ const pitch=shipLocalOffset({forward:10,right:0,up:0},0,Math.PI/2);
+ assert.ok(Math.abs(pitch.y-10*FEET_TO_WORLD_UNITS)<1e-10);
+ const roll=shipLocalOffset({forward:0,right:10,up:0},0,0,Math.PI/2);
+ assert.ok(Math.abs(roll.y-10*FEET_TO_WORLD_UNITS)<1e-10);
+});
+
+test("pose follows one entity and independently aims at its stable aim point",()=>{
+ const camera=createShipCameraLibrary()[0];
+ const pose=evaluateCameraPose(camera,{follow:{x:4,y:5,z:6},aimPoint:{x:4,y:6,z:6}});
+ assert.deepEqual(pose.target,{x:4,y:6,z:6});
+ assert.notDeepEqual(pose.position,pose.target);
+ camera.lookAt.enabled=false;
+ assert.equal(evaluateCameraPose(camera,{follow:{x:4,y:5,z:6}}).target,null);
+});
+
+test("preview selection is independent and C-style swap is exactly reversible",()=>{
+ const controller=createCameraController();
+ const before=controller.selections();
+ const after=controller.swap();
+ assert.deepEqual(after,{mainId:before.previewId,previewId:before.mainId});
+ assert.deepEqual(controller.swap(),before);
+ controller.selectPreview("ship.camera.overhead");
+ assert.equal(controller.selections().mainId,before.mainId);
+});
+
+test("camera keyboard shortcuts ignore typing and modified/repeated keys",()=>{
+ assert.equal(shouldHandleCameraKey({target:{tagName:"CANVAS"}}),true);
+ assert.equal(shouldHandleCameraKey({target:{tagName:"INPUT"}}),false);
+ assert.equal(shouldHandleCameraKey({target:{isContentEditable:true}}),false);
+ assert.equal(shouldHandleCameraKey({target:{tagName:"CANVAS"},repeat:true}),false);
+});

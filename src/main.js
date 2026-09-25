@@ -10,12 +10,12 @@ import {createIslandImpostors,updateIslandImpostor,disposeIslandImpostors} from 
 import {altitudeProfile,damp,LIMITS} from "./flight-model.js";
 import {makeHorizonState,setHorizonPosition,buildOceanGeometry} from "./horizon.js";
 import {makeScaleWorld,SCALE_PRESETS,transferScalePosition} from "./scale-world.js";
-import {cameraViewProfile,nextCameraChoice,overviewCameraScale,forwardLookAngle,overviewFocusHeight,planetOverviewFov} from "./camera-modes.js";
 import {travelRegion} from "./travel-regions.js";
-import {positionIslandVisual,cinematicShipScale,cameraAscentHeight} from "./visual-anchors.js";
+import {positionIslandVisual,cinematicShipScale} from "./visual-anchors.js";
 import {advanceMomentum,createFlybyTracker,resetFlybyTracker,updateFlybys} from "./flight-momentum.js";
 import {sweepHorizontal} from "./horizontal-flight.js";
 import {makeOceanSpeedCues} from "./ocean-speed-cues.js";
+import {createCameraController,cameraDisplayName,setCameraOffset,setCameraLookAt,restoreCamera,evaluateCameraPose,shouldHandleCameraKey} from "./cinematic-cameras.js";
 
 const view=document.getElementById("view");
 const positionUI=document.getElementById("position"),statusUI=document.getElementById("status");
@@ -29,6 +29,7 @@ scene.background=skyDay.clone();
 // This default map wraps every 500 units; 350 clipped islands when turning.
 // 900 keeps every nearest repeated island inside the viewable range.
 const camera=new THREE.PerspectiveCamera(69,innerWidth/innerHeight,.5,4000);
+const previewCamera=new THREE.PerspectiveCamera(69,16/9,.5,4000);
 const sun=new THREE.DirectionalLight("#fff5db",1.35);sun.position.set(-80,160,-70);scene.add(sun);
 scene.add(new THREE.HemisphereLight("#fff6dc","#52768a",2.1));
 const horizonState=makeHorizonState();
@@ -52,7 +53,8 @@ sourceWorld.objects=islandData.objects;
 let scaleScene=makeScaleWorld(sourceWorld,"current"),world=scaleScene.nav;
 let regions=world.regions;
 const pilot=new THREE.Vector3();
-let cameraInitialized=false,cameraChoice="auto";
+const cameraController=createCameraController();
+const cameraInitialized=new Set();
 const flybys=createFlybyTracker();
 let atmosphereWarned=false,cruise=false,forwardVelocity=0,verticalVelocity=0,bank=0,pitch=0;
 let safeFlightCeiling=0;
@@ -71,9 +73,9 @@ function makeTerrain(){
  // Keep the planet visible at the highest permitted altitude. Camera near is
  // raised only when sufficiently distant so the 4 GB GPU retains depth
  // precision instead of shimmering at enormous far/near clipping ratios.
- camera.far=Math.max(4000,scaleScene.preset.radius*7,
+ const cameraFar=Math.max(4000,scaleScene.preset.radius*7,
   2400*scaleScene.preset.altitudeScale+scaleScene.preset.radius*3);
- camera.updateProjectionMatrix();
+ for(const renderCamera of [camera,previewCamera]){renderCamera.far=cameraFar;renderCamera.updateProjectionMatrix();}
  const oldOcean=ocean.geometry;
  ocean.geometry=buildOceanGeometry(scaleScene.preset.radius);
  oldOcean.dispose();
@@ -119,7 +121,7 @@ function resetSpawn(reason="initialization"){
  const startZ=p.z+offshore;
  pilot.set(p.x,Math.max(offshore?34:75,pointGround(p.x,startZ).height+23),startZ);
  ship.position.set(0,pilot.y,0);
- cameraInitialized=false;
+ cameraInitialized.clear();
  resetFlybyTracker(flybys,world,regions,pilot.x,pilot.z);
  yaw=0;cruise=false;forwardVelocity=0;verticalVelocity=0;bank=0;pitch=0;
  document.getElementById("cruise").textContent="Fly forward: Off";
@@ -153,36 +155,34 @@ document.getElementById("cruise").addEventListener("click",()=>{
  document.getElementById("cruise").textContent="Fly forward: "+(cruise?"On":"Off");
 });
 document.getElementById("reenter").addEventListener("click",enter);
-const cameraButton=document.getElementById("cameraMode");
-const autoCameraButton=document.getElementById("cameraAuto");
-let lastCameraLabel="";
-function syncCameraButton(){
- const view=cameraViewProfile(pilot.y/scaleScene.preset.altitudeScale,cameraChoice);
- const label=view.overviewWeight>=.5?"Overview":"Forward";
- // On each click View changes the actual rendered mode. Auto is an
- // independent control, never a third indistinguishable view-button step.
- if(label!==lastCameraLabel){
-  cameraButton.textContent="View: "+label;
-  lastCameraLabel=label;
+const mainCameraSelect=document.getElementById("mainCamera"),previewCameraSelect=document.getElementById("previewCamera");
+const previewFrame=document.getElementById("cameraPreviewFrame"),previewCaption=document.getElementById("cameraPreviewCaption");
+const offsetInputs={forward:document.getElementById("cameraForward"),right:document.getElementById("cameraRight"),up:document.getElementById("cameraUp")};
+const lookAtInput=document.getElementById("cameraLookAt"),previewEnabledInput=document.getElementById("previewEnabled");
+function syncCameraUI(){
+ const {mainId,previewId}=cameraController.selections();
+ for(const select of [mainCameraSelect,previewCameraSelect]){
+  const selected=select===mainCameraSelect?mainId:previewId;
+  select.replaceChildren(...cameraController.list().map(definition=>{
+   const option=document.createElement("option");option.value=definition.id;option.textContent=cameraDisplayName(definition);return option;
+  }));select.value=selected;
  }
- cameraButton.setAttribute("aria-pressed",String(label==="Forward"));
- autoCameraButton.textContent="Auto camera: "+(cameraChoice==="auto"?"On":"Off");
- autoCameraButton.setAttribute("aria-pressed",String(cameraChoice==="auto"));
+ const main=cameraController.get(mainId);
+ for(const axis of Object.keys(offsetInputs))offsetInputs[axis].value=main.offset[axis];
+ lookAtInput.checked=main.lookAt.enabled;
+ previewCaption.textContent=cameraDisplayName(cameraController.get(previewId));
+ previewFrame.hidden=!previewEnabledInput.checked;
 }
-function toggleCamera(){
- cameraChoice=nextCameraChoice(cameraChoice,
-  pilot.y/scaleScene.preset.altitudeScale);
- cameraInitialized=false; // no lingering old camera pose looking at empty sky
- syncCameraButton();
-}
-function enableAutoCamera(){
- cameraChoice="auto";
- cameraInitialized=false;
- syncCameraButton();
-}
-cameraButton.addEventListener("click",toggleCamera);
-autoCameraButton.addEventListener("click",enableAutoCamera);
-syncCameraButton();
+mainCameraSelect.addEventListener("change",()=>{cameraController.selectMain(mainCameraSelect.value);cameraInitialized.clear();syncCameraUI();});
+previewCameraSelect.addEventListener("change",()=>{cameraController.selectPreview(previewCameraSelect.value);cameraInitialized.delete(previewCameraSelect.value);syncCameraUI();});
+for(const [axis,input] of Object.entries(offsetInputs))input.addEventListener("change",()=>{setCameraOffset(cameraController.get(cameraController.selections().mainId),{[axis]:Number(input.value)});cameraInitialized.clear();syncCameraUI();});
+lookAtInput.addEventListener("change",()=>{setCameraLookAt(cameraController.get(cameraController.selections().mainId),{enabled:lookAtInput.checked});syncCameraUI();});
+document.getElementById("cameraReset").addEventListener("click",()=>{restoreCamera(cameraController.get(cameraController.selections().mainId));cameraInitialized.clear();syncCameraUI();});
+previewEnabledInput.addEventListener("change",syncCameraUI);
+// Renderer-independent definitions remain accessible to integrations without
+// exposing Three.js cameras or granting world mutation permissions.
+window.tiledWorldCameraApi={...cameraController,setPosition:(id,value)=>{setCameraOffset(cameraController.get(id),value);syncCameraUI();},setLookAt:(id,value)=>{setCameraLookAt(cameraController.get(id),value);syncCameraUI();},restoreDefaults:id=>{restoreCamera(cameraController.get(id));syncCameraUI();}};
+syncCameraUI();
 
 const scaleSelector=document.getElementById("worldScale");
 scaleSelector.addEventListener("change",()=>{
@@ -194,9 +194,9 @@ scaleSelector.addEventListener("change",()=>{
  pilot.set(transferred.x,transferred.y,transferred.z);
  scaleSelector.blur();held.clear();makeTerrain();
  ship.position.set(0,pilot.y,0);
- cameraInitialized=false;
+ cameraInitialized.clear();
  resetFlybyTracker(flybys,world,world.regions,pilot.x,pilot.z);
- mapUI.refreshWorld();syncCameraButton();
+ mapUI.refreshWorld();
  statusUI.textContent=world.name+" · "+world.width+" × "+world.height+
   " · location preserved · sparse ocean · fixed terrain budget";
 });
@@ -214,7 +214,7 @@ function importParsedMap(map,heights=null){
   document.getElementById("worldScale").disabled=true;
   makeTerrain();
   resetSpawn("map import");mode="world";exitUI.classList.remove("show");
-  cameraChoice="auto";syncCameraButton();
+  cameraInitialized.clear();syncCameraUI();
   mapUI.refreshWorld();mapUI.close();
   statusUI.textContent=world.name+" · "+world.width+" × "+world.height+((heights||map.substrateElevation)?" · elevated":" · flat (no elevation file)");
   return {name:world.name,width:world.width,height:world.height};
@@ -265,10 +265,8 @@ if(window.qt?.webChannelTransport){
  window.__aexisDesktopIsActive=()=>desktopActive;
 }
 addEventListener("keydown",e=>{
- if(e.code==="KeyV"&&!e.repeat&&mode==="world"&&!mapUI.isOpen()){
-  e.preventDefault();
-  if(e.shiftKey)enableAutoCamera();
-  else toggleCamera();
+ if(e.code==="KeyC"&&shouldHandleCameraKey(e)&&mode==="world"&&!mapUI.isOpen()){
+  e.preventDefault();cameraController.swap();cameraInitialized.clear();syncCameraUI();
   return;
  }
  if(e.code==="KeyM"&&!e.repeat&&mode==="world"){
@@ -382,8 +380,8 @@ function frame(now){
  const profile=altitudeProfile(pilot.y,scaleScene.preset.altitudeScale);
  const near=0.5+Math.min(40,profile.globeReveal*
   Math.sqrt(scaleScene.preset.radius)*.25);
- if(Math.abs(camera.near-near)>.08){
-  camera.near=near;camera.updateProjectionMatrix();
+ for(const renderCamera of [camera,previewCamera])if(Math.abs(renderCamera.near-near)>.08){
+  renderCamera.near=near;renderCamera.updateProjectionMatrix();
  }
  ship.position.set(0,pilot.y,0);
  ship.rotation.y=yaw;
@@ -436,66 +434,42 @@ function frame(now){
    sprite.position.x-=pilot.x;sprite.position.z-=pilot.z;
   }
  }
- const dx=Math.sin(yaw),dz=Math.cos(yaw);
- const viewProfile=cameraViewProfile(profile.atmosphericAltitude,cameraChoice);
- syncCameraButton();
- const globe=profile.globeReveal;
- const viewMix=viewProfile.overviewWeight;
- // The forward cockpit and existing external/planetary camera are independent
- // of navigation. Low/mid default to forward; high/top default to the existing
- // overview. Manual Forward/Overview overrides altitude at any level.
- const forwardPosition=new THREE.Vector3(0,pilot.y+1.65,0);
- const scale=overviewCameraScale(profile.atmosphericAltitude,
-  scaleScene.preset.altitudeScale);
- // Keep the actual terrain inside the forward viewport as altitude rises:
- // at Massive scale a perfectly horizontal cockpit ray sees only empty sky
- // thousands of units above the sea for most of the ascent.
- const forwardRange=130+scaleScene.preset.radius*.6*
-  THREE.MathUtils.smoothstep(profile.atmosphericAltitude,65,445);
- const forwardAngle=forwardLookAngle(
-  profile.atmosphericAltitude,globe);
- const forwardFocus=new THREE.Vector3(
-  -dx*forwardRange,
-  forwardPosition.y-forwardRange*Math.tan(forwardAngle),
-  -dz*forwardRange
- );
- // Scale BOTH horizontal follow distance and camera height. The previous
- // 16k world multiplied ONLY camera Y by 32, creating a near-vertical view
- // and a large lingering mismatch with the forward camera.
- const overviewPosition=new THREE.Vector3(
-  dx*profile.cameraDistance*scale,
-  pilot.y+cameraAscentHeight(profile.cameraHeight,globe)*scale,
-  dz*profile.cameraDistance*scale
- );
- const overviewFocus=new THREE.Vector3(
-  THREE.MathUtils.lerp(-dx*(33+70*profile.curvature),0,globe),
-  overviewFocusHeight(pilot.y,profile.atmosphericAltitude,
-   scaleScene.preset.radius,globe,profile.lookDown),
-  THREE.MathUtils.lerp(-dz*(33+70*profile.curvature),0,globe)
- );
- const desired=forwardPosition.lerp(overviewPosition,viewMix);
- const focus=forwardFocus.lerp(overviewFocus,viewMix);
- // High altitude: frame the WHOLE planet around the center of the view.
- // A narrower overview lens makes the sphere occupy more of the screen
- // without changing planetary geometry, camera clipping, or ship coordinates.
- const goalFov=planetOverviewFov(
-  profile.fieldOfView+(boosting?7:0),globe,viewMix);
- const followRate=4.8+15*globe+Math.min(12,Math.abs(forwardVelocity)/80);
- if(!cameraInitialized){camera.position.copy(desired);cameraInitialized=true;}
- else camera.position.lerp(desired,1-Math.exp(-followRate*dt));
- // Use the SAME floating origin and avoid chasing a displaced ship.
- camera.lookAt(focus);
- camera.rotateZ(bank*.12*(1-globe*.8)*viewMix);
- const nextFov=damp(camera.fov,goalFov,5,dt);
- if(Math.abs(camera.fov-nextFov)>.012){
-  camera.fov=nextFov;camera.updateProjectionMatrix();
+ const {mainId,previewId}=cameraController.selections();
+ function updateRenderCamera(renderCamera,id,aspect){
+  const definition=cameraController.get(id);
+  const initializationKey=(renderCamera===camera?"main:":"preview:")+id;
+  const pose=evaluateCameraPose(definition,{
+   follow:{x:0,y:pilot.y,z:0},aimPoint:{x:0,y:pilot.y+.25,z:0},yaw,pitch,roll
+  });
+  const desired=new THREE.Vector3(pose.position.x,pose.position.y,pose.position.z);
+  if(!cameraInitialized.has(initializationKey)){renderCamera.position.copy(desired);cameraInitialized.add(initializationKey);}
+  else renderCamera.position.lerp(desired,1-Math.exp(-definition.smoothing.position*dt));
+  if(pose.target)renderCamera.lookAt(pose.target.x,pose.target.y,pose.target.z);
+  else renderCamera.rotation.set(pitch,yaw,roll,"YXZ");
+  renderCamera.rotateX(THREE.MathUtils.degToRad(pose.angleOffset.pitch));
+  renderCamera.rotateY(THREE.MathUtils.degToRad(pose.angleOffset.yaw));
+  renderCamera.rotateZ(THREE.MathUtils.degToRad(pose.angleOffset.roll));
+  const nextFov=damp(renderCamera.fov,pose.projection.fov+(boosting?5:0),5,dt);
+  if(Math.abs(renderCamera.fov-nextFov)>.012||renderCamera.aspect!==aspect){
+   renderCamera.fov=nextFov;renderCamera.aspect=aspect;renderCamera.updateProjectionMatrix();
+  }
  }
- // Show the ship only after the camera is outside its close cockpit pose.
- // Never change the authoritative pilot/ship navigation state on view toggle.
- ship.visible=viewMix>.88;
+ updateRenderCamera(camera,mainId,innerWidth/innerHeight);
+ const previewWidth=Math.min(innerWidth*.31,360),previewHeight=previewWidth*9/16;
+ updateRenderCamera(previewCamera,previewId,previewWidth/previewHeight);
+ ship.visible=true;
  cloudSystem.update(pilot,world,time,profile,forwardVelocity,pilot,camera,yaw);
  if(mode==="world")positionUI.textContent=
   `X ${wrap(pilot.x,world.width).toFixed(1)} · Z ${wrap(pilot.z,world.height).toFixed(1)} · ALT ${pilot.y.toFixed(1)} · GROUND ${pointGround(pilot.x,pilot.z).height.toFixed(1)} · MOMENTUM ${Math.abs(forwardVelocity).toFixed(0)} · ${currentTravel.mode.toUpperCase()} · ${profile.layer.toUpperCase()}`;
+ renderer.setScissorTest(false);renderer.setViewport(0,0,innerWidth,innerHeight);
  renderer.render(scene,camera);
+ if(mode==="world"&&previewEnabledInput.checked){
+  // A second view of the authoritative scene, never a second simulation tick.
+  renderer.setScissorTest(true);
+  renderer.setViewport(innerWidth-previewWidth-14,14,previewWidth,previewHeight);
+  renderer.setScissor(innerWidth-previewWidth-14,14,previewWidth,previewHeight);
+  renderer.render(scene,previewCamera);
+  renderer.setScissorTest(false);renderer.setViewport(0,0,innerWidth,innerHeight);
+ }
 }
 requestAnimationFrame(frame);
