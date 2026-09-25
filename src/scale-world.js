@@ -1,6 +1,7 @@
 import {ID,cell,wrap} from "./world-data.js";
 import {landmasses} from "./landmasses.js";
 import {createCanonicalDirtProduction,sampleCanonicalDirt} from "./dirt/canonical.js";
+import {buildExpansionPlan,mapRouteDistance} from "./dirt/expansion.js";
 import {protectedRegions} from "./travel-regions.js";
 
 // SURFACE AREA multipliers, not linear dimensions. Massive is 32² = 1,024×
@@ -34,7 +35,7 @@ function canonicalProduction(local,config){
  dirtProductionCache.set(local,{key,production});return production;
 }
 
-export function makeScaleWorld(local,id="current",dirtConfig={}){
+export function makeScaleWorld(local,id="current",dirtConfig={},dirtExpansionPolicy={mode:"inherit-world"}){
  const preset=SCALE_PRESETS[id];
  if(!preset)throw Error("Unknown world scale "+id);
  if(!Number.isInteger(local.width)||!Number.isInteger(local.height))throw Error("Invalid local map");
@@ -62,16 +63,21 @@ export function makeScaleWorld(local,id="current",dirtConfig={}){
   return best;
  };
  const canonicalDirt=demo?canonicalProduction(local,dirtConfig):null;
+ const dirtExpansion=canonicalDirt?buildExpansionPlan(canonicalDirt,scale.id,dirtExpansionPolicy):null;
  const dirtFootprint=canonicalDirt?{id:"expansive-dirt:continent",canonicalId:canonicalDirt.id,x:scale.width/2,z:scale.height/2,
   radiusX:scale.width/2,radiusZ:scale.height/2,targetAreaFraction:dirtConfig.areaFraction??1/3,measuredAreaFraction:canonicalDirt.coverage.wholeWorldFraction,
   source:"canonical-saved-production",rules:{enabled:true,expansion:"expansive",...dirtConfig},production:canonicalDirt}:null;
  const sampleExpansiveDirt=(x,z)=>{
   if(!canonicalDirt)return null;
-  const canonicalX=wrap(x,scale.width)/scale.width*500,canonicalZ=wrap(z,scale.height)/scale.height*500;
+  // X is actual on-ground experience distance. Invert the canonical expansion
+  // plan so gameplay, collision, and near rendering use the same gap mapping.
+  const experienceX=wrap(x,scale.width);
+  const canonicalX=mapRouteDistance(dirtExpansion,Math.min(experienceX,dirtExpansion.experienceLength),"experience").value;
+  const canonicalZ=wrap(z,scale.height)/scale.height*500;
   const base=sampleCanonicalDirt(canonicalDirt,canonicalX,canonicalZ,{includeRamps:false});
   if(base.ground!==ID.dirt)return base;
   let height=base.height,ramp=null;
-  for(const feature of canonicalDirt.features){const centerX=feature.canonical.x/500*scale.width,centerZ=feature.canonical.z/500*scale.height,g=feature.geometry;
+  for(const feature of canonicalDirt.features){const centerX=mapRouteDistance(dirtExpansion,feature.canonical.x,"canonical").value,centerZ=feature.canonical.z/500*scale.height,g=feature.geometry;
    const dx=signed(x,centerX,scale.width),dz=signed(z,centerZ,scale.height),along=(feature.orientation==="x"?dx:dz)/(g.length/2),across=(feature.orientation==="x"?dz:dx)/(g.width/2);
    if(Math.abs(along)<=1&&Math.abs(across)<=1){const clamp=v=>Math.max(0,Math.min(1,v)),smooth=t=>t*t*(3-2*t);height+=g.height*smooth(clamp((1-Math.abs(across))/.25))*smooth(clamp((along+1)/1.65))*smooth(clamp((1-along)/.35));ramp=feature.id;break;}
   }
@@ -152,7 +158,7 @@ export function makeScaleWorld(local,id="current",dirtConfig={}){
   }
   return false;
  };
- return {preset:scale,nav,groundAt,pathNearLand,expansiveDirt:dirtFootprint,
+ return {preset:scale,nav,groundAt,pathNearLand,expansiveDirt:dirtFootprint,dirtExpansion,
   sampleExpansiveDirt,
   placementOf:(id)=>placements.find(x=>x.id===id),
   nearestLandInstance:(pilot,placement)=>({
@@ -190,7 +196,13 @@ export function transferScalePosition(pilot,previous,next){
  // Close to a destination: keep the EXACT local distance to that feature.
  // In open ocean: preserve relative coordinates across the planet.
  const local=destination&&minDistance<=nearestRegion.source.radius+90;
- const x=local?destination.x+nearestRegion.dx:
+ const onDirt=!local&&previous.sampleExpansiveDirt?.(pilot.x,pilot.z)?.ground===ID.dirt&&previous.dirtExpansion&&next.dirtExpansion;
+ // A scale transition made while travelling on dirt keeps the same canonical
+ // route coordinate, then evaluates it in the destination experience plan.
+ // This is the same mapping used by gameplay sampling, not a percentage guess.
+ const canonicalRoute=onDirt?mapRouteDistance(previous.dirtExpansion,wrap(pilot.x,from.width),"experience").value:null;
+ const x=local?destination.x+nearestRegion.dx:onDirt?
+  mapRouteDistance(next.dirtExpansion,canonicalRoute,"canonical").value:
   wrap(pilot.x,from.width)/from.width*to.width;
  const z=local?destination.z+nearestRegion.dz:
   wrap(pilot.z,from.height)/from.height*to.height;

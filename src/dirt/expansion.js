@@ -1,7 +1,7 @@
 export const DIRT_PROFILES=Object.freeze({
-  current:Object.freeze({id:"current",version:1,gapFactor:1}),
-  bigger:Object.freeze({id:"bigger",version:1,gapFactor:5}),
-  massive:Object.freeze({id:"massive",version:1,gapFactor:32}),
+  current:Object.freeze({id:"current",version:1,gapFactor:1,targetExperienceLength:500}),
+  bigger:Object.freeze({id:"bigger",version:1,gapFactor:5,targetExperienceLength:2500}),
+  massive:Object.freeze({id:"massive",version:1,gapFactor:32,targetExperienceLength:16000}),
   "expansive-ocean":Object.freeze({id:"expansive-ocean",version:1,gapFactor:12})
 });
 
@@ -15,9 +15,17 @@ export function resolveExpansionProfile(worldId,policy={mode:"inherit-world"}){
 
 /** Monotone route mapping: protected intervals keep physical length; only gaps expand. */
 export function buildExpansionPlan(production,worldId,policy={mode:"inherit-world"}){
-  const profile=resolveExpansionProfile(worldId,policy),features=[...production.features].sort((a,b)=>a.canonical.x-b.canonical.x||a.id.localeCompare(b.id));
+  const selectedProfile=resolveExpansionProfile(worldId,policy),features=[...production.features].sort((a,b)=>a.canonical.x-b.canonical.x||a.id.localeCompare(b.id));
+  // World profiles name exact traversal dimensions. Since fixed features may
+  // not grow, solve the effective gap factor rather than multiplying every X.
+  let measureCursor=0,protectedLength=0;
+  for(const feature of features){const routeLength=feature.orientation==="x"?feature.geometry.length:feature.geometry.width;const start=Math.max(measureCursor,feature.canonical.x-routeLength/2),end=Math.max(start,feature.canonical.x+routeLength/2);protectedLength+=end-start;measureCursor=end;}
+  const expandableLength=Math.max(0,500-protectedLength);
+  const gapFactor=selectedProfile.mode==="inherit-world"&&selectedProfile.targetExperienceLength?
+    (selectedProfile.targetExperienceLength-protectedLength)/expandableLength:selectedProfile.gapFactor;
+  const profile={...selectedProfile,gapFactor,requestedGapFactor:selectedProfile.gapFactor};
   const sourceLength=500,intervals=[];let cursor=0,experienced=0;
-  for(const feature of features){const half=feature.geometry.length/2,start=Math.max(cursor,feature.canonical.x-half),end=Math.max(start,feature.canonical.x+half);
+  for(const feature of features){const routeLength=feature.orientation==="x"?feature.geometry.length:feature.geometry.width,half=routeLength/2,start=Math.max(cursor,feature.canonical.x-half),end=Math.max(start,feature.canonical.x+half);
     if(start>cursor){const length=start-cursor,expandedLength=length*profile.gapFactor;intervals.push({id:`gap:${intervals.length}`,kind:"gap",sourceStart:cursor,sourceEnd:start,experienceStart:experienced,experienceEnd:experienced+expandedLength});experienced+=expandedLength;}
     const length=end-start;intervals.push({id:`feature:${feature.id}`,kind:"feature",featureId:feature.id,sourceStart:start,sourceEnd:end,experienceStart:experienced,experienceEnd:experienced+length});experienced+=length;cursor=end;
   }

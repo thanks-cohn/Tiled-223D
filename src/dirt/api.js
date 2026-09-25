@@ -59,7 +59,27 @@ export class DirtWorldCore{
   #landmass(){const p=this.state.production;return {id:p.id,sourceMapId:p.sourceMapId,bounds:{x:0,y:0,width:500,height:500},coverage:p.coverage,protectedBounds:p.protectedBounds,featureCount:p.features.length,rules:p.rules,policy:this.state.policy,algorithmVersion:p.algorithmVersion};}
   #page(items,{offset=0,limit=25}){if(!Number.isInteger(offset)||!Number.isInteger(limit)||limit<1||limit>MAX_PAGE)throw new Error("QUERY_LIMIT_EXCEEDED");const page=items.slice(offset,offset+limit);return {items:page,total:items.length,nextOffset:offset+page.length<items.length?offset+page.length:null};}
   #featureDiff(next){const before=new Map(this.state.production.features.map(x=>[x.id,JSON.stringify(x)])),after=new Map(next.features.map(x=>[x.id,JSON.stringify(x)]));return {added:[...after.keys()].filter(x=>!before.has(x)),removed:[...before.keys()].filter(x=>!after.has(x)),modified:[...after.keys()].filter(x=>before.has(x)&&before.get(x)!==after.get(x))};}
-  #commit(request,plan){if(request.expectedRevision!==this.state.revision)return error("STALE_REVISION","Commit expectedRevision is stale.",{actualRevision:this.state.revision});if(!request.operationId)return error("INVALID_REQUEST","operationId is required for commit.");if(plan.baseRevision!==this.state.revision)return error("STALE_REVISION","Plan is stale.");const previous={rules:this.state.rules,policy:this.state.policy};if(plan.kind==="canonical-regeneration"){this.state.rules=validateDirtRules(plan.rules);this.state.production=createCanonicalDirtProduction(sampleWorld(),this.state.rules);}else if(plan.kind==="expansion-policy"){resolveExpansionProfile(plan.worldId||"current",plan.policy);this.state.policy=clone(plan.policy);}else if(plan.kind==="rules-patch"){this.state.rules=validateDirtRules(plan.rules);this.state.production=createCanonicalDirtProduction(sampleWorld(),this.state.rules);}else return error("INVALID_REQUEST","Unknown reviewed plan kind.");this.state.revision++;const undoToken=`dirt-undo-${request.operationId}`;this.state.history.push({undoToken,operationId:request.operationId,revision:this.state.revision,previous});return ok("dirt.commitPlan",this.state.revision,{committed:true,undoToken,featureIds:this.state.production.features.map(f=>f.id)});}
+  #commit(request,plan){
+    if(request.expectedRevision!==this.state.revision)return error("STALE_REVISION","Commit expectedRevision is stale.",{actualRevision:this.state.revision});
+    if(!request.operationId)return error("INVALID_REQUEST","operationId is required for commit.");
+    if(plan.baseRevision!==this.state.revision)return error("STALE_REVISION","Plan is stale.");
+    const previous={rules:this.state.rules,policy:this.state.policy};
+    // Validate and construct every next value before touching live state. This
+    // is also the path used by the editor's combined canonical+policy commit.
+    let nextRules=this.state.rules,nextPolicy=this.state.policy,nextProduction=this.state.production;
+    if(plan.kind==="canonical-regeneration"||plan.kind==="rules-patch"){
+      nextRules=validateDirtRules(plan.rules);nextProduction=createCanonicalDirtProduction(sampleWorld(),nextRules);
+    }else if(plan.kind==="expansion-policy"){
+      resolveExpansionProfile(plan.worldId||"current",plan.policy);nextPolicy=clone(plan.policy);
+    }else if(plan.kind==="canonical-and-expansion"){
+      nextRules=validateDirtRules(plan.rules);nextProduction=createCanonicalDirtProduction(sampleWorld(),nextRules);
+      resolveExpansionProfile(plan.worldId||"current",plan.policy);nextPolicy=clone(plan.policy);
+    }else return error("INVALID_REQUEST","Unknown reviewed plan kind.");
+    this.state.rules=nextRules;this.state.policy=nextPolicy;this.state.production=nextProduction;
+    this.state.revision++;const undoToken=`dirt-undo-${request.operationId}`;
+    this.state.history.push({undoToken,operationId:request.operationId,revision:this.state.revision,previous});
+    return ok("dirt.commitPlan",this.state.revision,{committed:true,undoToken,featureIds:this.state.production.features.map(f=>f.id)});
+  }
   #undo(request,input){if(request.expectedRevision!==this.state.revision)return error("STALE_REVISION","Undo expectedRevision is stale.");const record=this.state.history.at(-1);if(!record||record.undoToken!==input.undoToken)return error("UNDO_CONFLICT","Only the latest dirt transaction may be undone.");this.state.rules=record.previous.rules;this.state.policy=record.previous.policy;this.state.production=createCanonicalDirtProduction(sampleWorld(),this.state.rules);this.state.history.pop();this.state.revision++;return ok("dirt.undo",this.state.revision,{undone:true,operationId:record.operationId});}
 }
 

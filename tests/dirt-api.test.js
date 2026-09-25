@@ -38,3 +38,13 @@ test("hand-crafted canonical changes cannot bypass validation",()=>{
   const result=api.execute({...request("dirt.commitPlan",{plan:invalid}),expectedRevision:0,operationId:"bad"});
   assert.equal(result.status,"error");assert.equal(api.state.revision,0);
 });
+
+test("combined editor transaction commits rules and policy once and rolls both back on failure",()=>{
+  const state=createDirtState(),api=new ProgrammerDirtApi(state),beforeRules=structuredClone(state.rules),beforePolicy=structuredClone(state.policy);
+  const bad={kind:"canonical-and-expansion",baseRevision:0,rules:{...beforeRules,undulationAmplitude:2},policy:{mode:"replace",profileId:"missing"},worldId:"current"};
+  const failed=api.execute({...request("dirt.commitPlan",{plan:bad}),expectedRevision:0,operationId:"combined-bad"});
+  assert.equal(failed.status,"error");assert.equal(state.revision,0);assert.deepEqual(state.rules,beforeRules);assert.deepEqual(state.policy,beforePolicy);
+  const good={...bad,policy:{mode:"replace",profileId:"expansive-ocean"}};
+  const committed=api.execute({...request("dirt.commitPlan",{plan:good}),expectedRevision:0,operationId:"combined-good"});
+  assert.equal(committed.status,"ok");assert.equal(state.revision,1);assert.equal(state.rules.undulationAmplitude,2);assert.equal(state.policy.profileId,"expansive-ocean");
+});

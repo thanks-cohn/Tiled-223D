@@ -10,7 +10,9 @@
 
 `src/dirt/api.js` is the common transport-neutral core. `ProgrammerDirtApi` and `AgentDirtApi` expose the same validated operations and actor grants. `scripts/dirt-api-cli.mjs` persists only compact rules, policy, revision, and undo history; the mask and features are deterministically reconstructed. `window.tiledWorldDirtApi.execute(request)` is also available during the browser viewer lifecycle. That local global has an in-memory creator actor for this standalone demo; it is not remote authentication, does not write a project file, and must not be exposed as a trusted network boundary.
 
-The viewer samples the same canonical mask and fixed ramps for navigation and near geometry. World overview coordinates preserve the canonical normalized footprint; ramp geometry is evaluated in physical world units and is never multiplied by the overview scale.
+The viewer samples the same canonical mask and fixed ramps for navigation, collision, and near geometry. Gameplay X is interpreted as experience-route distance and inverted through the active expansion plan before canonical sampling. Current/Bigger/Massive solve their permitted gap factor to reach exactly 500/2,500/16,000 traversal units while ramp intervals remain physical. A scale transition made on dirt maps through canonical route progress, so it returns to the same saved ramp rather than using a percentage approximation. Z remains a normalized cross-route mapping because general 2D warp is not implemented.
+
+The browser editor commits its canonical rules and expansion policy as one `canonical-and-expansion` transaction. The core validates and constructs both replacement values before assigning either; a bad profile or terrain rule leaves the revision, rules, production, and policy unchanged.
 
 ## Implemented operations
 

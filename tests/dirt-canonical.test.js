@@ -17,14 +17,15 @@ test("saved ramp geometry is scale invariant and only gaps expand",()=>{
   const production=createCanonicalDirtProduction(sampleWorld()),current=buildExpansionPlan(production,"current"),massive=buildExpansionPlan(production,"massive");
   assert.deepEqual(production.features.map(f=>f.geometry),production.features.map(f=>f.geometry));
   const currentFeatures=current.intervals.filter(i=>i.kind==="feature"),massiveFeatures=massive.intervals.filter(i=>i.kind==="feature");
-  assert.deepEqual(currentFeatures.map(i=>i.experienceEnd-i.experienceStart),massiveFeatures.map(i=>i.experienceEnd-i.experienceStart));
+  currentFeatures.forEach((interval,index)=>assert.ok(Math.abs((interval.experienceEnd-interval.experienceStart)-(massiveFeatures[index].experienceEnd-massiveFeatures[index].experienceStart))<1e-9));
   assert.ok(massive.experienceLength>current.experienceLength);
   for(const value of [0,125,250,499.9])assert.ok(Math.abs(mapRouteDistance(massive,mapRouteDistance(massive,value).value,"experience").value-value)<1e-8);
 });
 
 test("replacement expansion never stacks with selected world profile",()=>{
   const p=createCanonicalDirtProduction(sampleWorld()),inherited=buildExpansionPlan(p,"massive"),replacement=buildExpansionPlan(p,"massive",{mode:"replace",profileId:"expansive-ocean"});
-  assert.equal(inherited.profile.gapFactor,32);assert.equal(replacement.profile.gapFactor,12);assert.equal(replacement.profile.mode,"replace");
+  assert.equal(inherited.profile.requestedGapFactor,32);assert.equal(inherited.experienceLength,16000);
+  assert.equal(replacement.profile.gapFactor,12);assert.equal(replacement.profile.mode,"replace");
 });
 
 test("visual shade is independent from physical elevation and ramps replay",()=>{
