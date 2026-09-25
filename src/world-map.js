@@ -24,13 +24,16 @@ export function createWorldMap({panel,canvas,label,worldGetter,positionGetter,he
   const world=worldGetter(),w=world.width,h=world.height;
   // Never allocate a 16k×16k canvas to display a tiny sparse world overview.
   // All profiles use the SAME bounded 500×500 bitmap budget.
-  const cw=world.sparse?500:w,ch=world.sparse?500:h;
+  const cw=world.sparse?256:w,ch=world.sparse?256:h;
   const sx=cw/w,sz=ch/h;
   if(builtFor!==world) {
    canvas.width=cw;canvas.height=ch;
    const pixels=context.createImageData(cw,ch);
    for(let i=0;i<cw*ch;i++){
-    const c=world.sparse?COLORS[ID.ocean]:mapColor(world.ground[i],world.heights[i]);
+    const c=world.sparse?
+     mapColor(world.groundAt((i%cw+.5)/cw*w,(Math.floor(i/cw)+.5)/ch*h),
+      world.groundAt((i%cw+.5)/cw*w,(Math.floor(i/cw)+.5)/ch*h)===ID.dirt?5:0):
+     mapColor(world.ground[i],world.heights[i]);
     const p=i*4;
     pixels.data[p]=c[0];pixels.data[p+1]=c[1];pixels.data[p+2]=c[2];pixels.data[p+3]=255;
    }
