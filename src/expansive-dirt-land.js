@@ -9,6 +9,7 @@ export const DEFAULT_EXPANSIVE_DIRT=Object.freeze({
  rampCoverage:Object.freeze({large:.10,medium:.09,small:.30}),
  expansion:"expansive"
 });
+const validatedRules=new WeakSet();
 const sizes=Object.freeze({large:{spacing:110,length:68,width:25,height:19},
  medium:{spacing:52,length:28,width:12,height:9},
  small:{spacing:20,length:10,width:5,height:3}});
@@ -28,6 +29,7 @@ function noise(x,z,seed,period){
 }
 export function validateExpansiveDirt(input={}){
  if(!input||Array.isArray(input)||typeof input!=="object")throw Error("Invalid expansive dirt rules");
+ if(validatedRules.has(input))return input;
  const keys=["enabled","areaFraction","seed","baseHeight","rollingHeight","highPointHeight",
   "shadeVariation","outlineStrength","rampCoverage","expansion"];
  for(const k of Object.keys(input))if(!keys.includes(k))throw Error("Unknown expansive dirt rule "+k);
@@ -42,6 +44,7 @@ export function validateExpansiveDirt(input={}){
   Object.keys(r.rampCoverage).some(k=>!["large","medium","small"].includes(k))||
   Object.values(r.rampCoverage).reduce((a,b)=>a+b,0)>1)
   throw Error("Invalid expansive dirt rule values");
+ validatedRules.add(r);
  return r;
 }
 const signed=(value,center,period)=>wrap(value-center+period/2,period)-period/2;
