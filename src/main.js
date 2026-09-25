@@ -16,7 +16,7 @@ import {positionIslandVisual,cinematicShipScale,cameraAscentHeight} from "./visu
 import {advanceMomentum,createFlybyTracker,resetFlybyTracker,updateFlybys} from "./flight-momentum.js";
 import {sweepHorizontal} from "./horizontal-flight.js";
 import {makeOceanSpeedCues} from "./ocean-speed-cues.js";
-import {createCameraController,cameraDisplayName,setCameraOffset,setCameraLookAt,restoreCamera,evaluateCameraPose,shouldHandleCameraKey,previewViewport} from "./cinematic-cameras.js";
+import {createCameraController,cameraDisplayName,setCameraOffset,setCameraLookAt,restoreCamera,evaluateCameraPose,fitShipCamera,shouldHandleCameraKey,previewViewport} from "./cinematic-cameras.js";
 
 const view=document.getElementById("view");
 const positionUI=document.getElementById("position"),statusUI=document.getElementById("status");
@@ -41,11 +41,23 @@ const speedCues=makeOceanSpeedCues(scene);
 const ship=new THREE.Group();
 const sphere=new THREE.Mesh(new THREE.SphereGeometry(.9,9,6),new THREE.MeshLambertMaterial({color:"#fbdf77",flatShading:true}));
 sphere.scale.set(1,.6,1.7);ship.add(sphere);scene.add(ship);
+// Cache local model bounds once rather than traversing meshes every frame.
+let shipVisualBounds={center:new THREE.Vector3(),radius:2};
+function refreshShipVisualBounds(){
+ const position=ship.position.clone(),rotation=ship.rotation.clone(),scale=ship.scale.clone();
+ ship.position.set(0,0,0);ship.rotation.set(0,0,0);ship.scale.setScalar(1);
+ ship.updateMatrixWorld(true);
+ const sphereBounds=new THREE.Box3().setFromObject(ship).getBoundingSphere(new THREE.Sphere());
+ shipVisualBounds={center:sphereBounds.center.clone(),radius:Math.max(.05,sphereBounds.radius)};
+ ship.position.copy(position);ship.rotation.copy(rotation);ship.scale.copy(scale);
+ ship.updateMatrixWorld(true);
+}
+refreshShipVisualBounds();
 // Files placed at public/ship/ship.glb are available at /ship/ship.glb.
 // An absent model is deliberately nonfatal: the procedural sphere always works.
 new GLTFLoader().load("/ship/ship.glb",gltf=>{
  ship.remove(sphere);gltf.scene.scale.setScalar(1);
- ship.add(gltf.scene);
+ ship.add(gltf.scene);refreshShipVisualBounds();
 },undefined,()=>{ /* no uploaded model yet: retain the sphere */ });
 
 let sourceWorld=sampleWorld(),copies=[],floatingInstances=[],islandCards=[],yaw=0,
@@ -405,8 +417,10 @@ function frame(now){
  const profile=altitudeProfile(pilot.y,scaleScene.preset.altitudeScale);
  const near=0.5+Math.min(40,profile.globeReveal*
   Math.sqrt(scaleScene.preset.radius)*.25);
- for(const renderCamera of [camera,previewCamera])if(Math.abs(renderCamera.near-near)>.08){
-  renderCamera.near=near;renderCamera.updateProjectionMatrix();
+ // Legacy planet view uses the global near plane. Each cinematic view
+ // computes its own near plane after fitting the displayed ship geometry.
+ if(legacyCameraActive&&Math.abs(camera.near-near)>.08){
+  camera.near=near;camera.updateProjectionMatrix();
  }
  ship.position.set(0,pilot.y,0);
  ship.rotation.y=yaw;
@@ -416,6 +430,9 @@ function frame(now){
  // Physics uses the unscaled semantic ship position and its explicit radius.
  ship.scale.setScalar(cinematicShipScale(profile.globeReveal)*
   (1+(scaleScene.preset.altitudeScale-1)*profile.globeReveal));
+ ship.updateMatrixWorld(true);
+ const shipWorldCenter=ship.localToWorld(shipVisualBounds.center.clone());
+ const shipWorldRadius=shipVisualBounds.radius*ship.scale.x;
  // Small idle sway is applied only to the default sphere's visual child,
  // never to the ship's authoritative navigation or collision transform.
  sphere.position.y=Math.sin(time*.72)*.09;
@@ -496,11 +513,31 @@ function frame(now){
   const definition=cameraController.get(id);
   const initializationKey=(renderCamera===camera?"main:":"preview:")+id;
   const pose=evaluateCameraPose(definition,{
-   follow:{x:0,y:pilot.y,z:0},aimPoint:{x:0,y:pilot.y+.25,z:0},yaw,pitch,roll:bank
+   follow:{x:0,y:pilot.y,z:0},
+   aimPoint:{x:shipWorldCenter.x,y:shipWorldCenter.y,z:shipWorldCenter.z},
+   yaw,pitch,roll:bank
   });
-  const desired=new THREE.Vector3(pose.position.x,pose.position.y,pose.position.z);
+  // Fit *effective* poses without overwriting creator preset offsets.
+  // Orbital framing raises non-overhead ship-facing cameras smoothly while
+  // preserving the front-low underside composition near the ground.
+  const orbitalBlend=definition.id==="ship.camera.overhead"||!definition.lookAt.enabled?
+   0:THREE.MathUtils.smoothstep(profile.atmosphericAltitude,245,395);
+  const fitted=fitShipCamera({
+   position:pose.position,shipCenter:shipWorldCenter,shipRadius:shipWorldRadius,
+   fov:pose.projection.fov,aspect,sceneNear:near,orbitalBlend
+  });
+  const desired=new THREE.Vector3(fitted.position.x,fitted.position.y,fitted.position.z);
   if(!cameraInitialized.has(initializationKey)){renderCamera.position.copy(desired);cameraInitialized.add(initializationKey);}
   else renderCamera.position.lerp(desired,1-Math.exp(-definition.smoothing.position*dt));
+  // Smoothing must not strand the camera inside the altitude-enlarged mesh.
+  const effective=fitShipCamera({
+   position:renderCamera.position,shipCenter:shipWorldCenter,shipRadius:shipWorldRadius,
+   fov:pose.projection.fov,aspect,sceneNear:near
+  });
+  renderCamera.position.set(effective.position.x,effective.position.y,effective.position.z);
+  if(Math.abs(renderCamera.near-effective.near)>.02){
+   renderCamera.near=effective.near;renderCamera.updateProjectionMatrix();
+  }
   renderCamera.up.set(0,1,0);
   if(pose.target){
    const horizontalDistance=Math.hypot(pose.position.x-pose.target.x,pose.position.z-pose.target.z);
