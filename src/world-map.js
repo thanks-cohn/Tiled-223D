@@ -24,7 +24,7 @@ export function createWorldMap({panel,canvas,label,worldGetter,positionGetter,he
   const world=worldGetter(),w=world.width,h=world.height;
   // Never allocate a 16k×16k canvas to display a tiny sparse world overview.
   // All profiles use the SAME bounded 500×500 bitmap budget.
-  const cw=world.sparse?256:w,ch=world.sparse?256:h;
+  const cw=world.sparse&&!world.ground?256:w,ch=world.sparse&&!world.ground?256:h;
   const sx=cw/w,sz=ch/h;
   if(builtFor!==world) {
    canvas.width=cw;canvas.height=ch;
@@ -37,7 +37,7 @@ export function createWorldMap({panel,canvas,label,worldGetter,positionGetter,he
     const p=i*4;
     pixels.data[p]=c[0];pixels.data[p+1]=c[1];pixels.data[p+2]=c[2];pixels.data[p+3]=255;
    }
-   if(!world.sparse)for(const tree of world.trees||[]) {
+   if(world.ground)for(const tree of world.trees||[]) {
     const x=Math.floor(wrap(tree.x,w)),z=Math.floor(wrap(tree.z,h)),i=(z*w+x)*4;
     pixels.data[i]=31;pixels.data[i+1]=94;pixels.data[i+2]=42;
    }
