@@ -17,7 +17,7 @@ function comparable(camera){
  return JSON.stringify({
   mode:camera.mode,offset:Object.fromEntries(Object.entries(camera.offset).map(([key,value])=>[key,normalized(value)])),
   angleOffset:Object.fromEntries(Object.entries(camera.angleOffset).map(([key,value])=>[key,normalized(value)])),
-  lookAt:camera.lookAt,projection:camera.projection,
+  lookAt:camera.lookAt,shipFacing:camera.shipFacing,projection:camera.projection,
   smoothing:Object.fromEntries(Object.entries(camera.smoothing).map(([key,value])=>[key,normalized(value)]))
  });
 }
@@ -25,6 +25,7 @@ function comparable(camera){
 export const SHIP_CAMERA_PRESETS=Object.freeze(PRESETS.map(([id,name,forward,right,up,type,fov,fisheyeStrength])=>Object.freeze({
  schemaVersion:CAMERA_SCHEMA_VERSION,id,semanticName:name,rig:{kind:"controlled-ship"},
  offset:{forward,right,up,unit:"ft"},angleOffset:{pitch:0,yaw:0,roll:0,unit:"deg"},
+ shipFacing:{yaw:0,pitch:0,roll:0,unit:"deg"},
  lookAt:{enabled:true,target:{kind:"controlled-ship"},anchor:"aim-point"},
  projection:{type,fov,fisheyeStrength,near:.5,far:4000},
  smoothing:{position:8,rotation:10},mode:"standard"
@@ -58,9 +59,24 @@ export function setCameraLookAt(camera,{enabled,target}={}){
  }
  return camera;
 }
+// Cosmetic per-shot orientation relative to the vehicle's actual flight pose.
+// Never mutate the authoritative heading, velocity or collision transform.
+export function setShipFacing(camera,angles){
+ if(!camera?.shipFacing)throw Error("Camera has no ship-facing definition");
+ for(const axis of ["yaw","pitch","roll"]){
+  if(axis in angles)camera.shipFacing[axis]=finite(angles[axis],axis);
+ }
+ return camera;
+}
+export const LEGACY_SHIP_FACING_IDS=Object.freeze({
+ overview:"ship.camera.legacy-overview",forward:"ship.camera.legacy-forward"
+});
+export function createLegacyShipFacing(){
+ return {yaw:0,pitch:0,roll:0,unit:"deg"};
+}
 export function restoreCamera(camera){
  const original=clone(camera.originalPreset);
- for(const key of ["offset","angleOffset","lookAt","projection","smoothing","mode"])camera[key]=original[key];
+ for(const key of ["offset","angleOffset","shipFacing","lookAt","projection","smoothing","mode"])camera[key]=original[key];
  return camera;
 }
 
