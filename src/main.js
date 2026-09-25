@@ -12,6 +12,7 @@ import {createIslandImpostors,updateIslandImpostor,disposeIslandImpostors} from 
 import {altitudeProfile,damp,LIMITS} from "./flight-model.js";
 import {makeHorizonState,setHorizonPosition,buildOceanGeometry} from "./horizon.js";
 import {makeScaleWorld,SCALE_PRESETS,transferScalePosition} from "./scale-world.js";
+import {createDirtPerformanceDiagnostics} from "./dirt/performance-diagnostics.js";
 import {cameraViewProfile,nextCameraChoice,overviewCameraScale,forwardLookAngle,overviewFocusHeight,planetOverviewFov} from "./camera-modes.js";
 import {travelRegion} from "./travel-regions.js";
 import {positionIslandVisual,cinematicShipScale,cameraAscentHeight} from "./visual-anchors.js";
@@ -40,7 +41,8 @@ const horizonState=makeHorizonState();
 const ocean=oceanPlane(horizonState);scene.add(ocean);
 const cloudSystem=clouds(scene);
 const speedCues=makeOceanSpeedCues(scene);
-const dirtRenderer=createExpansiveDirtRenderer(scene,horizonState);
+const dirtPerformance=createDirtPerformanceDiagnostics();
+const dirtRenderer=createExpansiveDirtRenderer(scene,horizonState,dirtPerformance);
 
 const ship=new THREE.Group();
 const sphere=new THREE.Mesh(new THREE.SphereGeometry(.9,9,6),new THREE.MeshLambertMaterial({color:"#fbdf77",flatShading:true}));
@@ -311,7 +313,13 @@ const dirtCore=new ProgrammerDirtApi(createDirtState());
 // Local developer surface only: it performs no file/network access and grants
 // the documented local creator actor. Embedders should provide their own actor
 // and persistence adapter rather than treating this global as remote auth.
-window.tiledWorldDirtApi={...window.tiledWorldDirtApi,execute:request=>dirtCore.execute(request)};
+window.tiledWorldDirtApi={...window.tiledWorldDirtApi,
+ execute:request=>request?.operation==="dirt.inspectRuntimePerformance"?{
+   status:"ok",capabilityVersion:"dirt-v1",operation:"dirt.inspectRuntimePerformance",
+   revision:dirtCore.state.revision,result:dirtPerformance.snapshot()}:dirtCore.execute(request),
+ startPerformanceCapture:()=>dirtPerformance.start(),
+ stopPerformanceCapture:()=>dirtPerformance.stop(),
+ performanceSnapshot:()=>dirtPerformance.snapshot()};
 const dirtEditor=document.getElementById("dirtEditor"),dirtOutput=document.getElementById("dirtEditorOutput"),dirtCommit=document.getElementById("dirtCommit");let pendingDirtPlan=null;
 const dirtRequest=(operation,input={})=>({schemaVersion:"dirt-v1",operation,actorId:"creator",projectId:"demo-world",landmassId:"dirt-landmass-01",input});
 document.getElementById("dirtButton").addEventListener("click",()=>{dirtEditor.hidden=false;});
@@ -425,6 +433,7 @@ addEventListener("resize",()=>{camera.aspect=innerWidth/innerHeight;camera.updat
 
 function frame(now){
  requestAnimationFrame(frame);
+ dirtPerformance.frameBegin(now);
  if(window.__aexisDesktopIsActive?.()===false){last=now;return;}
  const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;
  // Map is a paused, inexpensive 2D inspection mode; do not run flight,
@@ -672,6 +681,7 @@ function frame(now){
  if(mode==="world")positionUI.textContent=
   `X ${wrap(pilot.x,world.width).toFixed(1)} · Z ${wrap(pilot.z,world.height).toFixed(1)} · ALT ${pilot.y.toFixed(1)} · GROUND ${pointGround(pilot.x,pilot.z).height.toFixed(1)} · MOMENTUM ${Math.abs(forwardVelocity).toFixed(0)} · ${currentTravel.mode.toUpperCase()} · ${profile.layer.toUpperCase()}`;
  applyVisualShipFacing(mainFacingId);
+ dirtPerformance.sceneBegin();
  renderer.setScissorTest(false);renderer.setViewport(0,0,innerWidth,innerHeight);
  renderer.render(scene,camera);
  if(mode==="world"&&previewEnabledInput.checked){
@@ -684,5 +694,6 @@ function frame(now){
   renderer.setScissorTest(false);renderer.setViewport(0,0,innerWidth,innerHeight);
  }
  ship.visible=true;
+ dirtPerformance.frameEnd();
 }
 requestAnimationFrame(frame);
