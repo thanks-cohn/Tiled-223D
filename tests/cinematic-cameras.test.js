@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {SHIP_CAMERA_PRESETS,FEET_TO_WORLD_UNITS,createShipCameraLibrary,cameraDisplayName,isCameraModified,setCameraOffset,moveCamera,restoreCamera,shipLocalOffset,evaluateCameraPose,createCameraController,shouldHandleCameraKey,previewViewport} from "../src/cinematic-cameras.js";
+import {SHIP_CAMERA_PRESETS,FEET_TO_WORLD_UNITS,createShipCameraLibrary,cameraDisplayName,isCameraModified,setCameraOffset,moveCamera,restoreCamera,shipLocalOffset,evaluateCameraPose,fitShipCamera,createCameraController,shouldHandleCameraKey,previewViewport} from "../src/cinematic-cameras.js";
 
 test("six exact ship presets use ship targets and requested mirrored offsets",()=>{
  assert.equal(SHIP_CAMERA_PRESETS.length,6);
@@ -81,4 +81,37 @@ test("camera keyboard shortcuts ignore typing and modified/repeated keys",()=>{
  assert.equal(shouldHandleCameraKey({target:{tagName:"INPUT"}}),false);
  assert.equal(shouldHandleCameraKey({target:{isContentEditable:true}}),false);
  assert.equal(shouldHandleCameraKey({target:{tagName:"CANVAS"},repeat:true}),false);
+});
+
+test("runtime ship fitting preserves exact authored offsets and never clips the scaled hull",()=>{
+ const definition=createShipCameraLibrary()[2];
+ const before=JSON.stringify(definition);
+ for(const radius of [1.85,8.65,650]){
+  for(const sceneNear of [.5,2.1,40.5]){
+   const fitted=fitShipCamera({
+    position:{x:0,y:-.6096,z:-3.048},
+    shipCenter:{x:0,y:0,z:0},shipRadius:radius,
+    fov:92,aspect:16/9,sceneNear,orbitalBlend:radius>100?1:0
+   });
+   const range=Math.hypot(fitted.position.x,fitted.position.y,fitted.position.z);
+   assert.ok(range>=fitted.minimumDistance-1e-8,"ship must fit within FOV");
+   assert.ok(fitted.near>0&&fitted.near<range-radius,"near must not clip ship");
+   if(radius>100)assert.ok(fitted.position.y>0,"orbital context lifts front camera toward planet-facing composition");
+  }
+ }
+ assert.equal(JSON.stringify(definition),before,"automatic safety must never mark preset modified");
+ assert.equal(cameraDisplayName(definition),"Low Front Fisheye (Customizable)");
+});
+
+test("effective near distance is independent for main and preview, including portrait aspect",()=>{
+ const input={position:{x:0,y:0,z:5},shipCenter:{x:0,y:0,z:0},
+  shipRadius:3,fov:70,sceneNear:40};
+ const main=fitShipCamera({...input,aspect:16/9});
+ const narrow=fitShipCamera({...input,aspect:.5});
+ assert.ok(narrow.minimumDistance>main.minimumDistance);
+ for(const result of [main,narrow]){
+  assert.ok(result.near<=40);
+  assert.ok(result.near<Math.hypot(result.position.x,result.position.y,result.position.z)-3);
+ }
+ assert.throws(()=>fitShipCamera({...input,aspect:0}),/Invalid cinematic camera fitting/);
 });
