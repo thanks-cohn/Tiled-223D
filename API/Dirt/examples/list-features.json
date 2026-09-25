@@ -1,0 +1,1 @@
+{"schemaVersion":"dirt-v1","operation":"dirt.listFeatures","actorId":"creator","projectId":"demo-world","landmassId":"dirt-landmass-01","input":{"worldId":"current","offset":0,"limit":10}}
