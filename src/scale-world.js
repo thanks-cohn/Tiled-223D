@@ -96,6 +96,16 @@ export function makeScaleWorld(local,id="current",dirtConfig={}){
   expansiveDirt:dirtFootprint
  };
  const pathNearLand=(x0,z0,x1,z1)=>{
+  // Sparse dirt is physically elevated. A flight over it must not skip
+  // collision merely because the only *authored* island is far away.
+  if(dirtFootprint?.rules.enabled){
+   const dx=x1-x0,dz=z1-z0;
+   const d=Math.hypot(dx,dz),steps=Math.max(1,Math.ceil(d/Math.max(8,Math.min(scale.width,scale.height)*.015)));
+   for(let i=0;i<=steps;i++){
+    const c=sampleExpansiveDirt(x0+dx*i/steps,z0+dz*i/steps);
+    if(c?.ground===ID.dirt)return true;
+   }
+  }
   // Broad-phase only: skip per-0.75-unit terrain/object checks over vast
   // empty ocean. Check a bounded number of existing semantic destinations.
   const midX=(x0+x1)/2,midZ=(z0+z1)/2;
