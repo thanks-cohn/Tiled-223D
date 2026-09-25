@@ -2,6 +2,31 @@
 
 All examples below run from the repository root. The CLI consumes one JSON request and prints one typed JSON response. Read-only calls do not create the state file. Successful `dirt.commitPlan` and `dirt.undo` atomically replace the compact state file.
 
+## Observed browser stutter and terrain build timings (runtime only)
+
+This is **not** a CLI operation: the CLI cannot inspect a separate live browser. In the ÆXIS viewer's DevTools console:
+
+```js
+window.tiledWorldDirtApi.startPerformanceCapture();
+// Play through several freezes, then:
+copy(JSON.stringify(window.tiledWorldDirtApi.stopPerformanceCapture(), null, 2));
+```
+
+The equivalent read-only browser-only operation is:
+
+```js
+window.tiledWorldDirtApi.execute({
+  schemaVersion: "dirt-v1",
+  operation: "dirt.inspectRuntimePerformance",
+  actorId: "debugger",
+  projectId: "demo-world",
+  landmassId: "dirt-landmass-01",
+  input: {}
+});
+```
+
+The snapshot reports actual frame gaps, measured CPU loop/render-submission time, and the sampled/triangulated vertices, duration and location of each near/far dirt mesh build. It does **not** claim GPU timings, VRAM/OS RAM or GC cause. Logs are bounded and contain no automatic upload. Read [PERFORMANCE.md](PERFORMANCE.md) for steps, field descriptions, diagnosis and limitations.
+
 ## Discovery and inspection
 
 ```sh
