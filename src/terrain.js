@@ -1,13 +1,17 @@
 import * as THREE from "three";
 import {cell,ID} from "./world-data.js";
 import {landmasses} from "./landmasses.js";
+import {dirtShade} from "./expansive-dirt.js";
 import {curveMaterial,horizonOcean} from "./horizon.js";
 // One mesh per terrain material, not one mesh or draw call per tile.
 const materials=[
  new THREE.MeshLambertMaterial({color:"#65a44f",side:THREE.DoubleSide}),
  new THREE.MeshLambertMaterial({color:"#9d7654",side:THREE.DoubleSide}),
  new THREE.MeshLambertMaterial({color:"#e2cb88",side:THREE.DoubleSide}),
- new THREE.MeshLambertMaterial({color:"#806d59",side:THREE.DoubleSide})
+ new THREE.MeshLambertMaterial({color:"#806d59",side:THREE.DoubleSide}),
+ new THREE.MeshLambertMaterial({color:"#805a3f",side:THREE.DoubleSide}),
+ new THREE.MeshLambertMaterial({color:"#b28b68",side:THREE.DoubleSide}),
+ new THREE.MeshLambertMaterial({color:"#6e4d3a",side:THREE.DoubleSide})
 ];
 export function terrainGroup(world,horizonState=null) {
  const root=new THREE.Group();
@@ -37,14 +41,15 @@ export function terrainGroup(world,horizonState=null) {
   rootForIsland.name=region.id;
   rootForIsland.userData={centerX:region.centerX,centerZ:region.centerZ,
    cellCount:region.cells.length};
-  const batches=[[],[],[],[]];
+  const batches=materials.map(()=>[]);
   const quad=(points,material)=>{
    const out=batches[material];for(const k of [0,1,2,0,2,3])out.push(...points[k]);
   };
   for(const index of region.cells){
    const x=index%world.width,z=Math.floor(index/world.width);
    const c=cell(world,x,z);
-   const material=c.ground===ID.sand?2:c.ground===ID.dirt?1:0;
+   const material=c.ground===ID.sand?2:c.ground===ID.dirt?
+    [1,4,5,6][dirtShade(x,z,world.dirtTreatment?.plans?.[i]?.rule?.seed??2317)]:0;
    const h00=vertexHeight(x,z),h01=vertexHeight(x,z+1);
    const h11=vertexHeight(x+1,z+1),h10=vertexHeight(x+1,z);
    quad([[x,h00,z],[x,h01,z+1],[x+1,h11,z+1],[x+1,h10,z]],material);

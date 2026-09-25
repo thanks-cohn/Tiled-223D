@@ -6,6 +6,8 @@ import islandData from "./worlds/floating-islands.json";
 import {buildFloatingIslands,disposeFloatingIslands} from "./floating-islands.js";
 import {spatialHit} from "./spatial.js";
 import {createWorldMap} from "./world-map.js";
+import {createDirtWorld,validateDirtRule} from "./expansive-dirt.js";
+import {landmasses} from "./landmasses.js";
 import {createIslandImpostors,updateIslandImpostor,disposeIslandImpostors} from "./island-impostors.js";
 import {altitudeProfile,damp,LIMITS} from "./flight-model.js";
 import {makeHorizonState,setHorizonPosition,buildOceanGeometry} from "./horizon.js";
@@ -16,6 +18,7 @@ import {positionIslandVisual,cinematicShipScale,cameraAscentHeight} from "./visu
 import {advanceMomentum,createFlybyTracker,resetFlybyTracker,updateFlybys} from "./flight-momentum.js";
 import {sweepHorizontal} from "./horizontal-flight.js";
 import {makeOceanSpeedCues} from "./ocean-speed-cues.js";
+import {createCameraController,cameraDisplayName,setCameraOffset,setCameraLookAt,setShipFacing,createLegacyShipFacing,LEGACY_SHIP_FACING_IDS,restoreCamera,evaluateCameraPose,fitShipCamera,shouldHandleCameraKey,previewViewport} from "./cinematic-cameras.js";
 
 const view=document.getElementById("view");
 const positionUI=document.getElementById("position"),statusUI=document.getElementById("status");
@@ -29,6 +32,7 @@ scene.background=skyDay.clone();
 // This default map wraps every 500 units; 350 clipped islands when turning.
 // 900 keeps every nearest repeated island inside the viewable range.
 const camera=new THREE.PerspectiveCamera(69,innerWidth/innerHeight,.5,4000);
+const previewCamera=new THREE.PerspectiveCamera(69,16/9,.5,4000);
 const sun=new THREE.DirectionalLight("#fff5db",1.35);sun.position.set(-80,160,-70);scene.add(sun);
 scene.add(new THREE.HemisphereLight("#fff6dc","#52768a",2.1));
 const horizonState=makeHorizonState();
@@ -39,20 +43,60 @@ const speedCues=makeOceanSpeedCues(scene);
 const ship=new THREE.Group();
 const sphere=new THREE.Mesh(new THREE.SphereGeometry(.9,9,6),new THREE.MeshLambertMaterial({color:"#fbdf77",flatShading:true}));
 sphere.scale.set(1,.6,1.7);ship.add(sphere);scene.add(ship);
+// Cache local model bounds once rather than traversing meshes every frame.
+let shipVisualBounds={center:new THREE.Vector3(),radius:2};
+function refreshShipVisualBounds(){
+ const position=ship.position.clone(),rotation=ship.rotation.clone(),scale=ship.scale.clone();
+ ship.position.set(0,0,0);ship.rotation.set(0,0,0);ship.scale.setScalar(1);
+ ship.updateMatrixWorld(true);
+ const sphereBounds=new THREE.Box3().setFromObject(ship).getBoundingSphere(new THREE.Sphere());
+ shipVisualBounds={center:sphereBounds.center.clone(),radius:Math.max(.05,sphereBounds.radius)};
+ ship.position.copy(position);ship.rotation.copy(rotation);ship.scale.copy(scale);
+ ship.updateMatrixWorld(true);
+}
+refreshShipVisualBounds();
 // Files placed at public/ship/ship.glb are available at /ship/ship.glb.
 // An absent model is deliberately nonfatal: the procedural sphere always works.
 new GLTFLoader().load("/ship/ship.glb",gltf=>{
  ship.remove(sphere);gltf.scene.scale.setScalar(1);
- ship.add(gltf.scene);
+ ship.add(gltf.scene);refreshShipVisualBounds();
 },undefined,()=>{ /* no uploaded model yet: retain the sphere */ });
 
-let sourceWorld=sampleWorld(),copies=[],floatingInstances=[],islandCards=[],yaw=0,
+let sourceBaseWorld=sampleWorld(),dirtRules={},
+ sourceWorld=createDirtWorld(sourceBaseWorld,dirtRules),copies=[],floatingInstances=[],islandCards=[],yaw=0,
  mode="world",quality="low",time=0,last=performance.now();
+sourceBaseWorld.objects=islandData.objects;
 sourceWorld.objects=islandData.objects;
 let scaleScene=makeScaleWorld(sourceWorld,"current"),world=scaleScene.nav;
 let regions=world.regions;
 const pilot=new THREE.Vector3();
-let cameraInitialized=false,cameraChoice="auto";
+const cameraController=createCameraController();
+const cameraInitialized=new Set();
+let legacyCameraActive=false,cameraChoice="auto";
+// Visual-only facing is stored per shot; no change to pilot heading or collision.
+const legacyShipFacing={
+ [LEGACY_SHIP_FACING_IDS.overview]:createLegacyShipFacing(),
+ [LEGACY_SHIP_FACING_IDS.forward]:createLegacyShipFacing()
+};
+function facingFor(id){
+ if(id in legacyShipFacing)return legacyShipFacing[id];
+ return cameraController.get(id).shipFacing;
+}
+function setFacingFor(id,angles){
+ const setting=facingFor(id);
+ setShipFacing({shipFacing:setting},angles);
+ return {...setting};
+}
+function applyVisualShipFacing(id){
+ const facing=facingFor(id),degrees=THREE.MathUtils.degToRad;
+ ship.rotation.set(pitch+degrees(facing.pitch),yaw+degrees(facing.yaw),bank+degrees(facing.roll));
+ ship.updateWorldMatrix(true,false);
+}
+function currentShipVisualBounds(){
+ ship.updateWorldMatrix(true,false);
+ return {center:ship.localToWorld(shipVisualBounds.center.clone()),
+  radius:shipVisualBounds.radius*ship.scale.x};
+}
 const flybys=createFlybyTracker();
 let atmosphereWarned=false,cruise=false,forwardVelocity=0,verticalVelocity=0,bank=0,pitch=0;
 let safeFlightCeiling=0;
@@ -71,9 +115,9 @@ function makeTerrain(){
  // Keep the planet visible at the highest permitted altitude. Camera near is
  // raised only when sufficiently distant so the 4 GB GPU retains depth
  // precision instead of shimmering at enormous far/near clipping ratios.
- camera.far=Math.max(4000,scaleScene.preset.radius*7,
+ const cameraFar=Math.max(4000,scaleScene.preset.radius*7,
   2400*scaleScene.preset.altitudeScale+scaleScene.preset.radius*3);
- camera.updateProjectionMatrix();
+ for(const renderCamera of [camera,previewCamera]){renderCamera.far=cameraFar;renderCamera.updateProjectionMatrix();}
  const oldOcean=ocean.geometry;
  ocean.geometry=buildOceanGeometry(scaleScene.preset.radius);
  oldOcean.dispose();
@@ -109,6 +153,38 @@ function makeTerrain(){
  // so a long view distance never exposes 9 repeated maps at once.
  scene.add(base);copies.push(base);
 }
+// Explicit authoring API. The original Tiled source is never overwritten.
+function refreshDirtTreatment(){
+ sourceWorld=createDirtWorld(sourceBaseWorld,dirtRules);
+ scaleScene=makeScaleWorld(sourceWorld,scaleScene.preset.id);
+ world=scaleScene.nav;
+ makeTerrain();cameraInitialized.clear();mapUI.refreshWorld();
+ return sourceWorld.dirtTreatment;
+}
+window.tiledWorldDirtApi={
+ listLandmasses:()=>landmasses(sourceBaseWorld).map(region=>({
+  id:region.id,cells:region.cells.length,bounds:[...region.bounds],
+  rule:{...(sourceWorld.dirtTreatment?.plans?.find(p=>p.id===region.id)?.rule||{})}
+ })),
+ getTreatment:()=>sourceWorld.dirtTreatment?{
+  plans:sourceWorld.dirtTreatment.plans.map(p=>({...p,rule:{...p.rule}})),
+  rampCandidates:sourceWorld.dirtTreatment.rampCandidates.map(p=>({...p}))
+ }:null,
+ setLandmassRule:(id,patch)=>{
+  if(!landmasses(sourceBaseWorld).some(region=>region.id===id))throw Error("Unknown landmass: "+id);
+  if(!patch||typeof patch!=="object"||Array.isArray(patch))throw Error("Invalid dirt rule");
+  dirtRules={...dirtRules,[id]:validateDirtRule({...dirtRules[id],...patch})};
+  return refreshDirtTreatment();
+ },
+ clearLandmassRule:id=>{
+  if(!landmasses(sourceBaseWorld).some(region=>region.id===id))throw Error("Unknown landmass: "+id);
+  const next={...dirtRules};delete next[id];dirtRules=next;
+  return refreshDirtTreatment();
+ },
+ capabilities:()=>({dirt:"semantic-tiles-and-four-shades",
+  ramp:"deterministic-candidates-only-no-collision-safe-mesh",
+  expansion:"metadata-only",sourcePreserved:true})
+};
 function resetSpawn(reason="initialization"){
  // Never reset spawn inside the flight loop or a camera/LOD transition.
  console.info("[Tiled-223D] explicit spawn:",reason);
@@ -119,7 +195,7 @@ function resetSpawn(reason="initialization"){
  const startZ=p.z+offshore;
  pilot.set(p.x,Math.max(offshore?34:75,pointGround(p.x,startZ).height+23),startZ);
  ship.position.set(0,pilot.y,0);
- cameraInitialized=false;
+ cameraInitialized.clear();
  resetFlybyTracker(flybys,world,regions,pilot.x,pilot.z);
  yaw=0;cruise=false;forwardVelocity=0;verticalVelocity=0;bank=0;pitch=0;
  document.getElementById("cruise").textContent="Fly forward: Off";
@@ -153,36 +229,80 @@ document.getElementById("cruise").addEventListener("click",()=>{
  document.getElementById("cruise").textContent="Fly forward: "+(cruise?"On":"Off");
 });
 document.getElementById("reenter").addEventListener("click",enter);
-const cameraButton=document.getElementById("cameraMode");
-const autoCameraButton=document.getElementById("cameraAuto");
-let lastCameraLabel="";
-function syncCameraButton(){
+const mainCameraSelect=document.getElementById("mainCamera"),previewCameraSelect=document.getElementById("previewCamera");
+const previewFrame=document.getElementById("cameraPreviewFrame"),previewCaption=document.getElementById("cameraPreviewCaption");
+const offsetInputs={forward:document.getElementById("cameraForward"),right:document.getElementById("cameraRight"),up:document.getElementById("cameraUp")};
+const lookAtInput=document.getElementById("cameraLookAt"),previewEnabledInput=document.getElementById("previewEnabled");
+const cameraButton=document.getElementById("cameraMode"),autoCameraButton=document.getElementById("cameraAuto");
+const overviewShipFacing=document.getElementById("overviewShipFacing");
+const overviewShipFacingLabel=document.getElementById("overviewShipFacingLabel");
+function syncOverviewShipFacingUI(){
+ const isOverview=legacyCameraActive&&
+  cameraViewProfile(pilot.y/scaleScene.preset.altitudeScale,cameraChoice).overviewWeight>=.5;
+ overviewShipFacing.hidden=!isOverview;overviewShipFacingLabel.hidden=!isOverview;
+ overviewShipFacing.value=String(legacyShipFacing[LEGACY_SHIP_FACING_IDS.overview].yaw);
+}
+overviewShipFacing.addEventListener("change",()=>{
+ setFacingFor(LEGACY_SHIP_FACING_IDS.overview,{yaw:Number(overviewShipFacing.value)});
+ syncOverviewShipFacingUI();
+});
+function syncLegacyCameraUI(){
  const view=cameraViewProfile(pilot.y/scaleScene.preset.altitudeScale,cameraChoice);
  const label=view.overviewWeight>=.5?"Overview":"Forward";
- // On each click View changes the actual rendered mode. Auto is an
- // independent control, never a third indistinguishable view-button step.
- if(label!==lastCameraLabel){
-  cameraButton.textContent="View: "+label;
-  lastCameraLabel=label;
+ cameraButton.textContent=legacyCameraActive?`Legacy view: ${label}`:"Legacy view: Off";
+ cameraButton.setAttribute("aria-pressed",String(legacyCameraActive));
+ autoCameraButton.textContent=legacyCameraActive&&cameraChoice==="auto"?"Legacy auto: On":"Legacy auto";
+ autoCameraButton.setAttribute("aria-pressed",String(legacyCameraActive&&cameraChoice==="auto"));
+ syncOverviewShipFacingUI();
+}
+function toggleLegacyCamera(){
+ legacyCameraActive=true;
+ cameraChoice=nextCameraChoice(cameraChoice,pilot.y/scaleScene.preset.altitudeScale);
+ cameraInitialized.clear();syncLegacyCameraUI();
+}
+function enableLegacyAuto(){legacyCameraActive=true;cameraChoice="auto";cameraInitialized.clear();syncLegacyCameraUI();}
+function syncCameraUI(){
+ const {mainId,previewId}=cameraController.selections();
+ for(const select of [mainCameraSelect,previewCameraSelect]){
+  const selected=select===mainCameraSelect?mainId:previewId;
+  select.replaceChildren(...cameraController.list().map(definition=>{
+   const option=document.createElement("option");option.value=definition.id;option.textContent=cameraDisplayName(definition);return option;
+  }));select.value=selected;
  }
- cameraButton.setAttribute("aria-pressed",String(label==="Forward"));
- autoCameraButton.textContent="Auto camera: "+(cameraChoice==="auto"?"On":"Off");
- autoCameraButton.setAttribute("aria-pressed",String(cameraChoice==="auto"));
+ const main=cameraController.get(mainId);
+ for(const axis of Object.keys(offsetInputs))offsetInputs[axis].value=main.offset[axis];
+ lookAtInput.checked=main.lookAt.enabled;
+ previewCaption.textContent=cameraDisplayName(cameraController.get(previewId));
+ previewFrame.hidden=!previewEnabledInput.checked;
 }
-function toggleCamera(){
- cameraChoice=nextCameraChoice(cameraChoice,
-  pilot.y/scaleScene.preset.altitudeScale);
- cameraInitialized=false; // no lingering old camera pose looking at empty sky
- syncCameraButton();
-}
-function enableAutoCamera(){
- cameraChoice="auto";
- cameraInitialized=false;
- syncCameraButton();
-}
-cameraButton.addEventListener("click",toggleCamera);
-autoCameraButton.addEventListener("click",enableAutoCamera);
-syncCameraButton();
+mainCameraSelect.addEventListener("change",()=>{legacyCameraActive=false;cameraController.selectMain(mainCameraSelect.value);cameraInitialized.clear();syncCameraUI();syncLegacyCameraUI();});
+previewCameraSelect.addEventListener("change",()=>{cameraController.selectPreview(previewCameraSelect.value);cameraInitialized.delete(previewCameraSelect.value);syncCameraUI();});
+for(const [axis,input] of Object.entries(offsetInputs))input.addEventListener("change",()=>{setCameraOffset(cameraController.get(cameraController.selections().mainId),{[axis]:Number(input.value)});cameraInitialized.clear();syncCameraUI();});
+lookAtInput.addEventListener("change",()=>{setCameraLookAt(cameraController.get(cameraController.selections().mainId),{enabled:lookAtInput.checked});syncCameraUI();});
+document.getElementById("cameraReset").addEventListener("click",()=>{restoreCamera(cameraController.get(cameraController.selections().mainId));cameraInitialized.clear();syncCameraUI();});
+previewEnabledInput.addEventListener("change",syncCameraUI);
+cameraButton.addEventListener("click",toggleLegacyCamera);
+autoCameraButton.addEventListener("click",enableLegacyAuto);
+// Renderer-independent definitions remain accessible to integrations without
+// exposing Three.js cameras or granting world mutation permissions.
+window.tiledWorldCameraApi={...cameraController,
+ setPosition:(id,value)=>{setCameraOffset(cameraController.get(id),value);syncCameraUI();},
+ setLookAt:(id,value)=>{setCameraLookAt(cameraController.get(id),value);syncCameraUI();},
+ // Visual-only offsets in degrees. Includes the six presets and both legacy shots.
+ getShipFacing:id=>({...facingFor(id)}),
+ setShipFacing:(id,angles)=>{
+  const updated=setFacingFor(id,angles);
+  syncCameraUI();syncOverviewShipFacingUI();
+  return updated;
+ },
+ restoreDefaults:id=>{
+  if(id in legacyShipFacing)legacyShipFacing[id]=createLegacyShipFacing();
+  else restoreCamera(cameraController.get(id));
+  syncCameraUI();syncOverviewShipFacingUI();
+ }
+};
+syncCameraUI();
+syncLegacyCameraUI();
 
 const scaleSelector=document.getElementById("worldScale");
 scaleSelector.addEventListener("change",()=>{
@@ -194,9 +314,10 @@ scaleSelector.addEventListener("change",()=>{
  pilot.set(transferred.x,transferred.y,transferred.z);
  scaleSelector.blur();held.clear();makeTerrain();
  ship.position.set(0,pilot.y,0);
- cameraInitialized=false;
+ cameraInitialized.clear();
  resetFlybyTracker(flybys,world,world.regions,pilot.x,pilot.z);
- mapUI.refreshWorld();syncCameraButton();
+ mapUI.refreshWorld();
+ syncLegacyCameraUI();
  statusUI.textContent=world.name+" · "+world.width+" × "+world.height+
   " · location preserved · sparse ocean · fixed terrain budget";
 });
@@ -209,12 +330,12 @@ document.getElementById("quality").addEventListener("click",()=>{
 });
 function importParsedMap(map,heights=null){
   const next=fromTiled(map,heights);
-  next.objects=[];sourceWorld=next;scaleScene=makeScaleWorld(next,"current");world=scaleScene.nav;
+  next.objects=[];sourceBaseWorld=next;dirtRules={};sourceWorld=next;scaleScene=makeScaleWorld(next,"current");world=scaleScene.nav;
   document.getElementById("worldScale").value="current";
   document.getElementById("worldScale").disabled=true;
   makeTerrain();
   resetSpawn("map import");mode="world";exitUI.classList.remove("show");
-  cameraChoice="auto";syncCameraButton();
+  cameraInitialized.clear();syncCameraUI();
   mapUI.refreshWorld();mapUI.close();
   statusUI.textContent=world.name+" · "+world.width+" × "+world.height+((heights||map.substrateElevation)?" · elevated":" · flat (no elevation file)");
   return {name:world.name,width:world.width,height:world.height};
@@ -265,10 +386,12 @@ if(window.qt?.webChannelTransport){
  window.__aexisDesktopIsActive=()=>desktopActive;
 }
 addEventListener("keydown",e=>{
- if(e.code==="KeyV"&&!e.repeat&&mode==="world"&&!mapUI.isOpen()){
-  e.preventDefault();
-  if(e.shiftKey)enableAutoCamera();
-  else toggleCamera();
+ if(e.code==="KeyC"&&shouldHandleCameraKey(e)&&mode==="world"&&!mapUI.isOpen()){
+  e.preventDefault();legacyCameraActive=false;cameraController.swap();cameraInitialized.clear();syncCameraUI();syncLegacyCameraUI();
+  return;
+ }
+ if(e.code==="KeyV"&&shouldHandleCameraKey(e)&&mode==="world"&&!mapUI.isOpen()){
+  e.preventDefault();if(e.shiftKey)enableLegacyAuto();else toggleLegacyCamera();
   return;
  }
  if(e.code==="KeyM"&&!e.repeat&&mode==="world"){
@@ -382,7 +505,9 @@ function frame(now){
  const profile=altitudeProfile(pilot.y,scaleScene.preset.altitudeScale);
  const near=0.5+Math.min(40,profile.globeReveal*
   Math.sqrt(scaleScene.preset.radius)*.25);
- if(Math.abs(camera.near-near)>.08){
+ // Legacy planet view uses the global near plane. Each cinematic view
+ // computes its own near plane after fitting the displayed ship geometry.
+ if(legacyCameraActive&&Math.abs(camera.near-near)>.08){
   camera.near=near;camera.updateProjectionMatrix();
  }
  ship.position.set(0,pilot.y,0);
@@ -393,6 +518,7 @@ function frame(now){
  // Physics uses the unscaled semantic ship position and its explicit radius.
  ship.scale.setScalar(cinematicShipScale(profile.globeReveal)*
   (1+(scaleScene.preset.altitudeScale-1)*profile.globeReveal));
+ ship.updateWorldMatrix(true,false);
  // Small idle sway is applied only to the default sphere's visual child,
  // never to the ship's authoritative navigation or collision transform.
  sphere.position.y=Math.sin(time*.72)*.09;
@@ -436,66 +562,112 @@ function frame(now){
    sprite.position.x-=pilot.x;sprite.position.z-=pilot.z;
   }
  }
- const dx=Math.sin(yaw),dz=Math.cos(yaw);
- const viewProfile=cameraViewProfile(profile.atmosphericAltitude,cameraChoice);
- syncCameraButton();
- const globe=profile.globeReveal;
- const viewMix=viewProfile.overviewWeight;
- // The forward cockpit and existing external/planetary camera are independent
- // of navigation. Low/mid default to forward; high/top default to the existing
- // overview. Manual Forward/Overview overrides altitude at any level.
- const forwardPosition=new THREE.Vector3(0,pilot.y+1.65,0);
- const scale=overviewCameraScale(profile.atmosphericAltitude,
-  scaleScene.preset.altitudeScale);
- // Keep the actual terrain inside the forward viewport as altitude rises:
- // at Massive scale a perfectly horizontal cockpit ray sees only empty sky
- // thousands of units above the sea for most of the ascent.
- const forwardRange=130+scaleScene.preset.radius*.6*
-  THREE.MathUtils.smoothstep(profile.atmosphericAltitude,65,445);
- const forwardAngle=forwardLookAngle(
-  profile.atmosphericAltitude,globe);
- const forwardFocus=new THREE.Vector3(
-  -dx*forwardRange,
-  forwardPosition.y-forwardRange*Math.tan(forwardAngle),
-  -dz*forwardRange
- );
- // Scale BOTH horizontal follow distance and camera height. The previous
- // 16k world multiplied ONLY camera Y by 32, creating a near-vertical view
- // and a large lingering mismatch with the forward camera.
- const overviewPosition=new THREE.Vector3(
-  dx*profile.cameraDistance*scale,
-  pilot.y+cameraAscentHeight(profile.cameraHeight,globe)*scale,
-  dz*profile.cameraDistance*scale
- );
- const overviewFocus=new THREE.Vector3(
-  THREE.MathUtils.lerp(-dx*(33+70*profile.curvature),0,globe),
-  overviewFocusHeight(pilot.y,profile.atmosphericAltitude,
-   scaleScene.preset.radius,globe,profile.lookDown),
-  THREE.MathUtils.lerp(-dz*(33+70*profile.curvature),0,globe)
- );
- const desired=forwardPosition.lerp(overviewPosition,viewMix);
- const focus=forwardFocus.lerp(overviewFocus,viewMix);
- // High altitude: frame the WHOLE planet around the center of the view.
- // A narrower overview lens makes the sphere occupy more of the screen
- // without changing planetary geometry, camera clipping, or ship coordinates.
- const goalFov=planetOverviewFov(
-  profile.fieldOfView+(boosting?7:0),globe,viewMix);
- const followRate=4.8+15*globe+Math.min(12,Math.abs(forwardVelocity)/80);
- if(!cameraInitialized){camera.position.copy(desired);cameraInitialized=true;}
- else camera.position.lerp(desired,1-Math.exp(-followRate*dt));
- // Use the SAME floating origin and avoid chasing a displaced ship.
- camera.lookAt(focus);
- camera.rotateZ(bank*.12*(1-globe*.8)*viewMix);
- const nextFov=damp(camera.fov,goalFov,5,dt);
- if(Math.abs(camera.fov-nextFov)>.012){
-  camera.fov=nextFov;camera.updateProjectionMatrix();
+ const {mainId,previewId}=cameraController.selections();
+ function updateLegacyCamera(){
+  const dx=Math.sin(yaw),dz=Math.cos(yaw);
+  const viewProfile=cameraViewProfile(profile.atmosphericAltitude,cameraChoice);
+  const globe=profile.globeReveal,viewMix=viewProfile.overviewWeight;
+  const forwardPosition=new THREE.Vector3(0,pilot.y+1.65,0);
+  const scale=overviewCameraScale(profile.atmosphericAltitude,scaleScene.preset.altitudeScale);
+  const forwardRange=130+scaleScene.preset.radius*.6*
+   THREE.MathUtils.smoothstep(profile.atmosphericAltitude,65,445);
+  const forwardAngle=forwardLookAngle(profile.atmosphericAltitude,globe);
+  const forwardFocus=new THREE.Vector3(-dx*forwardRange,
+   forwardPosition.y-forwardRange*Math.tan(forwardAngle),-dz*forwardRange);
+  const overviewPosition=new THREE.Vector3(dx*profile.cameraDistance*scale,
+   pilot.y+cameraAscentHeight(profile.cameraHeight,globe)*scale,
+   dz*profile.cameraDistance*scale);
+  const overviewFocus=new THREE.Vector3(
+   THREE.MathUtils.lerp(-dx*(33+70*profile.curvature),0,globe),
+   overviewFocusHeight(pilot.y,profile.atmosphericAltitude,
+    scaleScene.preset.radius,globe,profile.lookDown),
+   THREE.MathUtils.lerp(-dz*(33+70*profile.curvature),0,globe));
+  const desired=forwardPosition.lerp(overviewPosition,viewMix);
+  const focus=forwardFocus.lerp(overviewFocus,viewMix);
+  const followRate=4.8+15*globe+Math.min(12,Math.abs(forwardVelocity)/80);
+  if(!cameraInitialized.has("legacy")){camera.position.copy(desired);cameraInitialized.add("legacy");}
+  else camera.position.lerp(desired,1-Math.exp(-followRate*dt));
+  camera.up.set(0,1,0);camera.lookAt(focus);camera.rotateZ(bank*.12*(1-globe*.8)*viewMix);
+  const goalFov=planetOverviewFov(profile.fieldOfView+(boosting?7:0),globe,viewMix);
+  const nextFov=damp(camera.fov,goalFov,5,dt);
+  if(Math.abs(camera.fov-nextFov)>.012||camera.aspect!==innerWidth/innerHeight){
+   camera.fov=nextFov;camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+  }
+  return viewMix>.88;
  }
- // Show the ship only after the camera is outside its close cockpit pose.
- // Never change the authoritative pilot/ship navigation state on view toggle.
- ship.visible=viewMix>.88;
+ function updateRenderCamera(renderCamera,id,aspect){
+  const definition=cameraController.get(id);
+  const {center:shipWorldCenter,radius:shipWorldRadius}=currentShipVisualBounds();
+  const initializationKey=(renderCamera===camera?"main:":"preview:")+id;
+  const pose=evaluateCameraPose(definition,{
+   follow:{x:0,y:pilot.y,z:0},
+   aimPoint:{x:shipWorldCenter.x,y:shipWorldCenter.y,z:shipWorldCenter.z},
+   yaw,pitch,roll:bank
+  });
+  // Fit *effective* poses without overwriting creator preset offsets.
+  // Orbital framing raises non-overhead ship-facing cameras smoothly while
+  // preserving the front-low underside composition near the ground.
+  const orbitalBlend=definition.id==="ship.camera.overhead"||!definition.lookAt.enabled?
+   0:THREE.MathUtils.smoothstep(profile.atmosphericAltitude,245,395);
+  const fitted=fitShipCamera({
+   position:pose.position,shipCenter:shipWorldCenter,shipRadius:shipWorldRadius,
+   fov:Math.min(pose.projection.fov,renderCamera.fov),aspect,sceneNear:near,orbitalBlend
+  });
+  const desired=new THREE.Vector3(fitted.position.x,fitted.position.y,fitted.position.z);
+  if(!cameraInitialized.has(initializationKey)){renderCamera.position.copy(desired);cameraInitialized.add(initializationKey);}
+  else renderCamera.position.lerp(desired,1-Math.exp(-definition.smoothing.position*dt));
+  // Smoothing must not strand the camera inside the altitude-enlarged mesh.
+  const effective=fitShipCamera({
+   position:renderCamera.position,shipCenter:shipWorldCenter,shipRadius:shipWorldRadius,
+   fov:Math.min(pose.projection.fov,renderCamera.fov),aspect,sceneNear:near
+  });
+  renderCamera.position.set(effective.position.x,effective.position.y,effective.position.z);
+  if(Math.abs(renderCamera.near-effective.near)>.02){
+   renderCamera.near=effective.near;renderCamera.updateProjectionMatrix();
+  }
+  renderCamera.up.set(0,1,0);
+  if(pose.target){
+   const horizontalDistance=Math.hypot(pose.position.x-pose.target.x,pose.position.z-pose.target.z);
+   if(horizontalDistance<1e-6)renderCamera.up.set(-Math.sin(yaw),0,-Math.cos(yaw));
+   renderCamera.lookAt(pose.target.x,pose.target.y,pose.target.z);
+  }
+  else renderCamera.rotation.set(pitch,yaw,bank,"YXZ");
+  renderCamera.rotateX(THREE.MathUtils.degToRad(pose.angleOffset.pitch));
+  renderCamera.rotateY(THREE.MathUtils.degToRad(pose.angleOffset.yaw));
+  renderCamera.rotateZ(THREE.MathUtils.degToRad(pose.angleOffset.roll));
+  const nextFov=damp(renderCamera.fov,pose.projection.fov+(boosting?5:0),5,dt);
+  if(Math.abs(renderCamera.fov-nextFov)>.012||renderCamera.aspect!==aspect){
+   renderCamera.fov=nextFov;renderCamera.aspect=aspect;renderCamera.updateProjectionMatrix();
+  }
+ }
+ // Each viewport may show a different cosmetic ship direction.
+ const mainFacingId=legacyCameraActive?
+  (cameraViewProfile(profile.atmosphericAltitude,cameraChoice).overviewWeight>=.5?
+   LEGACY_SHIP_FACING_IDS.overview:LEGACY_SHIP_FACING_IDS.forward):mainId;
+ applyVisualShipFacing(mainFacingId);
+ const mainShowsShip=legacyCameraActive?updateLegacyCamera():
+  (updateRenderCamera(camera,mainId,innerWidth/innerHeight),true);
+ const previewBounds=previewViewport(innerWidth,innerHeight);
+ const {width:previewWidth,height:previewHeight}=previewBounds;
+ applyVisualShipFacing(previewId);
+ updateRenderCamera(previewCamera,previewId,previewWidth/previewHeight);
+ ship.visible=mainShowsShip;
  cloudSystem.update(pilot,world,time,profile,forwardVelocity,pilot,camera,yaw);
+ syncLegacyCameraUI();
  if(mode==="world")positionUI.textContent=
   `X ${wrap(pilot.x,world.width).toFixed(1)} · Z ${wrap(pilot.z,world.height).toFixed(1)} · ALT ${pilot.y.toFixed(1)} · GROUND ${pointGround(pilot.x,pilot.z).height.toFixed(1)} · MOMENTUM ${Math.abs(forwardVelocity).toFixed(0)} · ${currentTravel.mode.toUpperCase()} · ${profile.layer.toUpperCase()}`;
+ applyVisualShipFacing(mainFacingId);
+ renderer.setScissorTest(false);renderer.setViewport(0,0,innerWidth,innerHeight);
  renderer.render(scene,camera);
+ if(mode==="world"&&previewEnabledInput.checked){
+  // A second view of the authoritative scene, never a second simulation tick.
+  applyVisualShipFacing(previewId);
+  ship.visible=true;renderer.setScissorTest(true);
+  renderer.setViewport(previewBounds.x,previewBounds.y,previewWidth,previewHeight);
+  renderer.setScissor(previewBounds.x,previewBounds.y,previewWidth,previewHeight);
+  renderer.render(scene,previewCamera);
+  renderer.setScissorTest(false);renderer.setViewport(0,0,innerWidth,innerHeight);
+ }
+ ship.visible=true;
 }
 requestAnimationFrame(frame);
