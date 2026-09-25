@@ -1,5 +1,6 @@
 import {ID,cell,wrap} from "./world-data.js";
 import {landmasses} from "./landmasses.js";
+import {dirtLandSample,expansiveDirtFootprint,validateExpansiveDirt} from "./expansive-dirt-land.js";
 import {protectedRegions} from "./travel-regions.js";
 
 // SURFACE AREA multipliers, not linear dimensions. Massive is 32² = 1,024×
@@ -21,7 +22,7 @@ const signed=(value,center,period)=>{
 };
 const nearest=(position,center,size)=>Math.round((position-center)/size)*size;
 
-export function makeScaleWorld(local,id="current"){
+export function makeScaleWorld(local,id="current",dirtConfig={}){
  const preset=SCALE_PRESETS[id];
  if(!preset)throw Error("Unknown world scale "+id);
  if(!Number.isInteger(local.width)||!Number.isInteger(local.height))throw Error("Invalid local map");
@@ -48,6 +49,9 @@ export function makeScaleWorld(local,id="current"){
   }
   return best;
  };
+ const expansiveDirt=validateExpansiveDirt(dirtConfig);
+ const dirtFootprint=demo&&scale.id!=="current"?expansiveDirtFootprint(scale.width,scale.height,expansiveDirt):null;
+ const sampleExpansiveDirt=(x,z)=>dirtFootprint?dirtLandSample(x,z,scale.width,scale.height,expansiveDirt,placements):null;
  const objects=(local.objects||[]).map(object=>{
   const host=nearestPlacement(object.at[0],object.at[2]);
   return {...object,at:[object.at[0]+(host?.offsetX||0),
@@ -70,7 +74,8 @@ export function makeScaleWorld(local,id="current"){
    const hit=cell(local,placement.localX+dx,placement.localZ+dz);
    if(hit.ground!==ID.ocean)return hit;
   }
-  return {ground:ID.ocean,height:0};
+  const dirt=sampleExpansiveDirt(x,z);
+  return dirt&&dirt.ground===ID.dirt?dirt:{ground:ID.ocean,height:0};
  }
  const spawns=local.spawns.map(spawn=>{
   const host=nearestPlacement(spawn.x,spawn.z);
@@ -87,7 +92,8 @@ export function makeScaleWorld(local,id="current"){
   groundAt:(x,z)=>groundAt(x,z).ground,
   isOcean:(x,z)=>groundAt(x,z).ground===ID.ocean,
   sparse:scale.id!=="current",altitudeScale:scale.altitudeScale,
-  localWidth:local.width,localHeight:local.height
+  localWidth:local.width,localHeight:local.height,
+  expansiveDirt:dirtFootprint
  };
  const pathNearLand=(x0,z0,x1,z1)=>{
   // Broad-phase only: skip per-0.75-unit terrain/object checks over vast
@@ -104,7 +110,8 @@ export function makeScaleWorld(local,id="current"){
   }
   return false;
  };
- return {preset:scale,nav,groundAt,pathNearLand,
+ return {preset:scale,nav,groundAt,pathNearLand,expansiveDirt:dirtFootprint,
+  sampleExpansiveDirt,
   placementOf:(id)=>placements.find(x=>x.id===id),
   nearestLandInstance:(pilot,placement)=>({
    // nearest() is ONLY an integer wrap-period offset (zero near the
