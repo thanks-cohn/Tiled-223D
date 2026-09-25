@@ -48,11 +48,13 @@ test("both original island sizes, local collision elevations and floating struct
  assert.equal(big.nav.ground,null);
  assert.equal(big.nav.heights,null);
 });
-test("actual ocean is available between sparse islands; seam wraps the real destination",()=>{
+test("expansive dirt and actual ocean coexist; seam wraps the authored destination",()=>{
  const huge=makeScaleWorld(source(),"massive"),a=huge.nav.placements[0];
- assert.equal(huge.groundAt(8000,8000).ground,ID.ocean);
+ assert.equal(huge.groundAt(8000,8000).ground,ID.dirt);
+ assert.equal(huge.groundAt(8000,0).ground,ID.ocean);
  assert.equal(huge.groundAt(a.x,a.z).ground,huge.groundAt(a.x+16000,a.z).ground);
- assert.equal(huge.nav.isOcean(8000,8000),true);
+ assert.equal(huge.nav.isOcean(8000,8000),false);
+ assert.equal(huge.nav.isOcean(8000,0),true);
  assert.equal(huge.pathNearLand(0,0,200,0),false);
  assert.equal(huge.pathNearLand(a.x-150,a.z,a.x+150,a.z),true);
  const land=huge.nearestLandInstance({x:a.x+16000,z:a.z+16000},a);

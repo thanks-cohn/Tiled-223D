@@ -6,8 +6,8 @@ import islandData from "./worlds/floating-islands.json";
 import {buildFloatingIslands,disposeFloatingIslands} from "./floating-islands.js";
 import {spatialHit} from "./spatial.js";
 import {createWorldMap} from "./world-map.js";
-import {createDirtWorld,validateDirtRule} from "./expansive-dirt.js";
-import {landmasses} from "./landmasses.js";
+import {validateExpansiveDirt,dirtLandSample} from "./expansive-dirt-land.js";
+import {createExpansiveDirtRenderer} from "./expansive-dirt-renderer.js";
 import {createIslandImpostors,updateIslandImpostor,disposeIslandImpostors} from "./island-impostors.js";
 import {altitudeProfile,damp,LIMITS} from "./flight-model.js";
 import {makeHorizonState,setHorizonPosition,buildOceanGeometry} from "./horizon.js";
@@ -39,6 +39,7 @@ const horizonState=makeHorizonState();
 const ocean=oceanPlane(horizonState);scene.add(ocean);
 const cloudSystem=clouds(scene);
 const speedCues=makeOceanSpeedCues(scene);
+const dirtRenderer=createExpansiveDirtRenderer(scene,horizonState);
 
 const ship=new THREE.Group();
 const sphere=new THREE.Mesh(new THREE.SphereGeometry(.9,9,6),new THREE.MeshLambertMaterial({color:"#fbdf77",flatShading:true}));
@@ -62,12 +63,11 @@ new GLTFLoader().load("/ship/ship.glb",gltf=>{
  ship.add(gltf.scene);refreshShipVisualBounds();
 },undefined,()=>{ /* no uploaded model yet: retain the sphere */ });
 
-let sourceBaseWorld=sampleWorld(),dirtRules={},
- sourceWorld=createDirtWorld(sourceBaseWorld,dirtRules),copies=[],floatingInstances=[],islandCards=[],yaw=0,
+let sourceWorld=sampleWorld(),expansiveDirtRule=validateExpansiveDirt(),
+ copies=[],floatingInstances=[],islandCards=[],yaw=0,
  mode="world",quality="low",time=0,last=performance.now();
-sourceBaseWorld.objects=islandData.objects;
 sourceWorld.objects=islandData.objects;
-let scaleScene=makeScaleWorld(sourceWorld,"current"),world=scaleScene.nav;
+let scaleScene=makeScaleWorld(sourceWorld,"current",expansiveDirtRule),world=scaleScene.nav;
 let regions=world.regions;
 const pilot=new THREE.Vector3();
 const cameraController=createCameraController();
@@ -118,6 +118,7 @@ function makeTerrain(){
  const cameraFar=Math.max(4000,scaleScene.preset.radius*7,
   2400*scaleScene.preset.altitudeScale+scaleScene.preset.radius*3);
  for(const renderCamera of [camera,previewCamera]){renderCamera.far=cameraFar;renderCamera.updateProjectionMatrix();}
+ dirtRenderer.rebuild(scaleScene);
  const oldOcean=ocean.geometry;
  ocean.geometry=buildOceanGeometry(scaleScene.preset.radius);
  oldOcean.dispose();
@@ -127,6 +128,9 @@ function makeTerrain(){
  safeFlightCeiling=sourceWorld.heights.reduce((maximum,height)=>Math.max(maximum,height),0);
  for(const object of world.objects||[])for(const part of object.parts||[])
   safeFlightCeiling=Math.max(safeFlightCeiling,object.at[1]+part.height[1]);
+ if(scaleScene.expansiveDirt) safeFlightCeiling=Math.max(safeFlightCeiling,
+  expansiveDirtRule.baseHeight+expansiveDirtRule.rollingHeight+
+  expansiveDirtRule.highPointHeight+19+9+3);
  safeFlightCeiling+=5;
  disposeIslandImpostors(islandCards,scene);
  islandCards=[];
@@ -153,37 +157,34 @@ function makeTerrain(){
  // so a long view distance never exposes 9 repeated maps at once.
  scene.add(base);copies.push(base);
 }
-// Explicit authoring API. The original Tiled source is never overwritten.
-function refreshDirtTreatment(){
- sourceWorld=createDirtWorld(sourceBaseWorld,dirtRules);
- scaleScene=makeScaleWorld(sourceWorld,scaleScene.preset.id);
- world=scaleScene.nav;
- makeTerrain();cameraInitialized.clear();mapUI.refreshWorld();
- return sourceWorld.dirtTreatment;
+// Separate, sparse expansive continent. Does NOT recolor source Tiled islands.
+function refreshExpansiveDirt(){
+ const selected=scaleScene.preset.id;
+ scaleScene=makeScaleWorld(sourceWorld,selected,expansiveDirtRule);
+ world=scaleScene.nav;makeTerrain();cameraInitialized.clear();mapUI.refreshWorld();
+ return window.tiledWorldDirtApi.getRule();
 }
 window.tiledWorldDirtApi={
- listLandmasses:()=>landmasses(sourceBaseWorld).map(region=>({
-  id:region.id,cells:region.cells.length,bounds:[...region.bounds],
-  rule:{...(sourceWorld.dirtTreatment?.plans?.find(p=>p.id===region.id)?.rule||{})}
- })),
- getTreatment:()=>sourceWorld.dirtTreatment?{
-  plans:sourceWorld.dirtTreatment.plans.map(p=>({...p,rule:{...p.rule}})),
-  rampCandidates:sourceWorld.dirtTreatment.rampCandidates.map(p=>({...p}))
- }:null,
+ listLandmasses:()=>[...world.placements.map(p=>({id:p.id,kind:"authored-protected"})),
+  ...(scaleScene.expansiveDirt?[{id:"expansive-dirt:continent",kind:"sparse-procedural"}]:[])],
+ getRule:()=>({...expansiveDirtRule,rampCoverage:{...expansiveDirtRule.rampCoverage}}),
+ setRule:patch=>{
+  if(!patch||typeof patch!=="object"||Array.isArray(patch))throw Error("Invalid expansive dirt patch");
+  expansiveDirtRule=validateExpansiveDirt({...expansiveDirtRule,...patch,
+   rampCoverage:{...expansiveDirtRule.rampCoverage,...patch.rampCoverage}});
+  return refreshExpansiveDirt();
+ },
  setLandmassRule:(id,patch)=>{
-  if(!landmasses(sourceBaseWorld).some(region=>region.id===id))throw Error("Unknown landmass: "+id);
-  if(!patch||typeof patch!=="object"||Array.isArray(patch))throw Error("Invalid dirt rule");
-  dirtRules={...dirtRules,[id]:validateDirtRule({...dirtRules[id],...patch})};
-  return refreshDirtTreatment();
+  if(id!=="expansive-dirt:continent")throw Error("Authored islands are protected; target expansive-dirt:continent");
+  return window.tiledWorldDirtApi.setRule(patch);
  },
- clearLandmassRule:id=>{
-  if(!landmasses(sourceBaseWorld).some(region=>region.id===id))throw Error("Unknown landmass: "+id);
-  const next={...dirtRules};delete next[id];dirtRules=next;
-  return refreshDirtTreatment();
- },
- capabilities:()=>({dirt:"semantic-tiles-and-four-shades",
-  ramp:"deterministic-candidates-only-no-collision-safe-mesh",
-  expansion:"metadata-only",sourcePreserved:true})
+ sample:(x,z)=>scaleScene.sampleExpansiveDirt(x,z),
+ footprint:()=>scaleScene.expansiveDirt?{...scaleScene.expansiveDirt,
+  rules:window.tiledWorldDirtApi.getRule()}:null,
+ capabilities:()=>({separateLandmass:true,sourcePreserved:true,
+  largeMediumSmallRamps:"sparse-analytic-elevation-with-matching-near-mesh",
+  exactCoverage:false,lowCost:"bounded-near-and-coarse-global-mesh",
+  worldScope:"Current/Bigger/Massive demo worlds",roadGameplay:"not-yet-implemented"})
 };
 function resetSpawn(reason="initialization"){
  // Never reset spawn inside the flight loop or a camera/LOD transition.
@@ -308,7 +309,7 @@ const scaleSelector=document.getElementById("worldScale");
 scaleSelector.addEventListener("change",()=>{
  if(!SCALE_PRESETS[scaleSelector.value])return;
  // Changing map scale is an intentional UI action, not a spawn request.
- const oldScene=scaleScene,nextScene=makeScaleWorld(sourceWorld,scaleSelector.value);
+ const oldScene=scaleScene,nextScene=makeScaleWorld(sourceWorld,scaleSelector.value,expansiveDirtRule);
  const transferred=transferScalePosition(pilot,oldScene,nextScene);
  scaleScene=nextScene;world=scaleScene.nav;
  pilot.set(transferred.x,transferred.y,transferred.z);
@@ -330,7 +331,7 @@ document.getElementById("quality").addEventListener("click",()=>{
 });
 function importParsedMap(map,heights=null){
   const next=fromTiled(map,heights);
-  next.objects=[];sourceBaseWorld=next;dirtRules={};sourceWorld=next;scaleScene=makeScaleWorld(next,"current");world=scaleScene.nav;
+  next.objects=[];sourceWorld=next;scaleScene=makeScaleWorld(next,"current",expansiveDirtRule);world=scaleScene.nav;
   document.getElementById("worldScale").value="current";
   document.getElementById("worldScale").disabled=true;
   makeTerrain();
@@ -533,6 +534,7 @@ function frame(now){
  const currentTravel=travelRegion(world,regions,pilot.x,pilot.z,
   pilot.y,boosting);
  speedCues.update(pilot,world,Math.abs(forwardVelocity),yaw,currentTravel.openness,pilot);
+ dirtRenderer.update(pilot,time);
  // Independently wrap each distinct island to its single nearest appearance.
  // A player can still travel continuously, but cannot see repeated clones.
  for(const terrain of copies)for(const mass of terrain.children){
