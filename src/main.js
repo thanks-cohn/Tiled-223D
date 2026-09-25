@@ -430,7 +430,7 @@ function frame(now){
  // Physics uses the unscaled semantic ship position and its explicit radius.
  ship.scale.setScalar(cinematicShipScale(profile.globeReveal)*
   (1+(scaleScene.preset.altitudeScale-1)*profile.globeReveal));
- ship.updateMatrixWorld(true);
+ ship.updateWorldMatrix(true,false);
  const shipWorldCenter=ship.localToWorld(shipVisualBounds.center.clone());
  const shipWorldRadius=shipVisualBounds.radius*ship.scale.x;
  // Small idle sway is applied only to the default sphere's visual child,
@@ -524,7 +524,7 @@ function frame(now){
    0:THREE.MathUtils.smoothstep(profile.atmosphericAltitude,245,395);
   const fitted=fitShipCamera({
    position:pose.position,shipCenter:shipWorldCenter,shipRadius:shipWorldRadius,
-   fov:pose.projection.fov,aspect,sceneNear:near,orbitalBlend
+   fov:Math.min(pose.projection.fov,renderCamera.fov),aspect,sceneNear:near,orbitalBlend
   });
   const desired=new THREE.Vector3(fitted.position.x,fitted.position.y,fitted.position.z);
   if(!cameraInitialized.has(initializationKey)){renderCamera.position.copy(desired);cameraInitialized.add(initializationKey);}
@@ -532,7 +532,7 @@ function frame(now){
   // Smoothing must not strand the camera inside the altitude-enlarged mesh.
   const effective=fitShipCamera({
    position:renderCamera.position,shipCenter:shipWorldCenter,shipRadius:shipWorldRadius,
-   fov:pose.projection.fov,aspect,sceneNear:near
+   fov:Math.min(pose.projection.fov,renderCamera.fov),aspect,sceneNear:near
   });
   renderCamera.position.set(effective.position.x,effective.position.y,effective.position.z);
   if(Math.abs(renderCamera.near-effective.near)>.02){
