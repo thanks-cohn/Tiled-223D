@@ -96,12 +96,14 @@ export function travelRegion(world,regions,x,z,altitude,boost=false){
  const atmosphericAltitude=altitude/(world.altitudeScale||1);
  const altitudeRecovery=smooth(EXPANSE.altitudeRecoveryStart,
   EXPANSE.altitudeRecoveryEnd,atmosphericAltitude);
- // Only ocean is enabled in V4. Land/sand expansion can be opted into by
- // semantic terrain class later without changing this spatial schema.
- const openOcean=tile===ID.ocean;
- const expansiveness=openOcean*(1-locallyProtected)*(1-altitudeRecovery);
+ // Separate sparse dirt continent uses the same expansion envelope as
+ // open ocean. Authored island/structure regions remain protected.
+ const openExpanse=tile===ID.ocean||
+  (tile===ID.dirt&&world.expansiveDirt?.rules?.enabled&&
+   world.expansiveDirt.rules.expansion==="expansive");
+ const expansiveness=Number(openExpanse)*(1-locallyProtected)*(1-altitudeRecovery);
  const lowFactor=boost?EXPANSE.oceanTurboFactor:EXPANSE.oceanCruiseFactor;
  return {factor:1-expansiveness*(1-lowFactor),
   openness:expansiveness,within:inside,
-  mode:expansiveness>.5?"expansive-ocean":"local"};
+  mode:expansiveness>.5?(tile===ID.dirt?"expansive-dirt":"expansive-ocean"):"local"};
 }
