@@ -20,6 +20,8 @@ import {advanceMomentum,createFlybyTracker,resetFlybyTracker,updateFlybys} from 
 import {sweepHorizontal} from "./horizontal-flight.js";
 import {makeOceanSpeedCues} from "./ocean-speed-cues.js";
 import {createCameraController,cameraDisplayName,setCameraOffset,setCameraLookAt,setShipFacing,createLegacyShipFacing,LEGACY_SHIP_FACING_IDS,restoreCamera,evaluateCameraPose,fitShipCamera,shouldHandleCameraKey,previewViewport} from "./cinematic-cameras.js";
+import {openCompiledAssets} from "./dirt/asset-loader.js";
+import {hydrateProduction,compileCanonical,compileProfile} from "./dirt/compiled.js";
 import {createDirtState,ProgrammerDirtApi} from "./dirt/api.js";
 
 const view=document.getElementById("view");
@@ -70,7 +72,16 @@ let sourceWorld=sampleWorld(),expansiveDirtRule=validateExpansiveDirt(),dirtExpa
  copies=[],floatingInstances=[],islandCards=[],yaw=0,
  mode="world",quality="low",time=0,last=performance.now();
 sourceWorld.objects=islandData.objects;
-let scaleScene=makeScaleWorld(sourceWorld,"current",expansiveDirtRule,dirtExpansionPolicy),world=scaleScene.nav;
+const defaultSourceWorld=sourceWorld;
+let compiledStore;
+try {compiledStore=await openCompiledAssets();} catch(error){notice.textContent=`Terrain preparation unavailable: ${error.message}. Run npm run dirt:compile and reload.`;throw error;}
+let selectedCompiled=await compiledStore.load("current");
+function viewerScaleWorld(local,id,config=expansiveDirtRule,policy=dirtExpansionPolicy){
+ const asset=selectedCompiled;
+ if(local===defaultSourceWorld && (asset.profile.worldId!==id || Math.abs(asset.profile.experienceWidth-SCALE_PRESETS[id].width)>1e-6))throw Error("UNSUPPORTED_EXPERIENCE_CHART: this replacement requires an explicit journey adapter; active world unchanged");
+ return makeScaleWorld(local,id,config,policy,local===defaultSourceWorld?{source:compiledStore.source,asset}:false);
+}
+let scaleScene=viewerScaleWorld(sourceWorld,"current"),world=scaleScene.nav;
 let regions=world.regions;
 const pilot=new THREE.Vector3();
 const cameraController=createCameraController();
@@ -163,7 +174,7 @@ function makeTerrain(){
 // Separate, sparse expansive continent. Does NOT recolor source Tiled islands.
 function refreshExpansiveDirt(){
  const selected=scaleScene.preset.id;
- scaleScene=makeScaleWorld(sourceWorld,selected,expansiveDirtRule,dirtExpansionPolicy);
+ scaleScene=viewerScaleWorld(sourceWorld,selected,expansiveDirtRule,dirtExpansionPolicy);
  world=scaleScene.nav;makeTerrain();cameraInitialized.clear();mapUI.refreshWorld();
  return window.tiledWorldDirtApi.getRule();
 }
@@ -172,18 +183,17 @@ window.tiledWorldDirtApi={
   ...(scaleScene.expansiveDirt?[{id:"expansive-dirt:continent",kind:"sparse-procedural"}]:[])],
  getRule:()=>({...expansiveDirtRule,rampCoverage:{...expansiveDirtRule.rampCoverage}}),
  setRule:patch=>{
-  if(!patch||typeof patch!=="object"||Array.isArray(patch))throw Error("Invalid expansive dirt patch");
-  expansiveDirtRule=validateExpansiveDirt({...expansiveDirtRule,...patch,
-   rampCoverage:{...expansiveDirtRule.rampCoverage,...patch.rampCoverage}});
-  return refreshExpansiveDirt();
+  const next=validateExpansiveDirt({...expansiveDirtRule,...patch,rampCoverage:{...expansiveDirtRule.rampCoverage,...patch.rampCoverage}});
+  const rules={...dirtCore.state.rules,seed:next.seed,targetWholeWorldCoverage:next.areaFraction,baseElevation:next.baseHeight,undulationAmplitude:Math.min(10,next.rollingHeight*.1),highPointHeight:next.highPointHeight,candidateProbability:next.rampCoverage};
+  return executeViewerDirt({...dirtRequest("dirt.commitPlan",{plan:{kind:"rules-patch",baseRevision:dirtCore.state.revision,rules}}),expectedRevision:dirtCore.state.revision,operationId:`legacy-rule-${Date.now()}`});
  },
  setLandmassRule:(id,patch)=>{
   if(id!=="expansive-dirt:continent")throw Error("Authored islands are protected; target expansive-dirt:continent");
   return window.tiledWorldDirtApi.setRule(patch);
  },
  sample:(x,z)=>scaleScene.sampleExpansiveDirt(x,z),
- footprint:()=>scaleScene.expansiveDirt?{...scaleScene.expansiveDirt,
-  rules:window.tiledWorldDirtApi.getRule()}:null,
+ footprint:()=>scaleScene.expansiveDirt?structuredClone({...scaleScene.expansiveDirt,
+  rules:window.tiledWorldDirtApi.getRule()}):null,
  capabilities:()=>({separateLandmass:true,sourcePreserved:true,
   largeMediumSmallRamps:"sparse-analytic-elevation-with-matching-near-mesh",
   exactCoverage:false,lowCost:"bounded-near-and-coarse-global-mesh",
@@ -309,14 +319,25 @@ syncCameraUI();
 syncLegacyCameraUI();
 
 const scaleSelector=document.getElementById("worldScale");
-const dirtCore=new ProgrammerDirtApi(createDirtState());
+const production=scaleScene.expansiveDirt.production;
+const dirtCore=new ProgrammerDirtApi({schemaVersion:"dirt-v1",projectId:"demo-world",revision:0,rules:production.rules,policy:dirtExpansionPolicy,production,history:[]});
+dirtCore.compiledSource=compiledStore.source;dirtCore.compiledAssets=new Map([["current",selectedCompiled]]);
+dirtCore.compilationExclusions={current:selectedCompiled.profile.exclusions};
+dirtCore.runtimeObserver=()=>({...dirtPerformance.snapshot(),renderer:dirtRenderer.snapshot(),assets:compiledStore.inspect()});
+function executeViewerDirt(request){
+ const response=dirtCore.execute(request);
+ if(response.status!=="ok"||!["dirt.commitPlan","dirt.undo"].includes(request.operation))return response;
+ // Canonical mutation is explicit editor work, never an implicit frame-loop
+ // compile. Rendering remains on the previous immutable prepared snapshot
+ // until the creator explicitly compiles and activates the edited profile.
+ setMessage("Terrain edit saved in memory. Compile and activate before it appears in the viewer.");
+ return response;
+}
 // Local developer surface only: it performs no file/network access and grants
 // the documented local creator actor. Embedders should provide their own actor
 // and persistence adapter rather than treating this global as remote auth.
 window.tiledWorldDirtApi={...window.tiledWorldDirtApi,
- execute:request=>request?.operation==="dirt.inspectRuntimePerformance"?{
-   status:"ok",capabilityVersion:"dirt-v1",operation:"dirt.inspectRuntimePerformance",
-   revision:dirtCore.state.revision,result:dirtPerformance.snapshot()}:dirtCore.execute(request),
+ execute:executeViewerDirt,
  startPerformanceCapture:()=>dirtPerformance.start(),
  stopPerformanceCapture:()=>dirtPerformance.stop(),
  performanceSnapshot:()=>dirtPerformance.snapshot()};
@@ -326,11 +347,51 @@ document.getElementById("dirtButton").addEventListener("click",()=>{dirtEditor.h
 document.getElementById("dirtClose").addEventListener("click",()=>{dirtEditor.hidden=true;});
 document.getElementById("dirtDefaults").addEventListener("click",()=>{document.getElementById("dirtPolicy").value="inherit-world";document.getElementById("dirtLarge").value=.05;document.getElementById("dirtMedium").value=.03;document.getElementById("dirtSmall").value=.10;document.getElementById("dirtVariation").value=1.25;pendingDirtPlan=null;dirtCommit.disabled=true;dirtOutput.textContent="Defaults restored locally; preview before committing.";});
 document.getElementById("dirtPreview").addEventListener("click",()=>{const policyValue=document.getElementById("dirtPolicy").value,policy=policyValue==="inherit-world"?{mode:"inherit-world"}:{mode:"replace",profileId:policyValue};const canonical=dirtCore.execute(dirtRequest("dirt.planCanonical",{candidateProbability:{large:Number(document.getElementById("dirtLarge").value),medium:Number(document.getElementById("dirtMedium").value),small:Number(document.getElementById("dirtSmall").value)},rules:{undulationAmplitude:Number(document.getElementById("dirtVariation").value)}}));const expansion=dirtCore.execute(dirtRequest("dirt.planExpansion",{worldId:scaleSelector.value,policy}));if(canonical.status!=="ok"||expansion.status!=="ok"){dirtOutput.textContent=JSON.stringify(canonical.status!=="ok"?canonical.error:expansion.error,null,2);return;}pendingDirtPlan={canonical:canonical.result,expansion:expansion.result};dirtCommit.disabled=false;dirtOutput.textContent=`Preview only · ${canonical.result.coverage.cells} dirt cells (${(canonical.result.coverage.wholeWorldFraction*100).toFixed(2)}%)\nRamp diff: +${canonical.result.featureDiff.added.length} / -${canonical.result.featureDiff.removed.length}\nEffective gap profile: ${expansion.result.plan.profile.id} ×${expansion.result.plan.profile.gapFactor}`;});
-document.getElementById("dirtCommit").addEventListener("click",()=>{if(!pendingDirtPlan)return;const combined={kind:"canonical-and-expansion",baseRevision:dirtCore.state.revision,rules:pendingDirtPlan.canonical.rules,policy:pendingDirtPlan.expansion.policy,worldId:scaleSelector.value};const committed=dirtCore.execute({...dirtRequest("dirt.commitPlan",{plan:combined}),expectedRevision:dirtCore.state.revision,operationId:`editor-dirt-${Date.now()}`});if(committed.status!=="ok"){dirtOutput.textContent=JSON.stringify(committed.error,null,2);return;}const r=dirtCore.state.rules;dirtExpansionPolicy={...dirtCore.state.policy};expansiveDirtRule=validateExpansiveDirt({...expansiveDirtRule,seed:r.seed,baseHeight:r.baseElevation,rollingHeight:r.undulationAmplitude*10,rampCoverage:{large:r.candidateProbability.large,medium:r.candidateProbability.medium,small:r.candidateProbability.small}});scaleScene=makeScaleWorld(sourceWorld,scaleSelector.value,expansiveDirtRule,dirtExpansionPolicy);world=scaleScene.nav;makeTerrain();mapUI.refreshWorld();pendingDirtPlan=null;dirtCommit.disabled=true;dirtOutput.textContent=`Committed canonical + expansion revision ${dirtCore.state.revision} atomically. Original islands remain protected.`;});
-scaleSelector.addEventListener("change",()=>{
+document.getElementById("dirtCommit").addEventListener("click",()=>{
+ if(!pendingDirtPlan)return;
+ if(Math.abs(pendingDirtPlan.expansion.plan.experienceLength-SCALE_PRESETS[scaleSelector.value].width)>1e-6){dirtOutput.textContent="UNSUPPORTED_EXPERIENCE_CHART: replacement can be compiled and inspected through the API, but needs a separate journey adapter before viewer activation. No changes committed.";return;}
+ const previous={...dirtCore.state,history:[...dirtCore.state.history]},oldSource=dirtCore.compiledSource,oldAssets=new Map(dirtCore.compiledAssets);
+ try {
+  const combined={kind:"canonical-and-expansion",baseRevision:dirtCore.state.revision,rules:pendingDirtPlan.canonical.rules,policy:pendingDirtPlan.expansion.policy,worldId:scaleSelector.value};
+  const committed=dirtCore.execute({...dirtRequest("dirt.commitPlan",{plan:combined}),expectedRevision:dirtCore.state.revision,operationId:`editor-dirt-${Date.now()}`});
+  if(committed.status!=="ok")throw Error(JSON.stringify(committed.error));
+  const planned=dirtCore.execute(dirtRequest("dirt.planCompilation",{worldId:scaleSelector.value}));
+  const compiled=dirtCore.execute({...dirtRequest("dirt.compileProfile",{plan:planned.result}),expectedRevision:dirtCore.state.revision,operationId:`editor-compile-${Date.now()}`});
+  if(compiled.status!=="ok")throw Error(JSON.stringify(compiled.error));
+  activateCompiled(scaleSelector.value);
+  pendingDirtPlan=null;dirtCommit.disabled=true;dirtOutput.textContent=`Committed and compiled revision ${dirtCore.state.revision}. Prepared in memory; use the CLI to persist a project build.`;
+ }catch(error){dirtCore.state=previous;dirtCore.compiledSource=oldSource;dirtCore.compiledAssets=oldAssets;dirtOutput.textContent=error.message;}
+});
+function activateCompiled(worldId){
+ if(sourceWorld!==defaultSourceWorld)throw Error("UNSUPPORTED_WORLD: imported maps do not use the demo dirt compilation");
+ const asset=dirtCore.compiledAssets.get(worldId);
+ if(JSON.stringify(asset?.profile.policy)!==JSON.stringify(dirtCore.state.policy))throw Error("STALE_COMPILED_ASSET: effective policy changed");
+ if(!asset||asset.profile.sourceKey!==dirtCore.compiledSource?.metadata.sourceKey)throw Error("MISSING_COMPILED_PROFILE");
+ if(Math.abs(asset.profile.experienceWidth-SCALE_PRESETS[worldId].width)>1e-6)throw Error("UNSUPPORTED_EXPERIENCE_CHART");
+ const r=dirtCore.state.rules;
+ dirtExpansionPolicy={...dirtCore.state.policy};expansiveDirtRule=validateExpansiveDirt({...expansiveDirtRule,seed:r.seed,baseHeight:r.baseElevation,rollingHeight:r.undulationAmplitude*10,rampCoverage:{...r.candidateProbability}});
+ compiledStore.source=dirtCore.compiledSource;selectedCompiled=asset;
+ scaleScene=viewerScaleWorld(sourceWorld,worldId);world=scaleScene.nav;scaleSelector.value=worldId;makeTerrain();mapUI.refreshWorld();
+}
+window.tiledWorldDirtApi.activateCompiled=request=>{
+ const checked=dirtCore.execute({...request,operation:"dirt.inspectCompiledAsset"});
+ if(checked.status!=="ok")return checked;
+ if(!dirtCore.permissions[request.actorId]?.includes("commit")||request.expectedRevision!==dirtCore.state.revision)return {status:"error",error:{code:"UNAUTHORIZED_OR_STALE_REVISION"}};
+ try{activateCompiled(request.input.worldId);return checked;}catch(error){return {status:"error",error:{code:error.message}};}
+};
+let scaleSelectionGeneration=0;
+scaleSelector.addEventListener("change",async()=>{
  if(!SCALE_PRESETS[scaleSelector.value])return;
  // Changing map scale is an intentional UI action, not a spawn request.
- const oldScene=scaleScene,nextScene=makeScaleWorld(sourceWorld,scaleSelector.value,expansiveDirtRule,dirtExpansionPolicy);
+ const oldScene=scaleScene,selectedId=scaleSelector.value,generation=++scaleSelectionGeneration;
+ try {
+  let asset=dirtCore.compiledAssets.get(selectedId);
+  if(!asset && dirtCore.compiledSource.metadata.sourceKey===compiledStore.manifest.sourceKey)asset=await compiledStore.load(selectedId);
+  if(generation!==scaleSelectionGeneration)return;
+  if(!asset||asset.profile.sourceKey!==dirtCore.compiledSource.metadata.sourceKey||JSON.stringify(asset.profile.policy)!==JSON.stringify(dirtExpansionPolicy))throw Error("MISSING_COMPILED_PROFILE: compile this edited profile first");
+  selectedCompiled=asset;dirtCore.compiledAssets.clear();dirtCore.compiledAssets.set(selectedId,asset);dirtCore.compilationExclusions[selectedId]=asset.profile.exclusions;
+ }catch(error){scaleSelector.value=oldScene.preset.id;setMessage(error.message);return;}
+ const nextScene=viewerScaleWorld(sourceWorld,selectedId,expansiveDirtRule,dirtExpansionPolicy);
  const transferred=transferScalePosition(pilot,oldScene,nextScene);
  scaleScene=nextScene;world=scaleScene.nav;
  pilot.set(transferred.x,transferred.y,transferred.z);
@@ -352,7 +413,7 @@ document.getElementById("quality").addEventListener("click",()=>{
 });
 function importParsedMap(map,heights=null){
   const next=fromTiled(map,heights);
-  next.objects=[];sourceWorld=next;scaleScene=makeScaleWorld(next,"current",expansiveDirtRule,dirtExpansionPolicy);world=scaleScene.nav;
+  next.objects=[];sourceWorld=next;scaleScene=viewerScaleWorld(next,"current",expansiveDirtRule,dirtExpansionPolicy);world=scaleScene.nav;
   document.getElementById("worldScale").value="current";
   document.getElementById("worldScale").disabled=true;
   makeTerrain();
@@ -474,6 +535,11 @@ function frame(now){
      world.width,world.height)
    });
   }
+  dirtRenderer.prefetch(nextX-Math.sin(yaw)*Math.sign(forwardVelocity)*Math.min(48,Math.abs(forwardVelocity)*.25),nextZ-Math.cos(yaw)*Math.sign(forwardVelocity)*Math.min(48,Math.abs(forwardVelocity)*.25));
+  if(pilot.y<pointGround(move.x,move.z).height+30&&!dirtRenderer.readyAt(move.x,move.z)){
+   dirtRenderer.prefetch(move.x,move.z);move={x:pilot.x,z:pilot.z,blocked:null};
+   dirtPerformance.event("terrain-readiness-wait",{x:nextX,z:nextZ});
+  }
   // Even on collision, retain all progress up to the LAST safe sample.
   // A blocked forward thrust is cleared; pressing S immediately reverses
   // regardless of whether the Fly forward button was previously enabled.
@@ -508,7 +574,7 @@ function frame(now){
     if(verticalObstacle)break;
    }
   }
-  if(!verticalObstacle)pilot.y=proposedY;
+  if(!verticalObstacle)pilot.y=!dirtRenderer.readyAt(pilot.x,pilot.z)?Math.max(proposedY,Math.min(pilot.y,pointGround(pilot.x,pilot.z).height+30)):proposedY;
   else{verticalVelocity=0;setMessage("FLOATING ISLAND · "+verticalObstacle.objectId+" · Surface reached");}
   const floor=pointGround(pilot.x,pilot.z).height;
   if(pilot.y<floor+2){

@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "compiled-terrain-v1",
+  "sourceKey": "52523d0b",
+  "canonical": "canonical.json",
+  "tones": "tones.bin",
+  "heights": "heights.f32",
+  "profiles": {
+    "current": {
+      "key": "3ea4c4db",
+      "metadata": "current.json",
+      "atlas": "current.tones.bin",
+      "far": "current.far.f32",
+      "overview": "current.overview.bin"
+    },
+    "bigger": {
+      "key": "74ad875a",
+      "metadata": "bigger.json",
+      "atlas": "bigger.tones.bin",
+      "far": "bigger.far.f32",
+      "overview": "bigger.overview.bin"
+    },
+    "massive": {
+      "key": "eacb787b",
+      "metadata": "massive.json",
+      "atlas": "massive.tones.bin",
+      "far": "massive.far.f32",
+      "overview": "massive.overview.bin"
+    }
+  },
+  "files": {
+    "canonical.json": {
+      "path": "canonical.json",
+      "bytes": 10362,
+      "sha256": "7cf66104b155feb637747aefa726786a28b40152090898079906be21ecdc9eff"
+    },
+    "tones.bin": {
+      "path": "tones.bin",
+      "bytes": 250000,
+      "sha256": "38b7486f8f029932f09a453806ac51dcd607dec565ce9ea146f2c39faa4295e8"
+    },
+    "heights.f32": {
+      "path": "heights.f32",
+      "bytes": 1004004,
+      "sha256": "7890b507829ad802471d8c73d3902e8d664248e56f2db4f51ee9172b243a109e"
+    },
+    "current.json": {
+      "path": "current.json",
+      "bytes": 18308,
+      "sha256": "49fe1ba83a2445afaf1fb18e9cf3249cb6d4e80b167d0562322c05770f27fede"
+    },
+    "current.tones.bin": {
+      "path": "current.tones.bin",
+      "bytes": 250000,
+      "sha256": "874261d321d90f4112b5fed24699dd9e2af174a5527eb01da3414814923b49a7"
+    },
+    "current.far.f32": {
+      "path": "current.far.f32",
+      "bytes": 33800,
+      "sha256": "9384cd8813426a03a95fe4ef894292795d87e103426608e8816d758bbf4a5384"
+    },
+    "current.overview.bin": {
+      "path": "current.overview.bin",
+      "bytes": 250000,
+      "sha256": "874261d321d90f4112b5fed24699dd9e2af174a5527eb01da3414814923b49a7"
+    },
+    "bigger.json": {
+      "path": "bigger.json",
+      "bytes": 20416,
+      "sha256": "558899ea233ca83e18659fad472a18cd1ed8fe1b2afa4ee9e9a0f34992f1e430"
+    },
+    "bigger.tones.bin": {
+      "path": "bigger.tones.bin",
+      "bytes": 250000,
+      "sha256": "f53563e01d5157853543fccc7b90464384f95d79136f1a99d01a0d35cdbacce3"
+    },
+    "bigger.far.f32": {
+      "path": "bigger.far.f32",
+      "bytes": 33800,
+      "sha256": "e28331edc12aac87e374ca514be7c02bbc8ec4e5bc0d552c55a8f2031e6c5c98"
+    },
+    "bigger.overview.bin": {
+      "path": "bigger.overview.bin",
+      "bytes": 250000,
+      "sha256": "dc08e11d42e8a391cb586b3fda16f18b990807e3f6936922e8193a9512820ab0"
+    },
+    "massive.json": {
+      "path": "massive.json",
+      "bytes": 20923,
+      "sha256": "ca790b77f8606a46e118a74a6bb55a13063dc11751988176aea2a422a4d2787a"
+    },
+    "massive.tones.bin": {
+      "path": "massive.tones.bin",
+      "bytes": 250000,
+      "sha256": "0125ce0db1d2de15c335e916987ad4a00836812f8c15d7f65cf054dc8a200947"
+    },
+    "massive.far.f32": {
+      "path": "massive.far.f32",
+      "bytes": 33800,
+      "sha256": "95d35fc6497c9e5baaa433c123801a17ec3da8b28c7825fd0516d5a5370fd206"
+    },
+    "massive.overview.bin": {
+      "path": "massive.overview.bin",
+      "bytes": 250000,
+      "sha256": "f2fae521cba11353dd20db13edd6b6e0952f6463e7c2ec139ee7a7c7d63b4af2"
+    }
+  }
+}

@@ -2,6 +2,7 @@ import {ID,cell,wrap} from "./world-data.js";
 import {landmasses} from "./landmasses.js";
 import {createCanonicalDirtProduction,sampleCanonicalDirt} from "./dirt/canonical.js";
 import {buildExpansionPlan,mapRouteDistance} from "./dirt/expansion.js";
+import {createCompiledSampler,hydrateProduction} from "./dirt/compiled.js";
 import {protectedRegions} from "./travel-regions.js";
 
 // SURFACE AREA multipliers, not linear dimensions. Massive is 32² = 1,024×
@@ -35,13 +36,13 @@ function canonicalProduction(local,config){
  dirtProductionCache.set(local,{key,production});return production;
 }
 
-export function makeScaleWorld(local,id="current",dirtConfig={},dirtExpansionPolicy={mode:"inherit-world"}){
+export function makeScaleWorld(local,id="current",dirtConfig={},dirtExpansionPolicy={mode:"inherit-world"},compiled=null){
  const preset=SCALE_PRESETS[id];
  if(!preset)throw Error("Unknown world scale "+id);
  if(!Number.isInteger(local.width)||!Number.isInteger(local.height))throw Error("Invalid local map");
  // Imported maps are currently a single local region. Preserve their exact
  // bounds and coordinates instead of pretending they have a sparse atlas.
- const demo=local.width===500&&local.height===500&&local.name==="Two Islands";
+ const demo=compiled!==false&&local.width===500&&local.height===500&&local.name==="Two Islands";
  const scale=demo?preset:{...SCALE_PRESETS.current,width:local.width,height:local.height};
  const islands=landmasses(local);
  const placements=islands.map((mass,index)=>{
@@ -62,12 +63,12 @@ export function makeScaleWorld(local,id="current",dirtConfig={},dirtExpansionPol
   }
   return best;
  };
- const canonicalDirt=demo?canonicalProduction(local,dirtConfig):null;
+ const canonicalDirt=demo?(compiled?hydrateProduction(compiled.source):canonicalProduction(local,dirtConfig)):null;
  const dirtExpansion=canonicalDirt?buildExpansionPlan(canonicalDirt,scale.id,dirtExpansionPolicy):null;
  const dirtFootprint=canonicalDirt?{id:"expansive-dirt:continent",canonicalId:canonicalDirt.id,x:scale.width/2,z:scale.height/2,
   radiusX:scale.width/2,radiusZ:scale.height/2,targetAreaFraction:dirtConfig.areaFraction??1/3,measuredAreaFraction:canonicalDirt.coverage.wholeWorldFraction,
   source:"canonical-saved-production",rules:{enabled:true,expansion:"expansive",...dirtConfig},production:canonicalDirt}:null;
- const sampleExpansiveDirt=(x,z)=>{
+ const sampleExpansiveDirt=compiled?createCompiledSampler(compiled.source,compiled.asset.profile):(x,z)=>{
   if(!canonicalDirt)return null;
   // X is actual on-ground experience distance. Invert the canonical expansion
   // plan so gameplay, collision, and near rendering use the same gap mapping.
@@ -127,6 +128,11 @@ export function makeScaleWorld(local,id="current",dirtConfig={},dirtExpansionPol
   heights:scale.id==="current"?local.heights:null,
   trees:scale.id==="current"?local.trees:[],
   objects,spawns,placements,regions,mapMarkers,
+  overviewSample:compiled?(x,z)=>{
+   for(const placement of placements){const dx=signed(x,placement.x,scale.width),dz=signed(z,placement.z,scale.height);if(Math.abs(dx)>placement.radius+3||Math.abs(dz)>placement.radius+3)continue;const authored=cell(local,placement.localX+dx,placement.localZ+dz);if(authored.ground!==ID.ocean)return authored;}
+   const tone=compiled.asset.overviewAtlas[Math.floor(wrap(z,scale.height)/scale.height*500)*500+Math.floor(wrap(x,scale.width)/scale.width*500)];
+   return {ground:tone?ID.dirt:ID.ocean,height:0,color:tone?compiled.source.metadata.palette[tone-1]:null};
+  }:null,
   groundAt:(x,z)=>groundAt(x,z).ground,
   isOcean:(x,z)=>groundAt(x,z).ground===ID.ocean,
   sparse:scale.id!=="current"||!!dirtFootprint,altitudeScale:scale.altitudeScale,
@@ -159,7 +165,7 @@ export function makeScaleWorld(local,id="current",dirtConfig={},dirtExpansionPol
   return false;
  };
  return {preset:scale,nav,groundAt,pathNearLand,expansiveDirt:dirtFootprint,dirtExpansion,
-  sampleExpansiveDirt,
+  sampleExpansiveDirt,compiled,
   placementOf:(id)=>placements.find(x=>x.id===id),
   nearestLandInstance:(pilot,placement)=>({
    // nearest() is ONLY an integer wrap-period offset (zero near the

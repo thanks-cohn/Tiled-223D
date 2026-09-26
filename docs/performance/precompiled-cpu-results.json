@@ -1,0 +1,184 @@
+{
+  "method": "Node CPU workload; no WebGL, RAF, GPU, target-device or FPS claim",
+  "node": "v24.19.0",
+  "platform": "linux",
+  "cpu": "AMD EPYC 9V74 80-Core Processor",
+  "elapsedMs": 2225.4840000000004,
+  "assetBytes": 2925413,
+  "reports": [
+    {
+      "worldId": "current",
+      "selectMs": 2.4902339999999867,
+      "sample9409PassMs": [
+        11.369653,
+        6.784378000000004,
+        4.960931000000016
+      ],
+      "simulation": {
+        "steps": 1800,
+        "virtualSeconds": 30,
+        "speed": 120,
+        "reversalAtSeconds": 15
+      },
+      "cpuUpdate": {
+        "averageMs": 0.6320209188888921,
+        "p99Ms": 2.1195060000000012,
+        "maxMs": 5.119415000000004,
+        "over16_7ms": 0,
+        "over1000ms": 0
+      },
+      "readinessMisses": 2,
+      "maxAnalyticError": 0.19351781140544233,
+      "renderer": {
+        "available": true,
+        "assetId": "3ea4c4db",
+        "overview": false,
+        "cache": {
+          "entries": 96,
+          "maxEntries": 96,
+          "hits": 58741,
+          "misses": 87059,
+          "evictions": 1107,
+          "builds": 1203,
+          "queued": 57,
+          "pending": "12,11",
+          "lastWorkMs": 1.2973389999999654,
+          "maxWorkMs": 5.03532100000001,
+          "budgetMs": 2,
+          "geometryBytes": 5293566
+        },
+        "gpuTimings": "unavailable"
+      },
+      "terrain": {
+        "meshBuilds": 1203,
+        "totalBuildMs": 1004.99,
+        "maxBuildMs": 5.98,
+        "terrainSamples": 2442947,
+        "meshVertices": 2442947,
+        "meshTriangles": 3990869,
+        "stages": {
+          "samplingMs": 814.69,
+          "triangulationMs": 162.24,
+          "normalGenerationMs": 0,
+          "normalGenerationReason": "unlit three-tone material needs no computed normals"
+        }
+      }
+    },
+    {
+      "worldId": "bigger",
+      "selectMs": 1.6318350000001374,
+      "sample9409PassMs": [
+        18.026352999999972,
+        16.8879280000001,
+        14.771706999999878
+      ],
+      "simulation": {
+        "steps": 1800,
+        "virtualSeconds": 30,
+        "speed": 120,
+        "reversalAtSeconds": 15
+      },
+      "cpuUpdate": {
+        "averageMs": 0.1674690016666673,
+        "p99Ms": 1.527460999999903,
+        "maxMs": 2.4580570000000534,
+        "over16_7ms": 0,
+        "over1000ms": 0
+      },
+      "readinessMisses": 3,
+      "maxAnalyticError": 0.19500670528390351,
+      "renderer": {
+        "available": true,
+        "assetId": "74ad875a",
+        "overview": false,
+        "cache": {
+          "entries": 96,
+          "maxEntries": 96,
+          "hits": 93395,
+          "misses": 52405,
+          "evictions": 1609,
+          "builds": 1705,
+          "queued": 46,
+          "pending": "75,48",
+          "lastWorkMs": 1.428753999999799,
+          "maxWorkMs": 2.008212000000185,
+          "budgetMs": 2,
+          "geometryBytes": 2521728
+        },
+        "gpuTimings": "unavailable"
+      },
+      "terrain": {
+        "meshBuilds": 1705,
+        "totalBuildMs": 191.04,
+        "maxBuildMs": 3.83,
+        "terrainSamples": 482057,
+        "meshVertices": 482057,
+        "meshTriangles": 711352,
+        "stages": {
+          "samplingMs": 149.11,
+          "triangulationMs": 29.99,
+          "normalGenerationMs": 0,
+          "normalGenerationReason": "unlit three-tone material needs no computed normals"
+        }
+      }
+    },
+    {
+      "worldId": "massive",
+      "selectMs": 2.092446999999993,
+      "sample9409PassMs": [
+        20.139889999999923,
+        17.066540000000032,
+        16.93153099999995
+      ],
+      "simulation": {
+        "steps": 1800,
+        "virtualSeconds": 30,
+        "speed": 120,
+        "reversalAtSeconds": 15
+      },
+      "cpuUpdate": {
+        "averageMs": 0.1293811694444408,
+        "p99Ms": 1.387234000000035,
+        "maxMs": 2.9175340000001597,
+        "over16_7ms": 0,
+        "over1000ms": 0
+      },
+      "readinessMisses": 2,
+      "maxAnalyticError": 0.1958744993444821,
+      "renderer": {
+        "available": true,
+        "assetId": "eacb787b",
+        "overview": false,
+        "cache": {
+          "entries": 96,
+          "maxEntries": 96,
+          "hits": 97289,
+          "misses": 48511,
+          "evictions": 1662,
+          "builds": 1758,
+          "queued": 50,
+          "pending": null,
+          "lastWorkMs": 0.3295180000000073,
+          "maxWorkMs": 2.002914000000146,
+          "budgetMs": 2,
+          "geometryBytes": 2227392
+        },
+        "gpuTimings": "unavailable"
+      },
+      "terrain": {
+        "meshBuilds": 1758,
+        "totalBuildMs": 123,
+        "maxBuildMs": 2.33,
+        "terrainSamples": 275006,
+        "meshVertices": 275006,
+        "meshTriangles": 483072,
+        "stages": {
+          "samplingMs": 93.12,
+          "triangulationMs": 18.52,
+          "normalGenerationMs": 0,
+          "normalGenerationReason": "unlit three-tone material needs no computed normals"
+        }
+      }
+    }
+  ]
+}

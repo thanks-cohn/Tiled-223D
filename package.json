@@ -8,7 +8,8 @@
     "build": "vite build",
     "test": "node --test",
     "world-api": "node scripts/world-api-cli.mjs",
-    "dirt-api": "node scripts/dirt-api-cli.mjs"
+    "dirt-api": "node scripts/dirt-api-cli.mjs",
+    "dirt:compile": "node scripts/compile-dirt.mjs"
   },
   "bin": {
     "tiled-world-api": "scripts/world-api-cli.mjs"
