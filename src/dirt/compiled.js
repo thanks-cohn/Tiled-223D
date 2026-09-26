@@ -85,6 +85,28 @@ export function createCompiledSampler(source,profile){
   const height=u+v<=1?a.height+(b.height-a.height)*u+(c.height-a.height)*v:d.height+(c.height-d.height)*(1-u)+(b.height-d.height)*(1-v);
   return {...hit,height};
  }
- sample.raw=raw;sample.stepAt=stepAt;return sample;
+ function chunkHasLand(cx,cz){
+  if(!Number.isInteger(cx)||!Number.isInteger(cz))return true;
+  const segments=(start,length,period)=>{
+   if(length>=period)return [[0,period]];
+   const a=wrap(start,period),end=a+length;
+   return end<=period?[[a,end]]:[[a,period],[0,end-period]];
+  };
+  const xs=segments(cx*CHUNK_SIZE,CHUNK_SIZE,width);
+  const zs=segments(cz*CHUNK_SIZE,CHUNK_SIZE,size);
+  for(const [x0,x1] of xs){
+   const sourceX0=indexedRoute(plan,x0),sourceX1=indexedRoute(plan,Math.min(width,x1));
+   const ix0=Math.max(0,Math.min(499,Math.floor(Math.min(sourceX0,sourceX1))));
+   const ix1=Math.max(ix0,Math.min(499,Math.ceil(Math.max(sourceX0,sourceX1))));
+   for(const [z0,z1] of zs){
+    const sourceZ0=z0/size*500,sourceZ1=z1/size*500;
+    const iz0=Math.max(0,Math.min(499,Math.floor(Math.min(sourceZ0,sourceZ1))));
+    const iz1=Math.max(iz0,Math.min(499,Math.ceil(Math.max(sourceZ0,sourceZ1))));
+    for(let z=iz0;z<=iz1;z++)for(let x=ix0;x<=ix1;x++)if(source.tones[z*500+x])return true;
+   }
+  }
+  return false;
+ }
+ sample.raw=raw;sample.stepAt=stepAt;sample.chunkHasLand=chunkHasLand;return sample;
 }
 export function inspectCompiled(source,asset){return {schemaVersion:COMPILED_VERSION,assetId:asset.profile.key,worldId:asset.profile.worldId,sourceKey:source.metadata.sourceKey,sourceRevision:source.metadata.sourceRevision,profile:asset.profile.plan.profile,fixedFeatures:asset.profile.features.length,gaps:asset.profile.plan.intervals.filter(i=>i.kind==='gap').length,bytes:{canonical:source.tones.byteLength+source.heights.byteLength,profile:asset.atlas.byteLength+asset.overviewAtlas.byteLength+asset.far.byteLength},compileMs:asset.profile.compileMs??null,valid:asset.profile.sourceKey===source.metadata.sourceKey,collisionReady:true,nearStep:NEAR_STEP};}
