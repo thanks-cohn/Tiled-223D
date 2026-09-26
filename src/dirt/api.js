@@ -1,9 +1,10 @@
+import {COMPILATION_OPERATIONS,compilationOperation} from "./compilation-api.js";
 import {sampleWorld} from "../world-data.js";
 import {CANONICAL_DIRT_ID,createCanonicalDirtProduction,DIRT_CAPABILITY_VERSION,RAMP_TYPES,sampleCanonicalDirt,validateDirtRules} from "./canonical.js";
 import {buildExpansionPlan,DIRT_PROFILES,mapRouteDistance,resolveExpansionProfile} from "./expansion.js";
 
-const OPERATIONS=Object.freeze(["dirt.capabilities","dirt.inspectWorld","dirt.listLandmasses","dirt.inspectLandmass","dirt.inspectRules","dirt.listProfiles","dirt.inspectProvenance","dirt.listFeatures","dirt.inspectFeature","dirt.inspectExpansion","dirt.inspectIntervals","dirt.mapCoordinates","dirt.explainMapping","dirt.sampleTerrain","dirt.inspectCollision","dirt.inspectLOD","dirt.inspectChunk","dirt.inspectPerformance","dirt.explainAt","dirt.traceDecision","dirt.diffWorldScales","dirt.planCanonical","dirt.previewCanonical","dirt.validateCanonical","dirt.planRampRegeneration","dirt.diffRampRegeneration","dirt.planExpansion","dirt.planAppearance","dirt.planGroundTuning","dirt.validatePlan","dirt.previewPlan","dirt.commitPlan","dirt.undo","dirt.diagnosticBundle"]);
-const MUTATIONS=new Set(["dirt.commitPlan","dirt.undo"]),MAX_PAGE=100,MAX_SAMPLES=256;
+const OPERATIONS=Object.freeze([...COMPILATION_OPERATIONS,"dirt.capabilities","dirt.inspectWorld","dirt.listLandmasses","dirt.inspectLandmass","dirt.inspectRules","dirt.listProfiles","dirt.inspectProvenance","dirt.listFeatures","dirt.inspectFeature","dirt.inspectExpansion","dirt.inspectIntervals","dirt.mapCoordinates","dirt.explainMapping","dirt.sampleTerrain","dirt.inspectCollision","dirt.inspectLOD","dirt.inspectChunk","dirt.inspectPerformance","dirt.explainAt","dirt.traceDecision","dirt.diffWorldScales","dirt.planCanonical","dirt.previewCanonical","dirt.validateCanonical","dirt.planRampRegeneration","dirt.diffRampRegeneration","dirt.planExpansion","dirt.planAppearance","dirt.planGroundTuning","dirt.validatePlan","dirt.previewPlan","dirt.commitPlan","dirt.undo","dirt.diagnosticBundle"]);
+const MUTATIONS=new Set(["dirt.commitPlan","dirt.undo","dirt.compileProfile"]),MAX_PAGE=100,MAX_SAMPLES=256;
 const clone=value=>structuredClone(value);
 const error=(code,message,details={})=>({status:"error",capabilityVersion:DIRT_CAPABILITY_VERSION,error:{code,message,...details}});
 const ok=(operation,revision,result)=>({status:"ok",capabilityVersion:DIRT_CAPABILITY_VERSION,operation,revision,result});
@@ -16,7 +17,7 @@ export function createDirtState(saved={}){
 
 /** One transport-neutral, permission/revision checked dirt core. */
 export class DirtWorldCore{
-  constructor(state=createDirtState(),permissions={creator:["inspect","plan","commit","undo"],agent:["inspect","plan"],debugger:["inspect"]}){this.state=state;this.permissions=permissions;}
+  constructor(state=createDirtState(),permissions={creator:["inspect","plan","commit","undo"],agent:["inspect","plan"],debugger:["inspect"]}){this.state=state;this.permissions=permissions;this.compilationDependencies={buildExpansionPlan};}
   execute(request){
     try{return this.#execute(request);}catch(cause){const code=String(cause.message).split(":")[0];return error(code.includes("_")?code:"INVALID_REQUEST",cause.message);}
   }
@@ -26,8 +27,9 @@ export class DirtWorldCore{
     if(!grants.includes(needed))return error("UNAUTHORIZED",`${request.actorId||"anonymous"} lacks ${needed}.`,{suggestedGrant:needed});
     if(request.projectId&&request.projectId!==this.state.projectId)return error("INVALID_REQUEST","projectId does not match opened project.");
     if(request.landmassId&&request.landmassId!==CANONICAL_DIRT_ID)return error("UNKNOWN_LANDMASS",request.landmassId);
+    if(COMPILATION_OPERATIONS.includes(request.operation))return ok(request.operation,this.state.revision,compilationOperation(this,request));
     const op=request.operation,input=request.input||{},p=this.state.production,worldId=input.worldId||"current",plan=buildExpansionPlan(p,worldId,input.policy||this.state.policy);
-    if(op==="dirt.capabilities")return ok(op,this.state.revision,{operations:OPERATIONS.map(id=>({id,implemented:true,grant:MUTATIONS.has(id)?"commit":id.includes("plan")?"plan":"inspect"})),limits:{page:MAX_PAGE,samples:MAX_SAMPLES,trace:32},coordinateSpaces:["canonical","world","experience","render-local"],adapters:["local-js","cli-json"],unsupported:["arbitrary-2d-warp","gpu-telemetry","automatic-upload","desktop-ipc","mcp"]});
+    if(op==="dirt.capabilities")return ok(op,this.state.revision,{operations:OPERATIONS.map(id=>({id,implemented:true,grant:MUTATIONS.has(id)?(id==="dirt.undo"?"undo":"commit"):(id.includes("plan")||id.includes("preview")||id.includes("validate")||id.includes("Regeneration"))?"plan":"inspect",availability:["dirt.inspectRuntimePerformance","dirt.explainStutter"].includes(id)?(this.runtimeObserver?"attached-browser":"requires-browser-runtime"):"local"})),limits:{page:MAX_PAGE,samples:MAX_SAMPLES,trace:32},coordinateSpaces:["canonical","world","experience","render-local"],adapters:["local-js","cli-json"],unsupported:["arbitrary-2d-warp","gpu-telemetry","automatic-upload","desktop-ipc","mcp"]});
     if(op==="dirt.inspectWorld")return ok(op,this.state.revision,{source:{mapId:p.sourceMapId,revision:p.sourceRevision,width:500,height:500},worlds:Object.values(DIRT_PROFILES).filter(x=>["current","bigger","massive"].includes(x.id)),protectedRegions:p.protectedBounds,topology:"finite canonical map; renderer repeats horizontally and vertically"});
     if(op==="dirt.listLandmasses")return ok(op,this.state.revision,{items:[this.#landmass()],total:1,nextOffset:null});
     if(op==="dirt.inspectLandmass")return ok(op,this.state.revision,this.#landmass());
@@ -41,7 +43,7 @@ export class DirtWorldCore{
     if(op==="dirt.mapCoordinates"||op==="dirt.explainMapping"){const from=input.fromSpace||input.position?.space||"canonical",value=input.value??input.position?.distance,mapped=mapRouteDistance(plan,value,from);return ok(op,this.state.revision,{from,value,to:from==="canonical"?"experience":"canonical",mappedValue:mapped.value,interval:mapped.interval,effectiveProfile:plan.profile});}
     if(op==="dirt.sampleTerrain"||op==="dirt.explainAt"){const points=input.points||[input.position||{x:input.x,z:input.z}];if(points.length>MAX_SAMPLES)throw new Error("QUERY_LIMIT_EXCEEDED");const samples=points.map(point=>({...point,...sampleCanonicalDirt(p,point.x,point.z),coordinateSpace:input.coordinateSpace||"canonical",sourceRevision:p.sourceRevision,profileVersion:plan.profile.version,collisionAuthority:"canonical-height-sampler",visualLod:input.visualLod||"not-observed"}));return ok(op,this.state.revision,{samples});}
     if(op==="dirt.inspectCollision")return ok(op,this.state.revision,{authority:"canonical-height-sampler",prepared:true,sample:sampleCanonicalDirt(p,input.x,input.z),visualGeometryRequired:false});
-    if(op==="dirt.inspectLOD")return ok(op,this.state.revision,{near:{step:4,collisionAuthority:true},far:{grid:112,collisionAuthority:false},status:"model-only; no live renderer telemetry",camera:input.viewId||"main"});
+    if(op==="dirt.inspectLOD")return ok(op,this.state.revision,{near:{rampStep:.25,baseStep:2,chunkSize:16,maxCacheEntries:96,collisionAuthority:true},far:{grid:64,collisionAuthority:false},status:"model-only; no live renderer telemetry",camera:input.viewId||"main"});
     if(op==="dirt.inspectChunk")return ok(op,this.state.revision,{address:input.address||null,state:"reconstructable",cacheTelemetry:"unavailable",deterministicKey:`${p.id}:${p.sourceRevision}:${plan.profile.version}:${input.address||"unspecified"}`});
     if(op==="dirt.inspectPerformance")return ok(op,this.state.revision,{budgets:{canonicalBytes:p.mask.byteLength,maxPreviewSamples:4096,maxApiSamples:MAX_SAMPLES},actual:{savedFeatures:p.features.length},gpuTelemetry:{available:false,reason:"headless core"}});
     if(op==="dirt.diffWorldScales")return ok(op,this.state.revision,{scales:["current","bigger","massive"].map(id=>({worldId:id,profile:resolveExpansionProfile(id,this.state.policy),features:p.features.slice(0,input.limit||10).map(f=>featureView(f,id))})),invariants:{sameCanonicalMask:true,sameFeatureIds:true,samePhysicalGeometry:true,gapsOnly:true}});

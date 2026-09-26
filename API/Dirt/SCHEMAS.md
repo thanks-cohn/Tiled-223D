@@ -15,3 +15,7 @@ Default grants are:
 - `debugger`: inspect.
 
 Applications may inject a different permission map into the core constructor. A browser global is a local demo adapter, not an authentication service.
+
+## Compiled terrain v1
+
+`../../schemas/compiled-terrain-v1.schema.json` adds actual compiler operation envelopes, plan and response definitions over the existing dirt-v1 transport. Concrete requests and responses are AJV-validated in `tests/dirt-compiled.test.js`. See [COMPILATION.md](COMPILATION.md) for implemented operation-specific fields, fixed budget choices and runtime/file persistence boundaries. TypeScript interfaces are in `src/dirt/api.d.ts`.

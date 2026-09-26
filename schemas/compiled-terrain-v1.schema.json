@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "compiled-terrain-v1.schema.json",
+  "title": "Compiled terrain operation envelope (dirt-v1 transport)",
+  "type": "object",
+  "required": ["schemaVersion", "operation", "actorId"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {"const": "dirt-v1"},
+    "operation": {"enum": ["dirt.inspectCompilation", "dirt.listCompiledProfiles", "dirt.inspectCompiledAsset", "dirt.planCompilation", "dirt.previewCompilation", "dirt.validateCompilation", "dirt.compileProfile", "dirt.inspectVisualAt", "dirt.inspectPhysicalAt", "dirt.diffCompiledProfiles", "dirt.validateCompiledTerrain", "dirt.inspectRuntimePerformance", "dirt.explainStutter"]},
+    "actorId": {"type": "string", "minLength": 1},
+    "projectId": {"type": "string"},
+    "landmassId": {"const": "dirt-landmass-01"},
+    "operationId": {"type": "string", "minLength": 1},
+    "expectedRevision": {"type": "integer", "minimum": 0},
+    "input": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "worldId": {"enum": ["current", "bigger", "massive"]},
+        "policy": {"type": "object"},
+        "plan": {"$ref": "#/definitions/plan"},
+        "position": {"type": "object", "required": ["x", "z"], "additionalProperties": false, "properties": {"x": {"type": "number", "minimum": 0}, "z": {"type": "number", "minimum": 0}}},
+        "coordinateSpace": {"const": "experience"},
+        "atMs": {"type": "number", "minimum": 0}
+      }
+    }
+  },
+  "definitions": {
+    "plan": {
+      "type": "object", "required": ["kind", "schemaVersion", "baseRevision", "sourceKey", "worldId", "policy"],
+      "properties": {
+        "kind": {"const": "compiled-profile"},
+        "schemaVersion": {"const": "compiled-terrain-v1"},
+        "baseRevision": {"type": "integer", "minimum": 0},
+        "sourceKey": {"type": "string", "pattern": "^[0-9a-f]{8}$"},
+        "worldId": {"enum": ["current", "bigger", "massive"]},
+        "policy": {"type": "object"}
+      }
+    },
+    "success": {
+      "type": "object", "required": ["status", "capabilityVersion", "operation", "revision", "result"],
+      "properties": {"status": {"const": "ok"}, "capabilityVersion": {"const": "dirt-v1"}, "operation": {"type": "string"}, "revision": {"type": "integer", "minimum": 0}, "result": {"type": "object"}}
+    },
+    "failure": {
+      "type": "object", "required": ["status", "capabilityVersion", "error"],
+      "properties": {"status": {"const": "error"}, "capabilityVersion": {"const": "dirt-v1"}, "error": {"type": "object", "required": ["code", "message"], "properties": {"code": {"type": "string"}, "message": {"type": "string"}}}}
+    }
+  }
+}

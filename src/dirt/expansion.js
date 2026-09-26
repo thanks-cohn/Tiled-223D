@@ -8,6 +8,11 @@ export const DIRT_PROFILES=Object.freeze({
 export function resolveExpansionProfile(worldId,policy={mode:"inherit-world"}){
   const inherited=DIRT_PROFILES[worldId];if(!inherited)throw new Error(`INVALID_PROFILE: ${worldId}`);
   if(policy.mode==="inherit-world")return {...inherited,mode:policy.mode,provenance:`world:${worldId}`};
+  if(policy.mode==="replace"&&policy.profile){
+    const custom=policy.profile;
+    if(typeof custom.id!=="string"||!/^custom:[a-z0-9-]{1,48}$/.test(custom.id)||!Number.isSafeInteger(custom.version)||custom.version<1||!Number.isFinite(custom.gapFactor)||custom.gapFactor<1||custom.gapFactor>100)throw new Error("INVALID_PROFILE: custom requires id custom:name, positive version and gapFactor 1..100");
+    return {id:custom.id,version:custom.version,gapFactor:custom.gapFactor,mode:"replace",provenance:`landmass:${custom.id}`};
+  }
   if(policy.mode!=="replace"||!DIRT_PROFILES[policy.profileId])throw new Error("INVALID_PROFILE: use inherit-world or one supported replacement");
   const selected=DIRT_PROFILES[policy.profileId];
   return {...selected,mode:"replace",provenance:`landmass:${policy.profileId}`};

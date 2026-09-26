@@ -139,3 +139,7 @@ npm run dirt-api -- --request API/Dirt/examples/list-features.json
 npm run dirt-api -- --request API/Dirt/examples/diff-scales.json
 npm run dirt-api -- --request API/Dirt/examples/plan-ocean-replacement.json
 ```
+
+## Compiled terrain commands
+
+[COMPILATION.md](COMPILATION.md) contains the implemented compiler/asset command table, custom profile syntax, permission/revision rules, explicit browser activation and file-backed CLI workflow. The runnable compiler examples are `examples/inspect-compilation.json`, `examples/plan-compilation.json` and `examples/validate-compiled.json`.

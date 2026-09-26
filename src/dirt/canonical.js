@@ -45,6 +45,7 @@ export function validateDirtRules(input={}) {
     if(!RAMP_TYPES[name]||!Number.isFinite(value)||value<0||value>1)throw new Error(`INVALID_RAMP_PROBABILITY: ${name}`);
   for(const value of [rules.baseElevation,rules.undulationAmplitude,rules.highPointHeight,...Object.values(rules.minimumSeparation)])
     if(!Number.isFinite(value)||value<0||value>10000)throw new Error("INVALID_DIRT_RULES: finite bounded values required");
+  if(!Array.isArray(rules.palette)||rules.palette.length<3||rules.palette.length>4||rules.palette.some(c=>typeof c!=="string"||!/^#[0-9a-f]{6}$/i.test(c)))throw new Error("INVALID_PALETTE: provide three hexadecimal brown colors (legacy fourth entry accepted)");
   return rules;
 }
 

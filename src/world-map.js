@@ -30,10 +30,11 @@ export function createWorldMap({panel,canvas,label,worldGetter,positionGetter,he
    canvas.width=cw;canvas.height=ch;
    const pixels=context.createImageData(cw,ch);
    for(let i=0;i<cw*ch;i++){
-    const c=world.sparse?
-     mapColor(world.groundAt((i%cw+.5)/cw*w,(Math.floor(i/cw)+.5)/ch*h),
-      world.groundAt((i%cw+.5)/cw*w,(Math.floor(i/cw)+.5)/ch*h)===ID.dirt?5:0):
-     mapColor(world.ground[i],world.heights[i]);
+    const x=(i%cw+.5)/cw*w,z=(Math.floor(i/cw)+.5)/ch*h;
+    const overview=world.overviewSample?.(x,z);
+    const ground=overview?.ground??(world.sparse?world.groundAt(x,z):world.ground[i]);
+    const c=overview?.color?[1,3,5].map(start=>parseInt(overview.color.slice(start,start+2),16)):
+     mapColor(ground,overview?.height??(world.sparse?0:world.heights[i]));
     const p=i*4;
     pixels.data[p]=c[0];pixels.data[p+1]=c[1];pixels.data[p+2]=c[2];pixels.data[p+3]=255;
    }
