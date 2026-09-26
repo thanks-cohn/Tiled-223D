@@ -217,6 +217,148 @@ No single `isLand` flag should dictate all motion behavior.
 
 ---
 
+# 5A. Four altitude motion bands
+
+Altitude must be a first-class **motion context selector**, not just a camera/visual input.
+
+The current prototype already changes camera/visual/travel behavior continuously with altitude in `src/flight-model.js`. Generalize that idea so motion-profile selection can also change as the actor climbs, while keeping camera and motion systems independent.
+
+Create an authoritative altitude-context layer with **four configurable motion bands**. Initial conceptual bands may be:
+
+1. **low / surface**
+2. **cruise**
+3. **upper-atmosphere**
+4. **near-space**
+
+Do not hardcode those names or thresholds as permanent engine truth. The creator/artist must be able to:
+- rename bands,
+- configure band altitude ranges,
+- configure blend/transition ranges,
+- choose different motion profile compositions per band,
+- inherit a world/default band set,
+- override the band set for a specific actor/object/vehicle where allowed.
+
+The existing camera system may consume the same altitude-context calculation, but **camera profiles must not own motion values and motion profiles must not own camera values**. They share altitude context; they do not overwrite one another.
+
+A change in altitude band may select or modify:
+- speed profile,
+- acceleration profile,
+- drag profile,
+- gravity profile,
+- steering profile,
+- lift/glide profile,
+- surface-response profile where meaningful.
+
+Example concept:
+
+```js
+{
+  altitudeBands: {
+    "low": {
+      range: [0, 80],
+      motion: {
+        speed: "land-flight-low-speed",
+        acceleration: "land-flight-low-accel"
+      }
+    },
+    "cruise": {
+      range: [65, 180],
+      blend: [65, 95],
+      motion: {
+        speed: "land-flight-cruise-speed",
+        acceleration: "land-flight-cruise-accel",
+        drag: "air-cruise-drag"
+      }
+    },
+    "upper-atmosphere": {
+      range: [165, 300],
+      blend: [165, 210],
+      motion: {
+        speed: "high-altitude-speed",
+        acceleration: "high-altitude-thrust"
+      }
+    },
+    "near-space": {
+      range: [285, null],
+      blend: [285, 340],
+      motion: {
+        speed: "near-space-speed",
+        acceleration: "near-space-thrust",
+        drag: "thin-air-drag"
+      }
+    }
+  }
+}
+```
+
+These values are illustrative only. Preserve the existing prototype's continuous altitude behavior until creator-approved tuning replaces it.
+
+## Altitude-band composition rules
+
+Altitude bands are another **resolution context**, not a hidden second physics system.
+
+Suggested resolution order becomes:
+
+1. actor defaults
+2. locomotion mode
+3. altitude band
+4. world/region
+5. surface/material
+6. temporary gameplay effect
+7. explicit creator override
+
+As elsewhere, a later context may only affect properties through declared ownership/operator rules.
+
+For example:
+- a cruise altitude band may multiply acceleration,
+- a near-space band may replace the base drag profile,
+- an object's custom altitude rules may select a different speed profile,
+- none of these may silently collide with another active `replace` owner.
+
+Band transitions must be smooth and deterministic. Crossing a threshold must not abruptly reset velocity or produce a one-frame parameter snap unless the authored band explicitly requests a hard transition.
+
+The resolver/inspector must report:
+- current altitude,
+- current band,
+- adjacent/target band during a transition,
+- blend weight,
+- profiles contributed by each band,
+- any collisions caused by altitude-selected profiles.
+
+## Per-object / per-actor customization
+
+Creators must be able to assign altitude behavior at an appropriate semantic level, for example:
+- world default,
+- vehicle archetype,
+- specific vehicle/actor/object,
+- authored region where applicable.
+
+Do not duplicate the entire profile library per object. Objects should normally reference stable profile IDs and band-set IDs, with small explicit overrides.
+
+A specific object may therefore say conceptually:
+
+```js
+{
+  objectId: "nea",
+  motionBandSet: "fast-ship-altitude-v1",
+  motionOverrides: {
+    "near-space": {
+      speed: "nea-near-space-speed"
+    }
+  }
+}
+```
+
+This must still pass through the same collision detector and explanation system as every other motion contribution.
+
+The engine should be able to answer:
+
+> Why did this specific object's speed rules change at this altitude?
+
+with provenance that identifies the object, altitude band, locomotion mode, surface/region context, and resulting profile chain.
+
+---
+
 # 6. Surface/region movement presets
 
 The creator requested three broad selectable behaviors for land traversal. Implement them as reusable presets composed from domain profiles, not as special-case branches.
@@ -497,6 +639,11 @@ At minimum test:
 13. invalid NaN/Infinity/profile schemas are rejected
 14. conflict failure leaves prior authoritative state unchanged
 15. inspection/explain output matches actual resolver math
+16. four altitude motion bands can select different speed/acceleration/etc. profiles deterministically
+17. altitude-band transitions blend without resetting velocity
+18. camera and motion may share altitude context without owning each other's properties
+19. a per-object altitude-band/profile override resolves through the same collision/provenance system
+20. conflicting altitude-selected profile ownership is surfaced as a structured collision
 
 Add regression coverage for the current movement path.
 
@@ -583,6 +730,10 @@ The slice is acceptable when:
 - flying on expansive dirt no longer inherits ocean acceleration as an accidental hardcoded consequence,
 - land flight can have a distinct enjoyable profile,
 - profile changes preserve existing momentum unless an explicit rule says otherwise,
+- four configurable altitude motion bands can change the active profile composition as elevation changes,
+- altitude-band transitions are deterministic and inspectable rather than hidden hardcoded speed changes,
+- creators can assign/reference altitude-band behavior per actor/object/vehicle without duplicating the core profile system,
+- camera and motion systems can share altitude context while remaining non-competing domains,
 - the architecture can represent separate future gliding and driving compositions without pretending those runtimes already exist,
 - existing terrain/camera/collision work is preserved,
 - tests cover conflict detection and deterministic composition,
