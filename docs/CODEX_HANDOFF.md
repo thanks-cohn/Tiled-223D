@@ -1,5 +1,9 @@
 # Codex handoff: standalone Toon World / Tiled-223D
 
+## NEXT REQUESTED TASK — Precompiled surface ownership and zero-generation terrain runtime
+
+Implement [CODEX_PRECOMPILED_SURFACE_OWNERSHIP_RUNTIME_REQUEST.md](CODEX_PRECOMPILED_SURFACE_OWNERSHIP_RUNTIME_REQUEST.md) from `codex/dirt-runtime-occupancy-fix`. This is the creator-requested next terrain task: persist exclusive land/ocean ownership and chunk occupancy for Current/Bigger/Massive, prepare near terrain so ordinary traversal loads/reuses prepared chunks rather than sampling/triangulating terrain, make the ocean consume the same ownership mask so it cannot exist under land, and remove visual terrain readiness as a movement authority. Reuse the existing dirt API/diagnostics and the Single Plane standard; do not add a competing debugger. Do not merge without creator approval.
+
 ## ENGINEERING STANDARD — Single Plane Expression, Multiple Plane Collision Avoidance
 
 Use [SINGLE_PLANE_EXPRESSION_MULTIPLE_PLANE_COLLISION_AVOIDANCE.md](SINGLE_PLANE_EXPRESSION_MULTIPLE_PLANE_COLLISION_AVOIDANCE.md) as the shared ÆXIS rule for cross-system changes. Every registered shared target should have one inspectable final expression, explicit ownership/contributor/observer roles, provenance, and collision detection. Reuse existing programmer APIs and diagnostics; do not add competing debug stacks merely for more telemetry. Before changing a shared target, identify its owner, contributors, lifecycle authority, and any legacy replacement path so new work does not silently collide with old systems.
