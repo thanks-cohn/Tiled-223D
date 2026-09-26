@@ -1,5 +1,9 @@
 # Codex handoff: standalone Toon World / Tiled-223D
 
+## ENGINEERING STANDARD — Single Plane Expression, Multiple Plane Collision Avoidance
+
+Use [SINGLE_PLANE_EXPRESSION_MULTIPLE_PLANE_COLLISION_AVOIDANCE.md](SINGLE_PLANE_EXPRESSION_MULTIPLE_PLANE_COLLISION_AVOIDANCE.md) as the shared ÆXIS rule for cross-system changes. Every registered shared target should have one inspectable final expression, explicit ownership/contributor/observer roles, provenance, and collision detection. Reuse existing programmer APIs and diagnostics; do not add competing debug stacks merely for more telemetry. Before changing a shared target, identify its owner, contributors, lifecycle authority, and any legacy replacement path so new work does not silently collide with old systems.
+
 ## QUEUED FOLLOW-UP — ÆXIS composable motion profiles
 
 After the recovered precompiled-dirt performance work is validated, use [CODEX_AEXIS_MOTION_PROFILE_COMPOSITION_REQUEST.md](CODEX_AEXIS_MOTION_PROFILE_COMPOSITION_REQUEST.md) for the next movement-architecture slice. It defines independent speed, acceleration, drag, gravity, steering, surface-response and future lift/glide domains; deterministic profile composition; explicit collision detection instead of silent last-write-wins behavior; separate flying/gliding/driving compositions; surface presets; momentum-preserving transitions; and bounded programmer/agent explainability. **Do not let this follow-up displace the current dirt-performance validation priority, and do not merge without creator approval.**
