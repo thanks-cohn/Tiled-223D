@@ -16,11 +16,12 @@ export function* buildChunk(sampler,cx,cz){
  return {positions,indices:indices.slice(0,count),samples:STRIDE*STRIDE,step,stages};
 }
 export function createChunkScheduler(sampler,{maxEntries=96,budgetMs=2,onBuild=()=>{},onEvict=()=>{}}={}){
- const cache=new Map();let queue=[],job=null,hits=0,misses=0,evictions=0,builds=0,lastWorkMs=0,maxWorkMs=0;
- function request(addresses){const wanted=new Set(addresses.map(([x,z])=>`${x},${z}`));
-  queue=addresses.filter(([x,z])=>!cache.has(`${x},${z}`));
+ const cache=new Map();let queue=[],job=null,hits=0,misses=0,evictions=0,builds=0,emptySkips=0,lastWorkMs=0,maxWorkMs=0;
+ function request(addresses){const occupied=addresses.filter(([x,z])=>sampler.chunkHasLand?.(x,z)!==false),wanted=new Set(occupied.map(([x,z])=>`${x},${z}`));
+  emptySkips+=addresses.length-occupied.length;
+  queue=occupied.filter(([x,z])=>!cache.has(`${x},${z}`));
   if(job&&!wanted.has(job.key))job=null;
-  for(const [x,z] of addresses){const k=`${x},${z}`;if(cache.has(k)){hits++;const item=cache.get(k);cache.delete(k);cache.set(k,item);}else misses++;}
+  for(const [x,z] of occupied){const k=`${x},${z}`;if(cache.has(k)){hits++;const item=cache.get(k);cache.delete(k);cache.set(k,item);}else misses++;}
  }
  function tick(){const start=performance.now();let rows=0;
   if(!job){const next=queue.shift();if(!next){lastWorkMs=0;return;}const [x,z]=next,key=`${x},${z}`;job={key,x,z,iterator:buildChunk(sampler,x,z),workMs:0};}
@@ -30,5 +31,5 @@ export function createChunkScheduler(sampler,{maxEntries=96,budgetMs=2,onBuild=(
   }}
   lastWorkMs=performance.now()-start;maxWorkMs=Math.max(maxWorkMs,lastWorkMs);if(job)job.workMs+=lastWorkMs;
  }
- return {cache,request,tick,ready:(x,z)=>cache.has(`${Math.floor(x/CHUNK_SIZE)},${Math.floor(z/CHUNK_SIZE)}`),dispose(){for(const item of cache.values())onEvict(item);cache.clear();queue=[];job=null;},snapshot:()=>({entries:cache.size,maxEntries,hits,misses,evictions,builds,queued:queue.length,pending:job?.key||null,lastWorkMs,maxWorkMs,budgetMs,geometryBytes:[...cache.values()].reduce((n,c)=>n+c.positions.byteLength+c.indices.byteLength,0)})};
+ return {cache,request,tick,ready:(x,z)=>sampler.chunkHasLand?.(Math.floor(x/CHUNK_SIZE),Math.floor(z/CHUNK_SIZE))===false||cache.has(`${Math.floor(x/CHUNK_SIZE)},${Math.floor(z/CHUNK_SIZE)}`),dispose(){for(const item of cache.values())onEvict(item);cache.clear();queue=[];job=null;},snapshot:()=>({entries:cache.size,maxEntries,hits,misses,evictions,builds,emptySkips,queued:queue.length,pending:job?.key||null,lastWorkMs,maxWorkMs,budgetMs,geometryBytes:[...cache.values()].reduce((n,c)=>n+c.positions.byteLength+c.indices.byteLength,0)})};
 }
