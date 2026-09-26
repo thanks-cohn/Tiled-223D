@@ -1,5 +1,9 @@
 # Codex handoff: standalone Toon World / Tiled-223D
 
+## QUEUED FOLLOW-UP — ÆXIS composable motion profiles
+
+After the recovered precompiled-dirt performance work is validated, use [CODEX_AEXIS_MOTION_PROFILE_COMPOSITION_REQUEST.md](CODEX_AEXIS_MOTION_PROFILE_COMPOSITION_REQUEST.md) for the next movement-architecture slice. It defines independent speed, acceleration, drag, gravity, steering, surface-response and future lift/glide domains; deterministic profile composition; explicit collision detection instead of silent last-write-wins behavior; separate flying/gliding/driving compositions; surface presets; momentum-preserving transitions; and bounded programmer/agent explainability. **Do not let this follow-up displace the current dirt-performance validation priority, and do not merge without creator approval.**
+
 ## NEXT PRIORITY — Precompiled lightweight dirt and stutter elimination (2026-09-25)
 
 **Implement [CODEX_PRECOMPILED_DIRT_PERFORMANCE_REQUEST.md](CODEX_PRECOMPILED_DIRT_PERFORMANCE_REQUEST.md) before forest, suspension, new decorative terrain, or additional effects.** The creator's real Windows browser report measured ~40 dirt-mesh rebuilds consuming ~68.6 s total in ~142 s of capture, with a 7.47-s worst build, recurrent ~1–2-s full-frame freezes and ordinary CPU render submission averaging ~2 ms. The report confirms the repetitive mesh-build bottleneck and is documented at [API/Dirt/PERFORMANCE.md](../API/Dirt/PERFORMANCE.md); it does not prove every unrelated pause has the same cause.
