@@ -56,6 +56,21 @@ test('chunk scheduler obeys cache bound, permits reversal and never constructs a
  for(let x=490;x<500;x++){scheduler.request([[x,500]]);for(let i=0;i<100&&!scheduler.ready(x*16,8000);i++)scheduler.tick();assert.ok(scheduler.ready(x*16,8000));assert.ok(scheduler.cache.size<=3);assert.ok([81,4225].includes(scheduler.cache.get(`${x},500`).samples));}
  assert.ok(scheduler.snapshot().evictions>=7);scheduler.dispose();assert.equal(scheduler.cache.size,0);
 });
+test('compiled occupancy suppresses near geometry work for ocean-only chunks',()=>{
+ const a=assets.get('current'),sampler=createCompiledSampler(source,a.profile);
+ let empty=null;
+ for(let z=0;z<Math.ceil(a.profile.size/CHUNK_SIZE)&&!empty;z++)for(let x=0;x<Math.ceil(a.profile.experienceWidth/CHUNK_SIZE);x++)if(!sampler.chunkHasLand(x,z)){empty=[x,z];break;}
+ assert.ok(empty,'expected at least one ocean-only compiled chunk');
+ const scheduler=createChunkScheduler(sampler,{budgetMs:2});
+ scheduler.request([empty]);
+ for(let i=0;i<10;i++)scheduler.tick();
+ const snap=scheduler.snapshot();
+ assert.equal(snap.builds,0);
+ assert.ok(snap.emptySkips>=1);
+ assert.equal(snap.queued,0);
+ assert.equal(snap.pending,null);
+ assert.equal(scheduler.ready(empty[0]*CHUNK_SIZE+.5,empty[1]*CHUNK_SIZE+.5),true);
+});
 test('compiler APIs enforce grants/revisions, atomic publication and color-only physical reuse',()=>{
  const api=core(),plan=api.execute(req('dirt.planCompilation',{worldId:'bigger'})).result;
  assert.equal(api.execute(req('dirt.compileProfile',{plan},{actorId:'agent',expectedRevision:0,operationId:'denied'})).error.code,'UNAUTHORIZED');
